@@ -3,6 +3,27 @@
  * ==================================================================== */
 
 /* ---------------------------- Coran ---------------------------- */
+/* Barre de récitation : récitateur, vitesse, répétition, lecture de la page */
+function renderReciteBar(ctx, root, bar, state, nV) {
+  const S = ctx.settings;
+  const box = h(bar, 'div', 'aa-recite');
+  const f1 = field(box, 'Récitateur');
+  selectEl(f1, RECITERS, S.reciter || 'Alafasy_128kbps', v => { S.reciter = v; AUDIO.reciter = v; ctx.save(); });
+  const f2 = field(box, 'Vitesse');
+  selectEl(f2, [['0.5', '0,5× (très lent)'], ['0.6', '0,6×'], ['0.75', '0,75× (lent)'], ['0.85', '0,85×'], ['1', '1× (normal)']], String(S.audioRate || 1), v => { S.audioRate = +v; setAudioRate(+v); ctx.save(); });
+  const f3 = field(box, 'Répéter');
+  selectEl(f3, [['1', '1 fois'], ['2', '2 fois'], ['3', '3 fois'], ['5', '5 fois']], String(S.audioRepeat || 1), v => { S.audioRepeat = +v; AUDIO.repeat = +v; ctx.save(); });
+  const act = h(box, 'div', 'aa-recite-act');
+  const PAGE = 20; const from = (state.page || 0) * PAGE + 1, to = Math.min(nV, from + PAGE - 1);
+  const list = []; for (let v = from; v <= to; v++) list.push(v);
+  const mark = v => { root.querySelectorAll('.aa-verse-playing').forEach(e => e.classList.remove('aa-verse-playing')); const el = v && root.querySelector('[data-verse="' + v + '"]'); if (el) { el.classList.add('aa-verse-playing'); el.scrollIntoView && el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } };
+  const play = btn(act, '▶ Écouter ' + (from === 1 && to === nV ? 'la sourate' : 'les versets ' + from + '–' + to), () => {
+    play.style.display = 'none'; stop.style.display = '';
+    playVerses(state.surah, list, mark, () => { mark(null); play.style.display = ''; stop.style.display = 'none'; });
+  }, 'mod-cta');
+  const stop = btn(act, '■ Arrêter', () => { stopAudio(); mark(null); play.style.display = ''; stop.style.display = 'none'; }, 'aa-btn-quiet');
+  stop.style.display = 'none';
+}
 const rankFr = n => n === 1 ? '1re' : n + 'e';
 function renderQuranTab(ctx, root, state) {
   clear(root);
@@ -28,6 +49,7 @@ function renderQuranTab(ctx, root, state) {
     const opts = []; for (let p = 0; p < pages; p++) opts.push([p, (p * PAGE + 1) + '–' + Math.min(nV, (p + 1) * PAGE)]);
     selectEl(f2, opts, state.page, v => { state.page = +v; state.focus = 0; renderQuranTab(ctx, root, state); });
   }
+  if (ctx.settings.audio !== false) renderReciteBar(ctx, root, bar, state, nV);
   const tg = h(bar, 'div', 'aa-toggles');
   checkbox(tg, 'translittération', ctx.settings.showTr, v => { ctx.settings.showTr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'français', ctx.settings.showFr, v => { ctx.settings.showFr = v; ctx.save(); renderQuranTab(ctx, root, state); });

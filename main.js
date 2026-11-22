@@ -1846,25 +1846,71 @@ function speak(text) {
     if (!synth) { notify('La synthèse vocale n\'est pas disponible sur cet appareil.'); return; }
     synth.cancel();
     const u = new SpeechSynthesisUtterance(text.replace(/[ۖ-ۭ]/g, ''));
-    u.lang = 'ar-SA'; u.rate = 0.8;
+    u.lang = 'ar-SA'; u.rate = 0.8 * (AUDIO.rate || 1);
     const v = synth.getVoices().find(x => /^ar/i.test(x.lang));
     if (v) u.voice = v; else notify('Aucune voix arabe installée : la lecture peut être incorrecte.');
     synth.speak(u);
   } catch (e) { notify('Son indisponible.'); }
 }
-function playUrl(urls, fallbackText) {
+/* Récitation : récitateur, vitesse et répétition (réglés dans l'onglet Coran) */
+const RECITERS = [
+  ['Alafasy_128kbps', 'Mishary al-ʿAfāsī (normal)'],
+  ['Husary_128kbps', 'Maḥmūd al-Ḥuṣarī (lent et très clair)'],
+  ['Husary_Muallim_128kbps', 'al-Ḥuṣarī, récitation pour apprendre (très lente)'],
+  ['Minshawy_Murattal_128kbps', 'al-Minshāwī (lent)'],
+  ['Abdul_Basit_Murattal_192kbps', 'ʿAbd al-Bāsiṭ (posé)'],
+];
+const AUDIO = { reciter: 'Alafasy_128kbps', rate: 1, repeat: 1 };
+function applyRate(a) { try { a.preservesPitch = true; a.mozPreservesPitch = true; a.webkitPreservesPitch = true; a.playbackRate = AUDIO.rate || 1; } catch (e) { /* */ } }
+function setAudioRate(r) { AUDIO.rate = r; if (currentAudio) applyRate(currentAudio); }
+let audioSeq = 0; // chaque nouvelle lecture annule la précédente
+function stopAudio() { audioSeq++; if (currentAudio) { try { currentAudio.pause(); } catch (e) { /* */ } } try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) { /* */ } }
+function playUrl(urls, fallbackText, onEnd, keepSeq) {
+  if (!keepSeq) stopAudio();
+  const my = audioSeq;
   if (currentAudio) { try { currentAudio.pause(); } catch (e) { /* */ } }
   const list = urls.slice();
   const tryNext = () => {
+    if (my !== audioSeq) return;
     const u = list.shift();
     if (!u) { if (fallbackText) speak(fallbackText); else notify('Son indisponible (connexion internet nécessaire).'); return; }
     const a = new Audio(u); currentAudio = a;
+    applyRate(a);
     a.addEventListener('error', tryNext, { once: true });
+    a.addEventListener('loadedmetadata', () => applyRate(a), { once: true });
+    if (onEnd) a.addEventListener('ended', () => { if (my === audioSeq) onEnd(); }, { once: true });
     const p = a.play(); if (p && p.catch) p.catch(() => {});
   };
   tryNext();
 }
-function playVerse(s, v) { playUrl(['https://everyayah.com/data/Alafasy_128kbps/' + pad3(s) + pad3(v) + '.mp3', 'https://verses.quran.com/Alafasy/mp3/' + pad3(s) + pad3(v) + '.mp3']); }
+function verseUrls(s, v) {
+  const f = pad3(s) + pad3(v) + '.mp3';
+  const out = ['https://everyayah.com/data/' + (AUDIO.reciter || 'Alafasy_128kbps') + '/' + f];
+  if (AUDIO.reciter !== 'Alafasy_128kbps') out.push('https://everyayah.com/data/Alafasy_128kbps/' + f);
+  out.push('https://verses.quran.com/Alafasy/mp3/' + f);
+  return out;
+}
+/* Joue un verset (répété AUDIO.repeat fois), puis appelle onEnd */
+function playVerse(s, v, onEnd, keepSeq) {
+  let left = Math.max(1, AUDIO.repeat || 1);
+  if (!keepSeq) stopAudio();
+  const my = audioSeq;
+  const once = () => playUrl(verseUrls(s, v), null, () => { if (my !== audioSeq) return; left--; if (left > 0) setTimeout(once, 600); else if (onEnd) onEnd(); }, true);
+  once();
+}
+/* Joue une suite de versets ; onVerse(v) est appelé au début de chacun */
+function playVerses(s, list, onVerse, onDone) {
+  stopAudio();
+  const my = audioSeq; let i = 0;
+  const next = () => {
+    if (my !== audioSeq) return;
+    if (i >= list.length) { if (onDone) onDone(); return; }
+    const v = list[i++]; if (onVerse) onVerse(v);
+    playVerse(s, v, () => setTimeout(next, 400), true);
+  };
+  next();
+  return () => { if (my === audioSeq) stopAudio(); };
+}
 function playWord(ref, text, ctx) {
   if (ctx && ctx.settings.audio === false) { speak(text); return; }
   if (!ref) { speak(text); return; }
@@ -2125,6 +2171,7 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
       renderIrab(ctx, structBox, words, [surahN, vn], { onWord: wi => spans[wi].click() });
     }, 'aa-btn-quiet');
     if (ctx.settings.audio !== false) btn(tools, '▶ Écouter le verset', () => playVerse(surahN, vn), 'aa-btn-quiet');
+    box.dataset.verse = String(vn);
     btn(tools, 'Copier le verset', () => copyText(words.map(wordText).join(' ') + '\n' + tokens.join(' ') + '\n' + v[0] + ' (' + surahN + ':' + vn + ')'), 'aa-btn-quiet');
     btn(tools, 'Insérer dans la note', () => ctx.insertText('> [!quote] ' + info[1] + ' ' + surahN + ':' + vn + '\n> ' + words.map(wordText).join(' ') + '\n> *' + tokens.join(' ') + '*\n> ' + v[0] + '\n\n'), 'aa-btn-quiet');
     box.appendChild(structBox);
@@ -2240,6 +2287,27 @@ function renderIrab(ctx, el, words, ref, opts) {
  * ==================================================================== */
 
 /* ---------------------------- Coran ---------------------------- */
+/* Barre de récitation : récitateur, vitesse, répétition, lecture de la page */
+function renderReciteBar(ctx, root, bar, state, nV) {
+  const S = ctx.settings;
+  const box = h(bar, 'div', 'aa-recite');
+  const f1 = field(box, 'Récitateur');
+  selectEl(f1, RECITERS, S.reciter || 'Alafasy_128kbps', v => { S.reciter = v; AUDIO.reciter = v; ctx.save(); });
+  const f2 = field(box, 'Vitesse');
+  selectEl(f2, [['0.5', '0,5× (très lent)'], ['0.6', '0,6×'], ['0.75', '0,75× (lent)'], ['0.85', '0,85×'], ['1', '1× (normal)']], String(S.audioRate || 1), v => { S.audioRate = +v; setAudioRate(+v); ctx.save(); });
+  const f3 = field(box, 'Répéter');
+  selectEl(f3, [['1', '1 fois'], ['2', '2 fois'], ['3', '3 fois'], ['5', '5 fois']], String(S.audioRepeat || 1), v => { S.audioRepeat = +v; AUDIO.repeat = +v; ctx.save(); });
+  const act = h(box, 'div', 'aa-recite-act');
+  const PAGE = 20; const from = (state.page || 0) * PAGE + 1, to = Math.min(nV, from + PAGE - 1);
+  const list = []; for (let v = from; v <= to; v++) list.push(v);
+  const mark = v => { root.querySelectorAll('.aa-verse-playing').forEach(e => e.classList.remove('aa-verse-playing')); const el = v && root.querySelector('[data-verse="' + v + '"]'); if (el) { el.classList.add('aa-verse-playing'); el.scrollIntoView && el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } };
+  const play = btn(act, '▶ Écouter ' + (from === 1 && to === nV ? 'la sourate' : 'les versets ' + from + '–' + to), () => {
+    play.style.display = 'none'; stop.style.display = '';
+    playVerses(state.surah, list, mark, () => { mark(null); play.style.display = ''; stop.style.display = 'none'; });
+  }, 'mod-cta');
+  const stop = btn(act, '■ Arrêter', () => { stopAudio(); mark(null); play.style.display = ''; stop.style.display = 'none'; }, 'aa-btn-quiet');
+  stop.style.display = 'none';
+}
 const rankFr = n => n === 1 ? '1re' : n + 'e';
 function renderQuranTab(ctx, root, state) {
   clear(root);
@@ -2265,6 +2333,7 @@ function renderQuranTab(ctx, root, state) {
     const opts = []; for (let p = 0; p < pages; p++) opts.push([p, (p * PAGE + 1) + '–' + Math.min(nV, (p + 1) * PAGE)]);
     selectEl(f2, opts, state.page, v => { state.page = +v; state.focus = 0; renderQuranTab(ctx, root, state); });
   }
+  if (ctx.settings.audio !== false) renderReciteBar(ctx, root, bar, state, nV);
   const tg = h(bar, 'div', 'aa-toggles');
   checkbox(tg, 'translittération', ctx.settings.showTr, v => { ctx.settings.showTr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'français', ctx.settings.showFr, v => { ctx.settings.showFr = v; ctx.save(); renderQuranTab(ctx, root, state); });
@@ -4232,7 +4301,7 @@ const DEFAULT_SETTINGS = {
   style: 'sci', showTr: true, showFr: true, showRu: false, arSize: 30, openLetters: false,
   flashFile: '5 - Flashcards/Atelier - mes phrases.md', lastSurah: 1,
   audio: true, ruExpl: false, tajwid: false, fixFolder: '4 - Références/Atelier - corrections', vocabFile: '4 - Références/Vocabulaire.md', textsFolder: '3 - Textes',
-  myWords: {}, progress: null, lessons: {}, surahOrder: 'mushaf', wordColors: true, arFont: 'amiri',
+  myWords: {}, progress: null, lessons: {}, surahOrder: 'mushaf', wordColors: true, arFont: 'amiri', reciter: 'Alafasy_128kbps', audioRate: 1, audioRepeat: 1,
 };
 function emptyProgress() { return { byType: { case: { ok: 0, n: 0 }, mood: { ok: 0, n: 0 }, sens: { ok: 0, n: 0 }, phrase: { ok: 0, n: 0 } }, lem: {} }; }
 const TAB_ICONS = { coran: 'book-open', alphabet: 'a-large-small', lessons: 'graduation-cap', rules: 'book-marked', dict: 'library', analyse: 'scan-search', build: 'blocks', signs: 'flask-conical', quiz: 'target' };
@@ -4263,7 +4332,7 @@ class AtelierView extends ItemView {
     }
     this.render();
   }
-  async onClose() { clear(this.contentEl); }
+  async onClose() { try { stopAudio(); } catch (e) { /* */ } clear(this.contentEl); }
   setTab(tab, opts) {
     this.tab = tab;
     if (opts) Object.assign(this.states[tab], opts);
@@ -4349,6 +4418,7 @@ class AtelierArabePlugin extends Plugin {
     if (!this.settings.myWords) this.settings.myWords = {};
     if (!this.settings.lessons) this.settings.lessons = {};
     EXPL_RU = !!this.settings.ruExpl;
+    AUDIO.reciter = this.settings.reciter || 'Alafasy_128kbps'; AUDIO.rate = this.settings.audioRate || 1; AUDIO.repeat = this.settings.audioRepeat || 1;
     this.data = new QuranData(this.app, this.manifest.dir);
     notify = (m) => new Notice(m);
     this.registerView(VIEW_TYPE, leaf => new AtelierView(leaf, this));

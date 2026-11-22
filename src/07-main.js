@@ -6,7 +6,7 @@ const DEFAULT_SETTINGS = {
   style: 'sci', showTr: true, showFr: true, showRu: false, arSize: 30, openLetters: false,
   flashFile: '5 - Flashcards/Atelier - mes phrases.md', lastSurah: 1,
   audio: true, ruExpl: false, tajwid: false, fixFolder: '4 - Références/Atelier - corrections', vocabFile: '4 - Références/Vocabulaire.md', textsFolder: '3 - Textes',
-  myWords: {}, progress: null, lessons: {}, surahOrder: 'mushaf', wordColors: true, arFont: 'amiri',
+  myWords: {}, progress: null, lessons: {}, surahOrder: 'mushaf', wordColors: true, arFont: 'amiri', reciter: 'Alafasy_128kbps', audioRate: 1, audioRepeat: 1,
 };
 function emptyProgress() { return { byType: { case: { ok: 0, n: 0 }, mood: { ok: 0, n: 0 }, sens: { ok: 0, n: 0 }, phrase: { ok: 0, n: 0 } }, lem: {} }; }
 const TAB_ICONS = { coran: 'book-open', alphabet: 'a-large-small', lessons: 'graduation-cap', rules: 'book-marked', dict: 'library', analyse: 'scan-search', build: 'blocks', signs: 'flask-conical', quiz: 'target' };
@@ -37,7 +37,7 @@ class AtelierView extends ItemView {
     }
     this.render();
   }
-  async onClose() { clear(this.contentEl); }
+  async onClose() { try { stopAudio(); } catch (e) { /* */ } clear(this.contentEl); }
   setTab(tab, opts) {
     this.tab = tab;
     if (opts) Object.assign(this.states[tab], opts);
@@ -123,6 +123,7 @@ class AtelierArabePlugin extends Plugin {
     if (!this.settings.myWords) this.settings.myWords = {};
     if (!this.settings.lessons) this.settings.lessons = {};
     EXPL_RU = !!this.settings.ruExpl;
+    AUDIO.reciter = this.settings.reciter || 'Alafasy_128kbps'; AUDIO.rate = this.settings.audioRate || 1; AUDIO.repeat = this.settings.audioRepeat || 1;
     this.data = new QuranData(this.app, this.manifest.dir);
     notify = (m) => new Notice(m);
     this.registerView(VIEW_TYPE, leaf => new AtelierView(leaf, this));
