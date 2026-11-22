@@ -1,0 +1,9 @@
+{
+  "id": "atelier-arabe",
+  "name": "Atelier arabe",
+  "version": "2.0.0",
+  "minAppVersion": "1.4.0",
+  "description": "Lire le Coran mot par mot avec un dictionnaire complet, comprendre chaque signe, construire des phrases arabes et voir comment les dire autrement. Tout en français, hors ligne.",
+  "author": "Dmytro",
+  "isDesktopOnly": false
+}

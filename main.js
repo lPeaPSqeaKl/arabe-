@@ -1,0 +1,2648 @@
+'use strict';
+/* Atelier arabe — plugin Obsidian (généré, ne pas modifier à la main) */
+const { Plugin, ItemView, Notice, PluginSettingTab, Setting, MarkdownView, requestUrl } = require('obsidian');
+/* ====================================================================
+ * 01 - Outils pour l'écriture arabe : signes, découpage, translittération
+ * ==================================================================== */
+
+const AR = {
+  FATHA: 'َ', DAMMA: 'ُ', KASRA: 'ِ', SUKUN: 'ْ', SHADDA: 'ّ',
+  FATHATAN: 'ً', DAMMATAN: 'ٌ', KASRATAN: 'ٍ',
+  DAGGER: 'ٰ', MADDA: 'ٓ', HAMZA_ABOVE: 'ٔ', HAMZA_BELOW: 'ٕ',
+  SMALL_ZERO: '۟', SMALL_ZERO_RECT: '۠', SMALL_MEEM: 'ۢ', SMALL_LOW_MEEM: 'ۭ',
+  SMALL_WAW: 'ۥ', SMALL_YA: 'ۦ', SMALL_NOON: 'ۨ', TATWEEL: 'ـ', WASLA: 'ٱ',
+};
+
+const SUN_LETTERS = 'تثدذرزسشصضطظلن';
+
+// Tous les signes qui se posent sur une lettre (ils ne sont pas des lettres eux-mêmes)
+function isMark(ch) {
+  const c = ch.charCodeAt(0);
+  return (c >= 0x064B && c <= 0x065F) || c === 0x0670 || (c >= 0x06D6 && c <= 0x06ED && c !== 0x06E5 && c !== 0x06E6) || c === 0x06E5 || c === 0x06E6;
+}
+function isArabicLetter(ch) {
+  const c = ch.charCodeAt(0);
+  return (c >= 0x0621 && c <= 0x064A) || c === 0x0671 || c === 0x0640;
+}
+function hasArabic(s) { return /[؀-ۿ]/.test(s || ''); }
+
+// Découpe un mot en « unités » : une lettre + les signes posés dessus
+function units(word) {
+  const out = [];
+  for (const ch of word) {
+    if (isMark(ch) && out.length) out[out.length - 1].m += ch;
+    else if (isMark(ch)) out.push({ b: '', m: ch });
+    else out.push({ b: ch, m: '' });
+  }
+  return out;
+}
+function joinUnits(us) { return us.map(u => u.b + u.m).join(''); }
+
+function vowelOf(m) {
+  if (m.includes(AR.FATHA)) return 'a';
+  if (m.includes(AR.DAMMA)) return 'u';
+  if (m.includes(AR.KASRA)) return 'i';
+  if (m.includes(AR.FATHATAN)) return 'an';
+  if (m.includes(AR.DAMMATAN)) return 'un';
+  if (m.includes(AR.KASRATAN)) return 'in';
+  if (m.includes(AR.SUKUN)) return '0';
+  return '';
+}
+
+/* ---------- Noms et sons des lettres ---------- */
+const LETTERS = {
+  'ا': ['alif', 'ā (voyelle longue) ou support de hamza'], 'ٱ': ['alif waṣla', 'alif de liaison : il ne se prononce pas au milieu d\'une phrase'],
+  'أ': ['alif + hamza', 'ʾ : petite coupure de la voix (comme dans « a-ah »)'], 'إ': ['alif + hamza dessous', 'ʾi : coupure de la voix + i'],
+  'آ': ['alif madda', 'ʾā : hamza + a long'], 'ء': ['hamza', 'ʾ : coupure de la voix'], 'ؤ': ['hamza sur waw', 'ʾ'], 'ئ': ['hamza sur ya', 'ʾ'],
+  'ب': ['bāʾ', 'b'], 'ت': ['tāʾ', 't'], 'ث': ['thāʾ', 'th anglais de « think »'], 'ج': ['jīm', 'dj'], 'ح': ['ḥāʾ', 'ḥ : h soufflé du fond de la gorge'],
+  'خ': ['khāʾ', 'kh : comme la jota espagnole'], 'د': ['dāl', 'd'], 'ذ': ['dhāl', 'dh : th anglais de « this »'], 'ر': ['rāʾ', 'r roulé'],
+  'ز': ['zāy', 'z'], 'س': ['sīn', 's'], 'ش': ['shīn', 'ch'], 'ص': ['ṣād', 'ṣ : s lourd (emphatique)'], 'ض': ['ḍād', 'ḍ : d lourd'],
+  'ط': ['ṭāʾ', 'ṭ : t lourd'], 'ظ': ['ẓāʾ', 'ẓ : dh lourd'], 'ع': ['ʿayn', 'ʿ : son de gorge serrée, propre à l\'arabe'], 'غ': ['ghayn', 'gh : r grasseyé parisien'],
+  'ف': ['fāʾ', 'f'], 'ق': ['qāf', 'q : k du fond de la gorge'], 'ك': ['kāf', 'k'], 'ل': ['lām', 'l'], 'م': ['mīm', 'm'], 'ن': ['nūn', 'n'],
+  'ه': ['hāʾ', 'h aspiré'], 'و': ['wāw', 'w, ou ū (voyelle longue)'], 'ي': ['yāʾ', 'y, ou ī (voyelle longue)'], 'ة': ['tāʾ marbūṭa', 't (prononcé seulement si une voyelle suit), marque souvent le féminin'],
+  'ى': ['alif maqṣūra', 'ā en fin de mot (forme de ya sans points)'], 'ـ': ['trait de liaison', 'support : ici il porte une hamza ou un alif'],
+};
+
+const TR = {
+  'ء': 'ʾ', 'أ': 'ʾ', 'إ': 'ʾ', 'ؤ': 'ʾ', 'ئ': 'ʾ', 'ب': 'b', 'ت': 't', 'ث': 'th', 'ج': 'j', 'ح': 'ḥ', 'خ': 'kh', 'د': 'd', 'ذ': 'dh',
+  'ر': 'r', 'ز': 'z', 'س': 's', 'ش': 'sh', 'ص': 'ṣ', 'ض': 'ḍ', 'ط': 'ṭ', 'ظ': 'ẓ', 'ع': 'ʿ', 'غ': 'gh', 'ف': 'f', 'ق': 'q', 'ك': 'k',
+  'ل': 'l', 'م': 'm', 'ن': 'n', 'ه': 'h', 'و': 'w', 'ي': 'y', 'ة': 't', 'ى': 'y', 'آ': 'ʾ',
+};
+
+/* ---------- Translittération ----------
+ * phraseStart : le mot ouvre-t-il la phrase / le verset ? (sinon l'alif de liaison est muet)
+ */
+function translitWord(word, phraseStart) {
+  word = (word || '').replace(/[ۖ-ۜ۝۞۩]/g, ''); // signes de pause
+  const us = units(word).filter(u => u.b !== '' || u.m !== '');
+  let out = '';
+  const n = us.length;
+  const skip = new Set();
+  const noDouble = new Set();
+  // Allah et ses formes
+  const skel = us.map(u => u.b).join('');
+  const allahIdx = skel.search(/[اٱ]?لله/);
+  for (let i = 0; i < n; i++) {
+    if (skip.has(i)) continue;
+    const u = us[i]; const b = u.b; const m = u.m;
+    const next = us[i + 1]; const next2 = us[i + 2];
+    const isStart = i === 0;
+    // --- formes d'Allah : ٱللَّه / لِلَّه / بِٱللَّه
+    if (allahIdx >= 0 && i === allahIdx && /^[اٱ]?لله/.test(skel.slice(i))) {
+      const startsAlif = b === 'ا' || b === 'ٱ';
+      const prevOut = out;
+      let k = i + (startsAlif ? 3 : 2); // index du ه
+      const hUnit = us[k];
+      if (!hUnit) { out += 'allāh'; break; }
+      const pre = startsAlif ? ((isStart && phraseStart) ? 'a' : '') : (us[i].b === 'ل' ? 'li' : '');
+      out += pre + 'llāh';
+      const v = vowelOf(hUnit.m);
+      if (v && v !== '0') out += v.replace('0', '');
+      for (let j = i; j <= k; j++) skip.add(j);
+      continue;
+    }
+    let cons = '';
+    // --- l'alif
+    if (b === 'ا' || b === 'ٱ') {
+      if (m.includes(AR.SMALL_ZERO) || m.includes(AR.SMALL_ZERO_RECT)) continue; // alif muet (ـُوا۟)
+      if (m.includes(AR.HAMZA_ABOVE)) { cons = isStart ? '' : 'ʾ'; }
+      else if (isStart || (b === 'ٱ') || (i === 1 && isPrefixUnit(us[0]) && next && next.b === 'ل')) {
+        // alif de liaison (hamzat al-waṣl)
+        const isArticle = next && next.b === 'ل';
+        if (isStart && phraseStart) {
+          let v = 'i';
+          if (isArticle) v = 'a';
+          else if (us.length >= 4 && vowelOf(us[2].m) === 'u') v = 'u';
+          out += v;
+        }
+        if (isArticle) {
+          // article : al- / ar-r (lettre solaire)
+          const lam = next; const after = us[i + 2];
+          if (after && after.m.includes(AR.SHADDA) && !lam.m.includes(AR.SUKUN) && SUN_LETTERS.includes(after.b)) {
+            skip.add(i + 1);
+            const c = TR[after.b] || after.b;
+            out += c + '-';
+            noDouble.add(i + 2);
+          } else if (lam.m.includes(AR.SUKUN) || !vowelOf(lam.m)) {
+            skip.add(i + 1);
+            out += 'l-';
+          }
+        }
+        continue;
+      } else {
+        // alif après fatha : déjà allongé ; sinon (rare) on l'ignore
+        continue;
+      }
+    } else if (b === 'ى') {
+      if (vowelOf(m) === '' || m.includes(AR.DAGGER)) { if (/i$/.test(out)) out = out.slice(0, -1) + 'ī'; else if (!/ā$/.test(out)) out += 'ā'; continue; }
+      cons = 'y';
+    } else if (b === 'ـ') {
+      cons = m.includes(AR.HAMZA_ABOVE) || m.includes(AR.HAMZA_BELOW) ? 'ʾ' : '';
+    } else if (b === 'ة') {
+      const v = vowelOf(m);
+      if (!v || v === '0') continue;
+      cons = 't';
+    } else if ((b === 'و' || b === 'ي') && m.includes(AR.DAGGER) && !/[\u064B-\u0650]/.test(m)) {
+      if (/a$/.test(out)) out = out.slice(0, -1); out += 'ā'; continue;
+    } else if (b === 'و' || b === 'ي') {
+      cons = TR[b];
+    } else if ((b === 'أ' || b === 'إ' || b === 'آ') && isStart) {
+      cons = '';
+      if (b === 'آ') { out += 'ā'; continue; }
+      if (!vowelOf(m)) out += b === 'إ' ? 'i' : 'a';
+    } else if (b === 'ء' && isStart) {
+      cons = '';
+    } else if (b === 'ل' && i === 1 && isPrefixUnit(us[0]) && us[0].b === 'ل' && (vowelOf(m) === '' || vowelOf(m) === '0') && next) {
+      // لِلْ… : li + article sans alif
+      if (next.m.includes(AR.SHADDA) && SUN_LETTERS.includes(next.b)) { out += (TR[next.b] || '') + '-'; noDouble.add(i + 1); continue; }
+      out += 'l-'; continue;
+    } else {
+      cons = TR[b] || '';
+    }
+    if ((b === 'أ' || b === 'إ' || b === 'ء') && !isStart && (/-$/.test(out) || (i === 1 && isPrefixUnit(us[0])))) { if (!/-$/.test(out)) out += '-'; cons = ''; }
+    // nūn avec petit mīm (iqlāb) : se prononce m
+    if (b === 'ن' && (m.includes(AR.SMALL_MEEM) || m.includes(AR.SMALL_LOW_MEEM))) cons = 'm';
+    // shadda : consonne doublée
+    if (m.includes(AR.SHADDA) && cons && !noDouble.has(i) && !isStart) out += cons;
+    out += cons;
+    // voyelle
+    let v = vowelOf(m);
+    if (m.includes(AR.DAGGER)) v = 'ā';
+    if (v === 'a' && next) {
+      if ((next.b === 'ا' || next.b === 'ى') && !/[\u064B-\u0651]/.test(next.m) && !next.m.includes(AR.HAMZA_ABOVE) && !(i === 0 && isPrefixUnit(u) && next2 && next2.b === 'ل')) {
+        if (next.b === 'ا' && i + 1 === n - 1 && false) { /* */ }
+        v = 'ā'; skip.add(i + 1);
+      } else if ((next.b === 'و' || next.b === 'ي') && next.m.includes(AR.SUKUN)) {
+        v = next.b === 'و' ? 'aw' : 'ay'; skip.add(i + 1);
+      } else if ((next.b === 'ي' || next.b === 'و') && next.m === '' && next2 === undefined) {
+        v = next.b === 'و' ? 'aw' : 'ay'; skip.add(i + 1);
+      }
+    } else if (v === 'i' && next && (next.b === 'ي' || next.b === 'ى') && !/[\u064B-\u0651]/.test(next.m)) {
+      v = 'ī'; skip.add(i + 1);
+    } else if (v === 'u' && next && next.b === 'و' && !/[\u064B-\u0651]/.test(next.m)) {
+      v = 'ū'; skip.add(i + 1);
+      if (next2 && next2.b === 'ا' && (i + 2 === n - 1 || next2.m.includes(AR.SMALL_ZERO))) skip.add(i + 2);
+    }
+    if (v === 'i' && m.includes(AR.SMALL_YA)) v = 'ī';
+    if (v === 'u' && m.includes(AR.SMALL_WAW)) v = 'ū';
+    if (v === 'a' && m.includes(AR.MADDA) && next && next.b !== 'ا') v = 'ā';
+    if (v === 'an') {
+      if (next && (next.b === 'ا' || next.b === 'ى') && !vowelOf(next.m)) skip.add(i + 1);
+    }
+    if (v === '0') v = '';
+    out += v;
+  }
+  return out;
+}
+
+function isPrefixUnit(u) {
+  return u && 'وفبكل'.includes(u.b) && /[\u064E\u0650]/.test(u.m);
+}
+
+function translitPhrase(words, style) {
+  const parts = [];
+  words.forEach((w, i) => parts.push(translitWord(w, i === 0)));
+  // tanwin suivi d'un alif de liaison : on ajoute un i de liaison (waladuni l-…)
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (/(un|an|in)$/.test(parts[i]) && /^[اٱ]/.test(words[i + 1])) parts[i] += 'i';
+  }
+  let s = parts.join(' ');
+  if (style === 'fr') s = frenchStyle(s);
+  return s;
+}
+
+function frenchStyle(s) {
+  return s.replace(/sh/g, 'ch').replace(/ū/g, 'oû').replace(/u/g, 'ou').replace(/j/g, 'dj');
+}
+
+/* ---------- Normalisation pour la recherche ---------- */
+function skeleton(w, daggerAsAlif) {
+  let s = w || '';
+  if (daggerAsAlif) s = s.replace(/ٰ/g, 'ا');
+  s = s.replace(/[ً-ٰٟۖ-ۭـ]/g, '');
+  s = s.replace(/[ٱأإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/ؤ/g, 'و').replace(/ئ/g, 'ي').replace(/ء/g, '');
+  s = s.replace(/اا/g, 'ا');
+  return s;
+}
+function vowelSeq(w) {
+  return (w || '').replace(/ٰ/g, '').replace(/[^ً-ْ]/g, '');
+}
+function vowelScore(a, b) {
+  const x = vowelSeq(a), y = vowelSeq(b);
+  if (!x) return 0;
+  // plus longue sous-séquence commune
+  const dp = Array(y.length + 1).fill(0);
+  for (let i = 1; i <= x.length; i++) {
+    let prev = 0;
+    for (let j = 1; j <= y.length; j++) {
+      const tmp = dp[j];
+      dp[j] = x[i - 1] === y[j - 1] ? prev + 1 : Math.max(dp[j], dp[j - 1]);
+      prev = tmp;
+    }
+  }
+  return dp[y.length] / Math.max(x.length, y.length);
+}
+function splitWords(text) {
+  return (text || '').replace(/[«»"“”(),.;:!?؟،۔]/g, ' ').split(/\s+/).filter(w => hasArabic(w));
+}
+/* ====================================================================
+ * 02 - Grammaire : explication des signes et des étiquettes du corpus
+ * ==================================================================== */
+
+const PERSONS = {
+  '1S': ['je', 'я'], '1P': ['nous', 'мы'], '2MS': ['tu (homme)', 'ты (м.)'], '2FS': ['tu (femme)', 'ты (ж.)'],
+  '2MP': ['vous (hommes)', 'вы (м.)'], '2FP': ['vous (femmes)', 'вы (ж.)'], '2D': ['vous deux', 'вы двое'], '2MD': ['vous deux', 'вы двое'], '2FD': ['vous deux (f.)', 'вы двое (ж.)'],
+  '3MS': ['il', 'он'], '3FS': ['elle', 'она'], '3MP': ['ils', 'они (м.)'], '3FP': ['elles', 'они (ж.)'], '3D': ['eux deux', 'они двое'], '3MD': ['eux deux', 'они двое'], '3FD': ['elles deux', 'они двое (ж.)'],
+};
+const PRON_SUFFIX_FR = { '1S': 'moi / mon, ma', '1P': 'nous / notre', '2MS': 'toi / ton, ta', '2FS': 'toi (f.) / ton, ta', '2MP': 'vous / votre', '2FP': 'vous (f.) / votre', '2D': 'vous deux', '3MS': 'lui, le / son, sa', '3FS': 'elle, la / son, sa', '3MP': 'eux, les / leur', '3FP': 'elles, les / leur', '3D': 'eux deux / leur', '3MD': 'eux deux', '3FD': 'elles deux' };
+const GN = { M: 'masculin', F: 'féminin', MS: 'masculin singulier', FS: 'féminin singulier', MP: 'masculin pluriel', FP: 'féminin pluriel', MD: 'masculin duel', FD: 'féminin duel', P: 'pluriel', D: 'duel', S: 'singulier' };
+const CASES = {
+  NOM: { ar: 'مَرْفُوع', tr: 'marfūʿ (rafʿ)', fr: 'nominatif', ru: 'именительный', sign: 'ـُ / ـٌ (-u / -un)', color: 'nom' },
+  ACC: { ar: 'مَنْصُوب', tr: 'manṣūb (naṣb)', fr: 'accusatif', ru: 'винительный', sign: 'ـَ / ـً (-a / -an)', color: 'acc' },
+  GEN: { ar: 'مَجْرُور', tr: 'majrūr (jarr)', fr: 'génitif', ru: 'родительный / предложный', sign: 'ـِ / ـٍ (-i / -in)', color: 'gen' },
+};
+const MOODS = {
+  IND: { ar: 'مَرْفُوع', fr: 'indicatif', sign: 'ـُ (-u) ou ـونَ / ـينَ', why: 'c\'est le mode normal du présent : aucun petit mot ne le change.' },
+  SUBJ: { ar: 'مَنْصُوب', fr: 'subjonctif', sign: 'ـَ (-a), et ـونَ devient ـوا', why: 'il suit un mot comme أَنْ (que), لَنْ (ne… jamais), كَيْ / لِـ (pour que), حَتَّى (jusqu\'à ce que).' },
+  JUS: { ar: 'مَجْزُوم', fr: 'apocopé (jussif)', sign: 'ـْ (soukoun), et ـونَ devient ـوا', why: 'il suit لَمْ (ne… pas, au passé), لَمَّا, لَا d\'interdiction, لِـ d\'ordre, ou une condition (إِنْ).' },
+};
+const VERB_FORMS = {
+  1: ['I', 'فَعَلَ', 'forme de base'],
+  2: ['II', 'فَعَّلَ', 'shadda sur la 2e lettre : intensif ou « faire faire » (عَلِمَ savoir → عَلَّمَ enseigner)'],
+  3: ['III', 'فَاعَلَ', 'alif après la 1re lettre : faire avec / envers quelqu\'un (قَتَلَ tuer → قَاتَلَ combattre)'],
+  4: ['IV', 'أَفْعَلَ', 'préfixe أَ : « faire faire » (خَرَجَ sortir → أَخْرَجَ faire sortir)'],
+  5: ['V', 'تَفَعَّلَ', 'تَ + forme II : le faire pour soi (عَلَّمَ enseigner → تَعَلَّمَ apprendre)'],
+  6: ['VI', 'تَفَاعَلَ', 'تَ + forme III : réciprocité, « les uns les autres »'],
+  7: ['VII', 'اِنْفَعَلَ', 'préfixe اِنْ : subir l\'action (قَلَبَ retourner → اِنْقَلَبَ se retourner)'],
+  8: ['VIII', 'اِفْتَعَلَ', 'ت inséré après la 1re lettre : réfléchi, « pour soi » (هَدَى guider → اِهْتَدَى être bien guidé)'],
+  9: ['IX', 'اِفْعَلَّ', 'couleurs et défauts (اِبْيَضَّ devenir blanc)'],
+  10: ['X', 'اِسْتَفْعَلَ', 'préfixe اِسْتَ : demander, chercher (غَفَرَ pardonner → اِسْتَغْفَرَ demander pardon)'],
+  11: ['XI', 'اِفْعَالَّ', 'couleurs (rare)'],
+  12: ['XII', 'اِفْعَوْعَلَ', 'rare'],
+};
+const POS_NAMES = {
+  PN: 'nom propre', PRON: 'pronom personnel', DEM: 'démonstratif', REL: 'pronom relatif', ADJ: 'adjectif', ACT_PCPL: 'participe actif (celui qui fait)',
+  PASS_PCPL: 'participe passif (celui qui subit)', VN: 'nom verbal (maṣdar)', LOC: 'adverbe de lieu', T: 'adverbe de temps', COND: 'mot de condition', INTG: 'mot interrogatif',
+};
+const PARTICLES = {
+  P: 'préposition : met le nom qui suit au génitif (jarr)', CONJ: 'conjonction de coordination (et, puis, ou…)', SUB: 'conjonction de subordination (que…)', NEG: 'négation',
+  ACC: 'particule « inna et ses sœurs » : le nom qui suit passe à l\'accusatif', COND: 'particule de condition (si…)', RES: 'restriction (« ne … que »)', CERT: 'particule de certitude : devant un passé, « déjà, certes »',
+  PRO: 'لَا d\'interdiction : « ne … pas ! » (verbe à l\'apocopé)', PREV: 'mā « qui empêche » : il annule l\'effet de inna', RET: 'rétractation : « mais plutôt, bien au contraire »', EXP: 'exception (sauf)',
+  INTG: 'particule interrogative', AMD: 'correction : « mais »', EXL: 'explication : « quant à »', INT: 'interprétation : « c\'est-à-dire »', INC: 'particule de début (« jusqu\'à ce que… alors »)',
+  FUT: 'particule du futur', EXH: 'exhortation : « pourquoi ne… pas ? »', SUR: 'surprise : « et voici que… »', ATT: 'attention : « attention ! voici… »', AVR: 'refus énergique : « non, jamais ! »',
+  ANS: 'particule de réponse (oui, si…)', SUP: 'particule supplémentaire (insistance)', INL: 'lettres isolées du début de sourate (leur sens n\'est connu que d\'Allah)', EQ: 'équivalence : « que … ou … »', CIRC: 'circonstance', CAUS: 'cause', COM: 'accompagnement « avec »',
+};
+const PREFIX_EXPL = {
+  'DET|ال': ['article', 'l\'article « le, la » (al-) : le mot devient défini, et il ne peut plus avoir de tanwīn'],
+  'CONJ|و': ['et', 'وَ « et » : relie ce mot au précédent'], 'CONJ|ف': ['et alors', 'فَ « et (aussitôt), alors » : la suite vient juste après'],
+  'REM|ف': ['alors', 'فَ de reprise : « or, alors »'], 'REM|و': ['et', 'وَ de reprise : ouvre une nouvelle phrase'], 'CIRC|و': ['alors que', 'وَ de circonstance : « alors que »'],
+  'SUP|ف': ['donc', 'فَ de liaison (souvent dans la réponse d\'une condition)'], 'SUP|و': ['et', 'وَ d\'insistance'], 'RSLT|ف': ['alors, donc', 'فَ de résultat : « alors, donc »'], 'CAUS|ف': ['pour que', 'فَ de cause : « pour que » (verbe au subjonctif)'],
+  'P|ب': ['par, avec', 'بِ préposition « par, avec, au nom de » : le nom qui suit passe au génitif (-i)'],
+  'P|ل': ['à, pour', 'لِ préposition « à, pour » : le nom qui suit passe au génitif (-i) ; devant un pronom elle devient لَ'],
+  'P|ك': ['comme', 'كَ préposition « comme » : le nom qui suit passe au génitif'], 'P|و': ['par (serment)', 'وَ du serment : « Par … ! », le nom qui suit est au génitif'],
+  'P|ت': ['par (serment)', 'تَ du serment : « Par Allah ! » (تَاللَّهِ)'], 'EMPH|ل': ['certes', 'لَ d\'insistance : « certes, assurément »'],
+  'PRP|ل': ['pour que', 'لِ de but : « pour que », le verbe passe au subjonctif (-a)'], 'IMPV|ل': ['qu\'il…', 'لِ d\'ordre : « qu\'il fasse… ! », le verbe passe à l\'apocopé (ـْ)'],
+  'INTG|أ': ['est-ce que ?', 'أَ interrogatif : « est-ce que… ? »'], 'EQ|أ': ['que … ou', 'أَ d\'équivalence : « que … ou … »'], 'VOC|ي': ['ô !', 'يَا d\'appel : « ô ! »'],
+  'ATT|ه': ['voici', 'هَا d\'attention (هَٰذَا = « ceci »)'], 'FUT|س': ['futur', 'سَ du futur : « va…, bientôt »'], 'COM|و': ['avec', 'وَ d\'accompagnement : « avec »'],
+};
+
+function parseFeats(pos, feats) {
+  const t = (feats || '').split('|');
+  const f = { pos, tags: t, sub: '', gn: '', person: '', cas: '', mood: '', aspect: '', pass: false, form: 0, indef: false, pref: t.includes('PREF'), suff: t.includes('SUFF'), lem: '', fam: '' };
+  for (const x of t) {
+    if (x.startsWith('LEM:')) f.lem = x.slice(4);
+    else if (x.startsWith('FAM:')) f.fam = x.slice(4);
+    else if (x.startsWith('MOOD:')) f.mood = x.slice(5);
+    else if (x.startsWith('VF:')) f.form = +x.slice(3);
+    else if (x === 'NOM' || x === 'ACC' && pos === 'N' || x === 'GEN') f.cas = x;
+    else if (x === 'INDEF') f.indef = true;
+    else if (x === 'PASS') f.pass = true;
+    else if (x === 'PERF' || x === 'IMPF' || x === 'IMPV') f.aspect = x;
+    else if (PERSONS[x] && !f.person) f.person = x;
+    else if (GN[x] && !f.gn) f.gn = x;
+    else if (POS_NAMES[x] && pos === 'N' && !f.sub) f.sub = x;
+    else if (PARTICLES[x] && pos === 'P' && !f.sub && x !== 'PREF' && x !== 'SUFF') f.sub = x;
+  }
+  if (pos === 'P' && t[0] && PARTICLES[t[0]]) f.sub = t[0];
+  if (pos === 'P' && t[0] === 'ACC') f.sub = 'ACC';
+  if (pos === 'N' && t.includes('ACC') && !f.cas) f.cas = 'ACC';
+  return f;
+}
+
+/* Rôle d'un segment à l'intérieur d'un mot */
+function segmentRole(seg, idx, word) {
+  const [text, pos, feats] = seg;
+  const f = parseFeats(pos, feats);
+  if (f.pref) {
+    const key = f.tags[0] === 'DET' ? 'DET|ال' : f.tags[0] + '|' + (f.lem || '').replace(/[ً-ْٰ]/g, '').slice(0, 1);
+    const e = PREFIX_EXPL[key];
+    return { kind: 'pref', label: e ? e[0] : 'préfixe', text: e ? e[1] : 'préfixe (' + (PARTICLES[f.tags[0]] || f.tags[0]) + ')' };
+  }
+  if (f.suff) {
+    if (f.tags[0] === 'PRON') {
+      const host = word.find(s => !parseFeats(s[1], s[2]).pref && !parseFeats(s[1], s[2]).suff);
+      const hf = host ? parseFeats(host[1], host[2]) : null;
+      const firstSuffix = word.findIndex(s => parseFeats(s[1], s[2]).suff) === idx;
+      if (hf && hf.pos === 'V' && firstSuffix && hf.person === f.person && isSubjectSuffix(hf, f.person)) {
+        return { kind: 'subj', label: 'terminaison', text: 'terminaison de personne du verbe : « ' + PERSONS[f.person][0] + ' » (c\'est le sujet, collé au verbe)' };
+      }
+      const who = PRON_SUFFIX_FR[f.person] || f.person;
+      if (hf && hf.pos === 'V') return { kind: 'obj', label: 'pronom COD', text: 'pronom complément collé au verbe : « ' + who.split(' / ')[0] + ' »' };
+      if (hf && hf.pos === 'P') return { kind: 'pron', label: 'pronom', text: 'pronom collé à la préposition : « ' + who.split(' / ')[0] + ' »' };
+      return { kind: 'poss', label: 'possessif', text: 'pronom possessif collé au nom : « ' + (who.split(' / ')[1] || who) + ' » (le nom est alors défini, sans tanwīn ni ال)' };
+    }
+    if (f.tags[0] === 'EMPH') return { kind: 'suff', label: 'insistance', text: 'nūn d\'insistance : renforce le verbe (« assurément… »)' };
+    if (f.tags[0] === 'ADDR') return { kind: 'suff', label: 'adresse', text: 'ـكَ d\'adresse (dans ذَٰلِكَ, أُولَٰئِكَ) : indique à qui l\'on parle, sans sens de « toi »' };
+    if (f.tags[0] === 'DIST') return { kind: 'suff', label: 'éloignement', text: 'لِ d\'éloignement : « cela, là-bas » (ذَٰلِكَ = celui-là)' };
+    if (f.tags[0] === 'VOC') return { kind: 'suff', label: 'appel', text: 'ـمَّ d\'appel : اللَّهُمَّ = « ô Allah ! »' };
+    if (f.tags[0] === 'ATT') return { kind: 'suff', label: 'attention', text: 'هَا d\'attention' };
+    return { kind: 'suff', label: 'suffixe', text: 'suffixe' };
+  }
+  return { kind: 'stem', label: 'mot', text: '' };
+}
+function isSubjectSuffix(hf, person) {
+  if (hf.aspect === 'PERF') return !['3MS', '3FS'].includes(person);
+  if (hf.aspect === 'IMPF') return ['2FS', '2MP', '3MP', '2FP', '3FP', '2D', '3D', '3MD', '3FD', '2MD'].includes(person);
+  if (hf.aspect === 'IMPV') return ['2FS', '2MP', '2FP', '2D', '2MD'].includes(person);
+  return false;
+}
+
+function stemOf(word) {
+  for (let i = 0; i < word.length; i++) {
+    const f = parseFeats(word[i][1], word[i][2]);
+    if (!f.pref && !f.suff) return { seg: word[i], idx: i, f };
+  }
+  return { seg: word[0], idx: 0, f: parseFeats(word[0][1], word[0][2]) };
+}
+
+/* Explication détaillée d'un mot du Coran, avec son contexte (mots voisins) */
+function explainQuranWord(words, wi, lemmas) {
+  const word = words[wi];
+  const st = stemOf(word); const f = st.f;
+  const lem = st.seg[3] >= 0 && lemmas ? lemmas[st.seg[3]] : null;
+  const prev = wi > 0 ? words[wi - 1] : null;
+  const prev2 = wi > 1 ? words[wi - 2] : null;
+  const res = { title: '', gloss: lem ? lem[4] : '', lemma: lem ? lem[0] : '', root: lem ? lem[3] : '', count: lem ? lem[5] : 0, facts: [], why: [], tags: [], segs: [] };
+  word.forEach((s, i) => res.segs.push(Object.assign({ ar: s[0] }, segmentRole(s, i, word))));
+  const prepBefore = word.slice(0, st.idx).some(s => parseFeats(s[1], s[2]).tags[0] === 'P') || (prev && lastSegF(prev).pos === 'P' && lastSegF(prev).sub === 'P');
+  const prepName = prepBefore ? (word.slice(0, st.idx).find(s => parseFeats(s[1], s[2]).tags[0] === 'P') || (prev ? prev[prev.length - 1] : null)) : null;
+
+  if (f.pos === 'V') {
+    res.title = 'Verbe';
+    const asp = { PERF: 'accompli (passé)', IMPF: 'inaccompli (présent / futur)', IMPV: 'impératif (ordre)' }[f.aspect] || '';
+    res.facts.push(['Temps', asp]);
+    if (f.person) res.facts.push(['Personne', PERSONS[f.person][0] + ' · ' + PERSONS[f.person][1]]);
+    if (f.pass) res.facts.push(['Voix', 'passive : le sujet subit l\'action (voyelle u au début)']);
+    if (f.form) { const vf = VERB_FORMS[f.form]; if (vf) res.facts.push(['Forme', vf[0] + ' ' + vf[1] + ' — ' + vf[2]]); }
+    if (f.mood) {
+      const md = MOODS[f.mood];
+      res.facts.push(['Mode', md.fr + ' (' + md.ar + ')']);
+      res.why.push(moodReason(f.mood, word, prev, prev2));
+    } else if (f.aspect === 'PERF') {
+      res.why.push(R('Le passé arabe ne change pas selon les cas : sa fin indique la personne (ـَ il, ـَتْ elle, ـْتُ je, ـْتَ tu, ـْنَا nous, ـُوا ils…).', 'Прошедшее время не меняется по наклонениям : окончание показывает лицо (ـَ он, ـَتْ она, ـْتُ я, ـْتَ ты, ـْنَا мы, ـُوا они…).'));
+    } else if (f.aspect === 'IMPV') {
+      res.why.push(R('L\'impératif se forme sur l\'apocopé : il finit par un soukoun (ou perd sa dernière voyelle longue) — « fais ! ».', 'Повелительное наклонение образуется от усечённого : на конце сукӯн (или выпадает долгая гласная) — «делай!».'));
+    }
+    res.tags.push('verbe');
+  } else if (f.pos === 'N') {
+    const sub = f.sub;
+    res.title = sub ? cap(POS_NAMES[sub]) : 'Nom';
+    if (f.gn) res.facts.push(['Genre / nombre', GN[f.gn]]);
+    if (f.person && sub === 'PRON') res.facts.push(['Personne', PERSONS[f.person][0] + ' · ' + PERSONS[f.person][1]]);
+    const hasDet = word.some(s => parseFeats(s[1], s[2]).tags[0] === 'DET');
+    const hasPoss = word.some((s, i) => i > st.idx && parseFeats(s[1], s[2]).tags[0] === 'PRON');
+    if (f.indef) res.facts.push(['Défini ?', 'indéfini : il porte le tanwīn (« un, une »)']);
+    else if (hasDet) res.facts.push(['Défini ?', 'défini par l\'article ال']);
+    else if (hasPoss) res.facts.push(['Défini ?', 'défini par le pronom possessif collé']);
+    else if (sub === 'PN') res.facts.push(['Défini ?', 'nom propre : défini par nature']);
+    else if (prev && stemOf(prev).f.fam === 'إِنّ' && /^لَا$/.test(stemOf(prev).seg[0]) && f.cas === 'ACC') res.facts.push(['Défini ?', 'ni ال ni tanwīn : après لَا de négation absolue, le nom perd son tanwīn (« aucun … »)']);
+    else if (f.cas && !['PRON', 'DEM', 'REL'].includes(sub) && words[wi + 1] && stemOf(words[wi + 1]).f.pos === 'N' && stemOf(words[wi + 1]).f.cas === 'GEN') res.facts.push(['Défini ?', 'défini par le nom qui le suit (1er terme d\'une annexion, « le … de … ») — donc ni ال ni tanwīn']);
+    if (f.form && (sub === 'ACT_PCPL' || sub === 'PASS_PCPL' || sub === 'VN')) { const vf = VERB_FORMS[f.form]; if (vf) res.facts.push(['Tiré du verbe', 'forme ' + vf[0] + ' ' + vf[1]]); }
+    if (f.cas) {
+      const c = CASES[f.cas];
+      res.facts.push(['Cas', c.fr + ' — ' + c.tr + ' ' + c.ar + ' · ' + c.ru]);
+      res.why.push(caseReason(f, word, st, prev, prev2, prepBefore, prepName));
+      const lastU = units(st.seg[0]).filter(u => u.b).pop();
+      if (f.cas === 'GEN' && lastU && lastU.m.includes(AR.FATHA) && !/(ين|ات)$/.test(skeleton(st.seg[0]))) res.why.push(R('Il finit par -a alors qu\'il est au génitif : c\'est un **diptote** (nom propre étranger, schème أَفْعَل, certains pluriels…). Les diptotes n\'ont jamais de tanwīn et font leur génitif en -a.', 'Окончание -a в джарре : это **двухпадежное** имя (иностранное имя, модель أَفْعَل, некоторые множественные…) — без танвина, джарр на -a.'));
+      if (/^(MP)$/.test(f.gn) && /ونَ?$|ونَ$/.test(st.seg[0])) res.why.push('Pluriel masculin « sain » : au nominatif il finit par ـُونَ (-ūna) au lieu de -u.');
+      if (/^(MP)$/.test(f.gn) && /ينَ?$/.test(st.seg[0])) res.why.push('Pluriel masculin « sain » : à l\'accusatif et au génitif il finit par ـِينَ (-īna) au lieu de -a / -i.');
+      if (/^(FP)$/.test(f.gn) && /ٰتِ|اتِ|ٰتٍ|اتٍ/.test(st.seg[0]) && f.cas === 'ACC') res.why.push('Pluriel féminin « sain » (ـَات) : son accusatif se fait en -i, comme le génitif !');
+      res.tags.push(f.cas);
+    } else if (['PRON', 'DEM', 'REL'].includes(sub)) {
+      res.why.push(R('Ce mot est **invariable** (mabnī) : sa fin ne change jamais, quelle que soit sa fonction.', 'Это слово **несклоняемое** (мабнӣ) : его окончание никогда не меняется.'));
+    }
+  } else {
+    res.title = 'Particule';
+    if (f.sub && PARTICLES[f.sub]) res.facts.push(['Rôle', PARTICLES[f.sub]]);
+    if (f.fam === 'إِنّ' && /^لَا$/.test(st.seg[0])) res.why.push('لَا de **négation absolue** (« il n\'y a aucun … ») : elle fonctionne comme إِنَّ, le nom qui suit passe à l\'**accusatif sans tanwīn** (لَا رَيْبَ = aucun doute).');
+    else if (f.fam === 'إِنّ') res.why.push('« إِنَّ et ses sœurs » (إِنَّ، أَنَّ، كَأَنَّ، لَكِنَّ، لَيْتَ، لَعَلَّ) : le nom qui suit passe à l\'**accusatif** (-a).');
+    if (f.fam === 'كَان') res.why.push('Cette négation fonctionne comme لَيْسَ : l\'attribut passe à l\'accusatif.');
+    res.why.push(R('Les particules sont **invariables** : leur dernière voyelle ne change pas avec la fonction (sauf liaison, comme مِنْ → مِنَ devant ال).', 'Частицы **не изменяются** : их последняя гласная не зависит от роли (кроме слияния, например مِنْ → مِنَ перед ال).'));
+  }
+  return res;
+}
+function lastSegF(word) { const s = stemOf(word); return s.f; }
+function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
+
+let EXPL_RU = false;
+/* texte bilingue : le russe est ajouté après « ‖ » quand le réglage est activé */
+function R(fr, ru) { return EXPL_RU && ru ? fr + ' ‖ ' + ru : fr; }
+
+function caseReason(f, word, st, prev, prev2, prepBefore, prepSeg) {
+  const pf = prev ? stemOf(prev).f : null;
+  const ps = prev ? stemOf(prev).seg[0] : '';
+  if (f.cas === 'GEN') {
+    if (prepBefore) return R('Génitif **parce qu\'il suit une préposition** (' + (prepSeg ? prepSeg[0] : '') + ') : en arabe, toute préposition met le nom suivant au génitif, comme « в / о » + предложный en russe.', 'Родительный (джарр), **потому что стоит после предлога** (' + (prepSeg ? prepSeg[0] : '') + ') : любой предлог ставит следующее имя в джарр, как в русском «в / о» + предложный падеж.');
+    if (f.sub === 'ADJ') return R('C\'est un **adjectif** : il copie le cas du nom qu\'il qualifie (ici un génitif).', 'Это **прилагательное** : оно повторяет падеж определяемого имени (здесь джарр).');
+    if (pf && pf.pos === 'N' && pf.cas === 'GEN' && (pf.sub === 'PN' || prev.some(s => parseFeats(s[1], s[2]).tags[0] === 'DET'))) return R('Génitif **parce qu\'il suit un mot défini au génitif** qu\'il précise ou explique (adjectif ou apposition, naʿt / badal) : il en copie le cas.', 'Джарр, **потому что поясняет предыдущее определённое слово в джарре** (приложение, бадал / наʿт) и повторяет его падеж.');
+    if (pf && pf.pos === 'N' && !pf.indef) return R('Génitif **parce qu\'il est le 2e terme d\'une annexion** (iḍāfa) : « le … **de** ce mot ». Comme le родительный russe : имя (кого?) Аллаха.', 'Джарр, **потому что это второй член идафы** (сопряжения) : «… **кого? чего?**», как русский родительный : «имя Аллаха».');
+    return R('Génitif : soit 2e terme d\'une annexion (« … de … »), soit adjectif ou mot coordonné à un génitif.', 'Джарр : второй член идафы, или прилагательное / однородный член при слове в джарре.');
+  }
+  if (f.cas === 'ACC') {
+    if (pf && pf.fam === 'إِنّ' && /^لَا$/.test(ps)) return R('Accusatif **parce qu\'il suit لَا de négation absolue** (lā nāfiya li-l-jins, « il n\'y a aucun … ») : elle agit comme إِنَّ, et le nom reste sans tanwīn.', 'Насб, **потому что стоит после لَا полного отрицания** («нет никакого …») : она действует как إِنَّ, имя без танвина.');
+    if (pf && pf.fam === 'إِنّ') return R('Accusatif **parce qu\'il vient après ' + ps + '** (« إِنَّ et ses sœurs ») : c\'est le nom de inna, il passe à -a.', 'Насб, **потому что стоит после ' + ps + '** («инна и её сёстры») : это подлежащее инны, окончание -a.');
+    if (pf && (pf.fam === 'كَان' || (pf.pos === 'V' && /^(كَان|لَيْس|أَصْبَح|ظَلّ)/.test(pf.lem || '')))) return R('Accusatif : probablement l\'**attribut de كَانَ / لَيْسَ** (ou d\'une de leurs « sœurs »).', 'Насб : вероятно, **сказуемое при كَانَ / لَيْسَ** (или их «сёстрах»).');
+    if (f.sub === 'T' || f.sub === 'LOC') return R('Accusatif car c\'est un **complément de temps ou de lieu** (ẓarf) : « le jour où…, devant… ».', 'Насб, так как это **обстоятельство времени или места** (зарф) : «в день, когда…, перед…».');
+    if (f.sub === 'ADJ') return R('C\'est un **adjectif** : il copie le cas du nom qu\'il qualifie (ici un accusatif).', 'Это **прилагательное** : оно повторяет падеж определяемого имени (здесь насб).');
+    if (pf && pf.pos === 'P' && pf.sub === 'RES') return R('Accusatif après إِلَّا : c\'est ce qui est **excepté** (« sauf … »).', 'Насб после إِلَّا : это **исключаемое** («кроме …»).');
+    if (pf && pf.pos === 'V') return R('Accusatif : très probablement le **complément d\'objet direct** du verbe (« qui ? quoi ? » → винительный).', 'Насб : скорее всего **прямое дополнение** глагола («кого? что?» → винительный).');
+    if (prev2 && stemOf(prev2).f.pos === 'V') return R('Accusatif : probablement le **complément d\'objet** du verbe un peu avant (« qui ? quoi ? »).', 'Насб : вероятно, **дополнение** стоящего чуть раньше глагола («кого? что?»).');
+    return R('Accusatif (naṣb) : complément d\'objet, de temps, de manière ou d\'état, ou nom de إِنَّ… La terminaison -a / -an le signale.', 'Насб : дополнение, обстоятельство времени, образа действия или состояния (хāль), подлежащее инны… Окончание -a / -an.');
+  }
+  if (f.cas === 'NOM') {
+    if (f.sub === 'ADJ') return R('C\'est un **adjectif** : il copie le cas du nom qu\'il qualifie (ici un nominatif).', 'Это **прилагательное** : оно повторяет падеж определяемого имени (здесь рафʿ).');
+    if (pf && pf.pos === 'V' && pf.pass) return R('Nominatif : c\'est le **sujet du verbe passif** (ce qui subit l\'action).', 'Рафʿ : это **подлежащее страдательного глагола** (то, над чем совершается действие).');
+    if (pf && pf.pos === 'V') return R('Nominatif : très probablement le **sujet du verbe** (fāʿil), « qui ? » → именительный.', 'Рафʿ : скорее всего **подлежащее глагола** (фāʿиль), «кто?» → именительный.');
+    if (pf && pf.fam === 'إِنّ') return R('Nominatif après إِنَّ… : c\'est l\'**attribut** (khabar) de inna, qui reste au nominatif.', 'Рафʿ после إِنَّ… : это **сказуемое** (хабар) инны, оно остаётся в рафʿе.');
+    if (!prev) return R('Nominatif : il ouvre la phrase, c\'est probablement le **sujet d\'une phrase nominale** (mubtadaʾ) — une phrase sans verbe « être ».', 'Рафʿ : слово открывает фразу, это, вероятно, **подлежащее именного предложения** (мубтадаʾ) — предложения без глагола «быть», как «мальчик — большой».');
+    return R('Nominatif (rafʿ) : sujet ou attribut d\'une phrase nominale, ou sujet d\'un verbe.', 'Рафʿ : подлежащее или сказуемое именного предложения, или подлежащее глагола.');
+  }
+  return '';
+}
+
+function moodReason(mood, word, prev, prev2) {
+  const near = [prev, prev2].filter(Boolean).map(w => stemOf(w));
+  const inWord = word.filter(s => parseFeats(s[1], s[2]).pref).map(s => parseFeats(s[1], s[2]));
+  const md = MOODS[mood];
+  if (mood === 'IND') return R('Finale -u : **indicatif**, ' + md.why, 'Окончание -u : **изъявительное наклонение** (марфӯʿ) — обычная форма настоящего времени, никакая частица её не меняет.');
+  if (mood === 'SUBJ') {
+    if (inWord.some(x => x.tags[0] === 'PRP' || x.tags[0] === 'CAUS')) return R('Finale -a : **subjonctif**, à cause du لِ / فَ « pour que » collé devant.', 'Окончание -a : **сослагательное** (мансӯб) из-за приставки لِ / فَ «чтобы».');
+    const t = near.find(n => n.f.pos === 'P' && ['SUB', 'NEG', 'P'].includes(n.f.sub));
+    if (t) return R('Finale -a (ou ـوا au lieu de ـونَ) : **subjonctif**, à cause de ' + t.seg[0] + ' juste avant.', 'Окончание -a (или ـوا вместо ـونَ) : **сослагательное** из-за ' + t.seg[0] + ' перед глаголом.');
+    return R('Finale -a : **subjonctif** ; ' + md.why, 'Окончание -a : **сослагательное** — после أَنْ «чтобы», لَنْ «никогда не», كَيْ, حَتَّى.');
+  }
+  if (mood === 'JUS') {
+    if (inWord.some(x => x.tags[0] === 'IMPV')) return R('Soukoun final : **apocopé**, à cause du لِ d\'ordre collé devant (« qu\'il… ! »).', 'Сукӯн на конце : **усечённое** (маджзӯм) из-за повелительной частицы لِ («пусть он…!»).');
+    const t = near.find(n => n.f.pos === 'P' && ['NEG', 'PRO', 'COND'].includes(n.f.sub));
+    if (t) return R('Soukoun final (ou ـوا au lieu de ـونَ) : **apocopé**, à cause de ' + t.seg[0] + ' juste avant.', 'Сукӯн на конце (или ـوا вместо ـونَ) : **усечённое** из-за ' + t.seg[0] + ' перед глаголом.');
+    return R('Soukoun final : **apocopé** — souvent la réponse à un ordre ou à une condition (« fais…, tu obtiendras »).', 'Сукӯн на конце : **усечённое** — часто ответ на повеление или условие («сделай — получишь»).');
+  }
+  return '';
+}
+
+/* ---------- Explication des signes, lettre par lettre ---------- */
+const MARK_INFO = {
+  'َ': ['fatḥa', 'a court', 'petit trait au-dessus'], 'ُ': ['ḍamma', 'u court (ou)', 'petit waw au-dessus'], 'ِ': ['kasra', 'i court', 'petit trait en dessous'],
+  'ْ': ['sukūn', 'pas de voyelle : la lettre est « fermée »', 'petit rond'], 'ّ': ['shadda', 'lettre doublée (bb, mm…)', 'petit w'],
+  'ً': ['tanwīn fatḥ', '-an : indéfini à l\'accusatif', 'deux traits au-dessus'], 'ٌ': ['tanwīn ḍamm', '-un : indéfini au nominatif', 'deux ḍamma'], 'ٍ': ['tanwīn kasr', '-in : indéfini au génitif', 'deux traits en dessous'],
+  'ٰ': ['petit alif (alif khanjariyya)', 'ā long, écrit en petit au-dessus de la lettre', 'petit alif vertical'], 'ٓ': ['madda', 'allonger la voyelle (2 à 6 temps en récitation)', 'vague'],
+  'ٔ': ['hamza', 'ʾ : coupure de la voix', 'petite tête de ʿayn'], 'ٕ': ['hamza dessous', 'ʾi', ''],
+  '۟': ['petit zéro', 'cette lettre s\'écrit mais ne se prononce pas', 'petit rond ovale'], '۠': ['petit zéro rectangulaire', 'lettre prononcée seulement à la pause', ''],
+  'ۢ': ['petit mīm', 'iqlāb : le n se prononce m (devant ب)', 'petit m'], 'ۭ': ['petit mīm dessous', 'iqlāb : le n du tanwīn se prononce m', ''],
+  'ۥ': ['petit waw', 'ū long après le pronom هُ (hū)', ''], 'ۦ': ['petit ya', 'ī long après le pronom هِ (hī)', ''], 'ۨ': ['petit nūn', 'n à prononcer', ''],
+};
+
+function describeUnits(word, opts) {
+  opts = opts || {};
+  const us = units(word);
+  const lastIdx = (() => { for (let i = us.length - 1; i >= 0; i--) { if (us[i].b && us[i].b !== 'ا' && !(us[i].b === 'ى' && !vowelOf(us[i].m)) && !(us[i].m.includes(AR.SMALL_ZERO))) return i; } return us.length - 1; })();
+  return us.map((u, i) => {
+    const L = LETTERS[u.b] || [u.b, ''];
+    const marks = [];
+    for (const ch of u.m) {
+      const mi = MARK_INFO[ch];
+      if (mi) marks.push({ ch, name: mi[0], sound: mi[1] });
+    }
+    let note = '';
+    if (u.b === 'ا' && i > 0 && !u.m && /[َ]/.test(us[i - 1].m)) note = 'allonge le a précédent : ā';
+    if (u.b === 'ا' && i > 0 && !u.m && /[ً]/.test(us[i - 1].m)) note = 'alif « support » du tanwīn -an : il ne se prononce pas';
+    if (u.b === 'و' && i > 0 && !/[ً-ْ]/.test(u.m) && /[ُ]/.test(us[i - 1].m)) note = 'allonge le u précédent : ū';
+    if ((u.b === 'ي' || u.b === 'ى') && i > 0 && !/[ً-ّ]/.test(u.m) && /[ِ]/.test(us[i - 1].m)) note = 'allonge le i précédent : ī';
+    if (u.b === 'ل' && i <= 2 && !vowelOf(u.m) && us[i + 1] && us[i + 1].m.includes(AR.SHADDA) && SUN_LETTERS.includes(us[i + 1].b)) note = 'lām de l\'article, muet devant une lettre solaire (on double la lettre suivante)';
+    if (u.b === 'ٱ') note = 'alif de liaison : muet si un mot le précède';
+    if (u.m.includes(AR.SHADDA) && i > 0 && us[i - 1].b === 'ل' && !vowelOf(us[i - 1].m) && SUN_LETTERS.includes(u.b)) note = 'shadda d\'assimilation : le l de ال se fond dans cette lettre solaire';
+    return { b: u.b, m: u.m, name: L[0], sound: L[1], marks, note, isLast: i === lastIdx };
+  });
+}
+
+/* Alternatives de la fin d'un nom ou d'un verbe : « et si on changeait ce signe ? » */
+function endingAlternatives(stemText, f) {
+  const us = units(stemText);
+  let li = us.length - 1;
+  let skippedYa = false;
+  while (li > 0 && (us[li].b === 'ا' || us[li].b === 'ى') && !vowelOf(us[li].m)) { if (us[li].b === 'ى') skippedYa = true; li--; }
+  if (skippedYa) return [];
+  if (li < us.length - 1 && !(f.indef && f.cas === 'ACC')) return [];
+  const last = us[li];
+  if (!last) return [];
+  const baseMarks = last.m.replace(/[ً-ِْ]/g, '');
+  const head = joinUnits(us.slice(0, li));
+  const mk = (marks, tail) => head + last.b + baseMarks + marks + (tail || '');
+  const out = [];
+  if (f.pos === 'N' && f.cas && !/^(MP|FP|MD|FD|P|D)$/.test(f.gn || '') && !['PRON', 'DEM', 'REL'].includes(f.sub)) {
+    const taMarb = last.b === 'ة';
+    if (f.indef) {
+      out.push({ cas: 'NOM', ar: mk(AR.DAMMATAN), why: 'nominatif indéfini : sujet ou attribut — « un… »' });
+      out.push({ cas: 'ACC', ar: mk(AR.FATHATAN, taMarb || last.b === 'ء' ? '' : 'ا'), why: 'accusatif indéfini : complément d\'objet, de temps, d\'état…' });
+      out.push({ cas: 'GEN', ar: mk(AR.KASRATAN), why: 'génitif indéfini : après une préposition ou « de … »' });
+    } else {
+      out.push({ cas: 'NOM', ar: mk(AR.DAMMA), why: 'nominatif : sujet, attribut, sujet du verbe' });
+      out.push({ cas: 'ACC', ar: mk(AR.FATHA), why: 'accusatif : complément d\'objet, nom de إِنَّ, attribut de كَانَ' });
+      out.push({ cas: 'GEN', ar: mk(AR.KASRA), why: 'génitif : après une préposition, ou 2e terme « de … »' });
+    }
+  } else if (f.pos === 'V' && f.aspect === 'IMPF' && f.mood && ['1S', '1P', '2MS', '3MS', '3FS'].includes(f.person) && !/[اىوي]$/.test(skeleton(stemText))) {
+    out.push({ cas: 'IND', ar: mk(AR.DAMMA), why: 'indicatif : « il fait » (phrase normale)' });
+    out.push({ cas: 'SUBJ', ar: mk(AR.FATHA), why: 'subjonctif : après أَنْ « que », لَنْ « ne… jamais »' });
+    out.push({ cas: 'JUS', ar: mk(AR.SUKUN), why: 'apocopé : après لَمْ « ne… pas (passé) », لَا d\'interdiction' });
+  }
+  return out;
+}
+/* ====================================================================
+ * 03 - Constructeur de phrases : vocabulaire, accords, conjugaison
+ * ==================================================================== */
+const F = AR.FATHA, D = AR.DAMMA, K = AR.KASRA, S = AR.SUKUN, SH = AR.SHADDA;
+const VOWEL = { a: F, i: K, u: D };
+
+// Noms : stem vocalisé sans la voyelle finale ; g = genre arabe ; fr = [nom, genre français] ; ru
+const NOUNS = [
+  { id: 'walad', ar: 'وَلَد', g: 'm', fr: ['garçon', 'm'], ru: 'мальчик' },
+  { id: 'bint', ar: 'بِنْت', g: 'f', fr: ['fille', 'f'], ru: 'девочка' },
+  { id: 'talib', ar: 'طَالِب', g: 'm', fr: ['étudiant', 'm'], ru: 'студент' },
+  { id: 'taliba', ar: 'طَالِبَة', g: 'f', fr: ['étudiante', 'f'], ru: 'студентка' },
+  { id: 'muallim', ar: 'مُعَلِّم', g: 'm', fr: ['enseignant', 'm'], ru: 'учитель' },
+  { id: 'muallima', ar: 'مُعَلِّمَة', g: 'f', fr: ['enseignante', 'f'], ru: 'учительница' },
+  { id: 'rajul', ar: 'رَجُل', g: 'm', fr: ['homme', 'm'], ru: 'мужчина' },
+  { id: 'kitab', ar: 'كِتَاب', g: 'm', fr: ['livre', 'm'], ru: 'книга' },
+  { id: 'dars', ar: 'دَرْس', g: 'm', fr: ['leçon', 'f'], ru: 'урок' },
+  { id: 'risala', ar: 'رِسَالَة', g: 'f', fr: ['lettre', 'f'], ru: 'письмо' },
+  { id: 'qalam', ar: 'قَلَم', g: 'm', fr: ['stylo', 'm'], ru: 'ручка' },
+  { id: 'bayt', ar: 'بَيْت', g: 'm', fr: ['maison', 'f'], ru: 'дом' },
+  { id: 'bab', ar: 'بَاب', g: 'm', fr: ['porte', 'f'], ru: 'дверь' },
+  { id: 'madrasa', ar: 'مَدْرَسَة', g: 'f', fr: ['école', 'f'], ru: 'школа' },
+  { id: 'masjid', ar: 'مَسْجِد', g: 'm', fr: ['mosquée', 'f'], ru: 'мечеть' },
+  { id: 'ghurfa', ar: 'غُرْفَة', g: 'f', fr: ['chambre', 'f'], ru: 'комната' },
+  { id: 'hadiqa', ar: 'حَدِيقَة', g: 'f', fr: ['jardin', 'm'], ru: 'сад' },
+  { id: 'sayyara', ar: 'سَيَّارَة', g: 'f', fr: ['voiture', 'f'], ru: 'машина' },
+  { id: 'halib', ar: 'حَلِيب', g: 'm', fr: ['lait', 'm'], ru: 'молоко' },
+  { id: 'qahwa', ar: 'قَهْوَة', g: 'f', fr: ['café', 'm'], ru: 'кофе' },
+  { id: 'asir', ar: 'عَصِير', g: 'm', fr: ['jus', 'm'], ru: 'сок' },
+  { id: 'taam', ar: 'طَعَام', g: 'm', fr: ['repas', 'm'], ru: 'еда' },
+  { id: 'sawt', ar: 'صَوْت', g: 'm', fr: ['voix', 'f'], ru: 'голос' },
+  { id: 'khabar', ar: 'خَبَر', g: 'm', fr: ['nouvelle', 'f'], ru: 'новость' },
+  { id: 'sura', ar: 'صُورَة', g: 'f', fr: ['image', 'f'], ru: 'картина' },
+  { id: 'muhammad', ar: 'مُحَمَّد', g: 'm', fr: ['Mohammed', 'm'], ru: 'Мухаммад', proper: true },
+  { id: 'ahmad', ar: 'أَحْمَد', g: 'm', fr: ['Ahmed', 'm'], ru: 'Ахмад', proper: true, diptote: true },
+  { id: 'yusuf', ar: 'يُوسُف', g: 'm', fr: ['Youssef', 'm'], ru: 'Юсуф', proper: true, diptote: true },
+  { id: 'fatima', ar: 'فَاطِمَة', g: 'f', fr: ['Fatima', 'f'], ru: 'Фатима', proper: true, diptote: true },
+  { id: 'maryam', ar: 'مَرْيَم', g: 'f', fr: ['Maryam', 'f'], ru: 'Марьям', proper: true, diptote: true },
+  { id: 'allah', ar: 'اللَّه', g: 'm', fr: ['Allah', 'm'], ru: 'Аллах', proper: true, noTanwin: true, noSubjVerb: true },
+];
+const ADJS = [
+  { id: 'kabir', ar: 'كَبِير', fr: ['grand', 'grande'], pre: true, ru: 'большой' },
+  { id: 'saghir', ar: 'صَغِير', fr: ['petit', 'petite'], pre: true, ru: 'маленький' },
+  { id: 'jamil', ar: 'جَمِيل', fr: ['beau', 'belle', 'bel'], pre: true, ru: 'красивый' },
+  { id: 'jadid', ar: 'جَدِيد', fr: ['nouveau', 'nouvelle', 'nouvel'], pre: true, ru: 'новый' },
+  { id: 'qadim', ar: 'قَدِيم', fr: ['ancien', 'ancienne'], ru: 'старый' },
+  { id: 'mujtahid', ar: 'مُجْتَهِد', fr: ['travailleur', 'travailleuse'], ru: 'прилежный' },
+  { id: 'said', ar: 'سَعِيد', fr: ['heureux', 'heureuse'], ru: 'счастливый' },
+  { id: 'nazif', ar: 'نَظِيف', fr: ['propre', 'propre'], ru: 'чистый' },
+  { id: 'maftuh', ar: 'مَفْتُوح', fr: ['ouvert', 'ouverte'], ru: 'открытый' },
+  { id: 'hazin', ar: 'حَزِين', fr: ['triste', 'triste'], ru: 'грустный' },
+  { id: 'karim', ar: 'كَرِيم', fr: ['généreux', 'généreuse'], ru: 'щедрый' },
+  { id: 'rahim', ar: 'رَحِيم', fr: ['miséricordieux', 'miséricordieuse'], ru: 'милосердный' },
+  { id: 'mashghul', ar: 'مَشْغُول', fr: ['occupé', 'occupée'], ru: 'занятый' },
+];
+// Verbes trilitères sains : r = radicales, pv = voyelle du passé, iv = voyelle du présent
+const VERBS = [
+  { id: 'kataba', r: 'كتب', pv: 'a', iv: 'u', tr: true, fr: { inf: 'écrire', pp: 'écrit', aux: 'a', pres: ['écris', 'écris', 'écrit', 'écrivons', 'écrivez', 'écrivent'], fut: 'écrir' }, ru: 'писать', obj: ['risala', 'dars', 'kitab'] },
+  { id: 'fataha', r: 'فتح', pv: 'a', iv: 'a', tr: true, fr: { inf: 'ouvrir', pp: 'ouvert', aux: 'a', pres: ['ouvre', 'ouvres', 'ouvre', 'ouvrons', 'ouvrez', 'ouvrent'], fut: 'ouvrir' }, ru: 'открывать', obj: ['bab', 'kitab'] },
+  { id: 'shariba', r: 'شرب', pv: 'i', iv: 'a', tr: true, fr: { inf: 'boire', pp: 'bu', aux: 'a', pres: ['bois', 'bois', 'boit', 'buvons', 'buvez', 'boivent'], fut: 'boir' }, ru: 'пить', obj: ['halib', 'qahwa', 'asir'] },
+  { id: 'fahima', r: 'فهم', pv: 'i', iv: 'a', tr: true, fr: { inf: 'comprendre', pp: 'compris', aux: 'a', pres: ['comprends', 'comprends', 'comprend', 'comprenons', 'comprenez', 'comprennent'], fut: 'comprendr' }, ru: 'понимать', obj: ['dars', 'khabar'] },
+  { id: 'samia', r: 'سمع', pv: 'i', iv: 'a', tr: true, fr: { inf: 'entendre', pp: 'entendu', aux: 'a', pres: ['entends', 'entends', 'entend', 'entendons', 'entendez', 'entendent'], fut: 'entendr' }, ru: 'слышать', obj: ['sawt', 'khabar'] },
+  { id: 'arafa', r: 'عرف', pv: 'a', iv: 'i', tr: true, fr: { inf: 'connaître', pp: 'connu', aux: 'a', pres: ['connais', 'connais', 'connaît', 'connaissons', 'connaissez', 'connaissent'], fut: 'connaîtr' }, ru: 'знать', obj: ['muallim', 'khabar'] },
+  { id: 'hamala', r: 'حمل', pv: 'a', iv: 'i', tr: true, fr: { inf: 'porter', pp: 'porté', aux: 'a', pres: ['porte', 'portes', 'porte', 'portons', 'portez', 'portent'], fut: 'porter' }, ru: 'нести', obj: ['kitab', 'qalam'] },
+  { id: 'talaba', r: 'طلب', pv: 'a', iv: 'u', tr: true, fr: { inf: 'demander', pp: 'demandé', aux: 'a', pres: ['demande', 'demandes', 'demande', 'demandons', 'demandez', 'demandent'], fut: 'demander' }, ru: 'просить', obj: ['taam', 'qahwa'] },
+  { id: 'darasa', r: 'درس', pv: 'a', iv: 'u', tr: true, fr: { inf: 'étudier', pp: 'étudié', aux: 'a', pres: ['étudie', 'étudies', 'étudie', 'étudions', 'étudiez', 'étudient'], fut: 'étudier' }, ru: 'изучать', obj: ['dars', 'kitab'] },
+  { id: 'rasama', r: 'رسم', pv: 'a', iv: 'u', tr: true, fr: { inf: 'dessiner', pp: 'dessiné', aux: 'a', pres: ['dessine', 'dessines', 'dessine', 'dessinons', 'dessinez', 'dessinent'], fut: 'dessiner' }, ru: 'рисовать', obj: ['sura', 'bayt'] },
+  { id: 'ghasala', r: 'غسل', pv: 'a', iv: 'i', tr: true, fr: { inf: 'laver', pp: 'lavé', aux: 'a', pres: ['lave', 'laves', 'lave', 'lavons', 'lavez', 'lavent'], fut: 'laver' }, ru: 'мыть', obj: ['sayyara', 'bab'] },
+  { id: 'abada', r: 'عبد', pv: 'a', iv: 'u', tr: true, fr: { inf: 'adorer', pp: 'adoré', aux: 'a', pres: ['adore', 'adores', 'adore', 'adorons', 'adorez', 'adorent'], fut: 'adorer' }, ru: 'поклоняться', obj: ['allah'] },
+  { id: 'hamida', r: 'حمد', pv: 'i', iv: 'a', tr: true, fr: { inf: 'louer', pp: 'loué', aux: 'a', pres: ['loue', 'loues', 'loue', 'louons', 'louez', 'louent'], fut: 'louer' }, ru: 'восхвалять', obj: ['allah'] },
+  { id: 'nasara', r: 'نصر', pv: 'a', iv: 'u', tr: true, fr: { inf: 'aider', pp: 'aidé', aux: 'a', pres: ['aide', 'aides', 'aide', 'aidons', 'aidez', 'aident'], fut: 'aider' }, ru: 'помогать', obj: ['talib', 'rajul'] },
+  { id: 'sanaa', r: 'صنع', pv: 'a', iv: 'a', tr: true, fr: { inf: 'fabriquer', pp: 'fabriqué', aux: 'a', pres: ['fabrique', 'fabriques', 'fabrique', 'fabriquons', 'fabriquez', 'fabriquent'], fut: 'fabriquer' }, ru: 'делать', obj: ['bab', 'taam'] },
+  { id: 'dhahaba', r: 'ذهب', pv: 'a', iv: 'a', tr: false, prep: 'ila', fr: { inf: 'aller', pp: 'allé', aux: 'e', pres: ['vais', 'vas', 'va', 'allons', 'allez', 'vont'], fut: 'ir' }, ru: 'идти' },
+  { id: 'kharaja', r: 'خرج', pv: 'a', iv: 'u', tr: false, prep: 'min', fr: { inf: 'sortir', pp: 'sorti', aux: 'e', pres: ['sors', 'sors', 'sort', 'sortons', 'sortez', 'sortent'], fut: 'sortir' }, ru: 'выходить' },
+  { id: 'rajaa', r: 'رجع', pv: 'a', iv: 'i', tr: false, prep: 'ila', fr: { inf: 'rentrer', pp: 'rentré', aux: 'e', pres: ['rentre', 'rentres', 'rentre', 'rentrons', 'rentrez', 'rentrent'], fut: 'rentrer' }, ru: 'возвращаться' },
+  { id: 'laiba', r: 'لعب', pv: 'i', iv: 'a', tr: false, prep: 'fi', fr: { inf: 'jouer', pp: 'joué', aux: 'a', pres: ['joue', 'joues', 'joue', 'jouons', 'jouez', 'jouent'], fut: 'jouer' }, ru: 'играть' },
+  { id: 'dahika', r: 'ضحك', pv: 'i', iv: 'a', tr: false, prep: 'maa', fr: { inf: 'rire', pp: 'ri', aux: 'a', pres: ['ris', 'ris', 'rit', 'rions', 'riez', 'rient'], fut: 'rir' }, ru: 'смеяться' },
+  { id: 'qala', r: 'قول', hollow: 'w', tr: true, fr: { inf: 'dire', pp: 'dit', aux: 'a', pres: ['dis', 'dis', 'dit', 'disons', 'dites', 'disent'], fut: 'dir' }, ru: 'говорить', obj: ['khabar'], note: 'verbe **creux** (2e radicale و) : la voyelle longue ā / ū devient courte quand la syllabe se ferme (قَالَ → قُلْتُ, يَقُولُ → لَمْ يَقُلْ).' },
+  { id: 'zara', r: 'زور', hollow: 'w', tr: true, fr: { inf: 'visiter', pp: 'visité', aux: 'a', pres: ['visite', 'visites', 'visite', 'visitons', 'visitez', 'visitent'], fut: 'visiter' }, ru: 'посещать', obj: ['masjid', 'muallim', 'madrasa'], note: 'verbe **creux** (و) : زَارَ → زُرْتُ, يَزُورُ → لَمْ يَزُرْ.' },
+  { id: 'nama', r: 'نوم', hollow: 'a', tr: false, prep: 'fi', fr: { inf: 'dormir', pp: 'dormi', aux: 'a', pres: ['dors', 'dors', 'dort', 'dormons', 'dormez', 'dorment'], fut: 'dormir' }, ru: 'спать', note: 'verbe **creux** à présent en ā : نَامَ → نِمْتُ, يَنَامُ → لَمْ يَنَمْ.' },
+  { id: 'sara', r: 'سير', hollow: 'y', tr: false, prep: 'ila', fr: { inf: 'marcher', pp: 'marché', aux: 'a', pres: ['marche', 'marches', 'marche', 'marchons', 'marchez', 'marchent'], fut: 'marcher' }, ru: 'идти', note: 'verbe **creux** (2e radicale ي) : سَارَ → سِرْتُ, يَسِيرُ → لَمْ يَسِرْ.' },
+  { id: 'kana', r: 'كون', hollow: 'w', tr: false, prep: 'fi', fr: { inf: 'être', pp: 'été', aux: 'a', pres: ['suis', 'es', 'est', 'sommes', 'êtes', 'sont'], fut: 'ser' }, ru: 'быть', note: 'كَانَ comme verbe « être (quelque part) » : verbe **creux**, كَانَ → كُنْتُ, يَكُونُ → لَمْ يَكُنْ (comme dans 112:4).' },
+  { id: 'arsala', r: 'رسل', form: 4, tr: true, fr: { inf: 'envoyer', pp: 'envoyé', aux: 'a', pres: ['envoie', 'envoies', 'envoie', 'envoyons', 'envoyez', 'envoient'], fut: 'enverr' }, ru: 'посылать', obj: ['risala', 'kitab'], note: 'verbe de **forme IV** (أَفْعَلَ) : أَ au passé, et le présent commence par **u** : يُرْسِلُ.' },
+  { id: 'akhraja', r: 'خرج', form: 4, tr: true, fr: { inf: 'sortir', pp: 'sorti', aux: 'a', pres: ['sors', 'sors', 'sort', 'sortons', 'sortez', 'sortent'], fut: 'sortir' }, ru: 'выводить', obj: ['kitab', 'qalam'], note: 'forme IV de خَرَجَ (sortir) : « faire sortir ». Présent يُخْرِجُ.' },
+  { id: 'anzala', r: 'نزل', form: 4, tr: true, fr: { inf: 'descendre', pp: 'descendu', aux: 'a', pres: ['descends', 'descends', 'descend', 'descendons', 'descendez', 'descendent'], fut: 'descendr' }, ru: 'ниспосылать', obj: ['kitab'], note: 'forme IV de نَزَلَ : « faire descendre, révéler » (أَنْزَلَ ٱلْكِتَابَ). Présent يُنْزِلُ.' },
+  { id: 'amana', r: 'أمن', form: 4, tr: false, prep: 'bi', prepFr: 'en', defPP: 'allah', fr: { inf: 'croire', pp: 'cru', aux: 'a', pres: ['crois', 'crois', 'croit', 'croyons', 'croyez', 'croient'], fut: 'croir' }, ru: 'веровать', note: 'verbe de **forme IV** (racine أ م ن, « sécurité ») : on dit آمَنَ بِـ pour « croire en ». Hamza + alif s\'écrivent آ. Présent : يُؤْمِنُ.' },
+  { id: 'nazala', r: 'نزل', pv: 'a', iv: 'i', tr: false, prep: 'min', fr: { inf: 'descendre', pp: 'descendu', aux: 'e', pres: ['descends', 'descends', 'descend', 'descendons', 'descendez', 'descendent'], fut: 'descendr' }, ru: 'спускаться' },
+];
+const PREPS = [
+  { id: 'fi', ar: 'فِي', fr: 'dans', ru: 'в' }, { id: 'ila', ar: 'إِلَى', fr: 'à', ru: 'к / в' }, { id: 'min', ar: 'مِنْ', fr: 'de', ru: 'из' },
+  { id: 'ala', ar: 'عَلَى', fr: 'sur', ru: 'на' }, { id: 'maa', ar: 'مَعَ', fr: 'avec', ru: 'с' }, { id: 'bi', ar: 'بِـ', fr: 'avec (au moyen de)', ru: '(творительный)', attached: true },
+  { id: 'li', ar: 'لِـ', fr: 'pour', ru: 'для', attached: true },
+];
+// Personnes : ar = pronom ; p = index de conjugaison française ; g = genre ; pl = pluriel
+const PERS = [
+  { id: 'anaM', ar: 'أَنَا', fr: 'je', em: 'moi', p: 0, g: 'm', label: 'أَنَا — je (homme)' },
+  { id: 'anaF', ar: 'أَنَا', fr: 'je', em: 'moi', p: 0, g: 'f', label: 'أَنَا — je (femme)' },
+  { id: 'anta', ar: 'أَنْتَ', fr: 'tu', em: 'toi', p: 1, g: 'm', label: 'أَنْتَ — tu (homme)' },
+  { id: 'anti', ar: 'أَنْتِ', fr: 'tu', em: 'toi', p: 1, g: 'f', label: 'أَنْتِ — tu (femme)' },
+  { id: 'huwa', ar: 'هُوَ', fr: 'il', em: 'lui', p: 2, g: 'm', label: 'هُوَ — il' },
+  { id: 'hiya', ar: 'هِيَ', fr: 'elle', em: 'elle', p: 2, g: 'f', label: 'هِيَ — elle' },
+  { id: 'nahnu', ar: 'نَحْنُ', fr: 'nous', em: 'nous', p: 3, g: 'm', pl: true, label: 'نَحْنُ — nous' },
+  { id: 'antum', ar: 'أَنْتُمْ', fr: 'vous', em: 'vous', p: 4, g: 'm', pl: true, label: 'أَنْتُمْ — vous' },
+  { id: 'hum', ar: 'هُمْ', fr: 'ils', em: 'eux', p: 5, g: 'm', pl: true, label: 'هُمْ — ils' },
+];
+const TENSES = [
+  { id: 'past', label: 'Passé (il a fait)', ar: '' }, { id: 'pres', label: 'Présent (il fait)' }, { id: 'fut', label: 'Futur avec سَـ (il fera)' },
+  { id: 'futS', label: 'Futur avec سَوْفَ (il fera, plus tard)' }, { id: 'negPastLam', label: 'Négation du passé : لَمْ + apocopé' }, { id: 'negPastMa', label: 'Négation du passé : مَا + passé' },
+  { id: 'negPres', label: 'Négation du présent : لَا' }, { id: 'negFut', label: 'Négation du futur : لَنْ + subjonctif' }, { id: 'imp', label: 'Impératif (fais !)' }, { id: 'impNeg', label: 'Défense : لَا + apocopé (ne fais pas !)' },
+];
+const byId = (arr, id) => arr.find(x => x.id === id);
+
+/* ---------- Noms : cas, définition ---------- */
+function isSun(ch) { return SUN_LETTERS.includes(ch); }
+function definite(stem) {
+  if (stem === 'اللَّه') return stem;
+  const first = stem[0];
+  if (isSun(first)) return 'ال' + first + SH + stem.slice(1);
+  return 'الْ' + stem;
+}
+function caseEnding(n, cas, def) {
+  // n : nom ; def : true (ال) | false (indéfini) | 'construct' (1er terme d'annexion)
+  const st = n.ar;
+  if (n.id === 'allah') return st + { nom: D, acc: F, gen: K }[cas];
+  if (n.proper) {
+    if (n.diptote) return st + (cas === 'nom' ? D : F);
+    return st + { nom: AR.DAMMATAN, acc: AR.FATHATAN + 'ا', gen: AR.KASRATAN }[cas];
+  }
+  if (def === true) return definite(st) + { nom: D, acc: F, gen: K }[cas];
+  if (def === 'construct') return st + { nom: D, acc: F, gen: K }[cas];
+  const endsTa = st.endsWith('ة');
+  return st + { nom: AR.DAMMATAN, acc: AR.FATHATAN + (endsTa ? '' : 'ا'), gen: AR.KASRATAN }[cas];
+}
+function adjForm(a, gender, cas, def) {
+  const st = gender === 'f' ? a.ar + F + 'ة' : a.ar;
+  return caseEnding({ ar: st }, cas, def ? true : false);
+}
+function withPrep(prep, nounForm) {
+  if (prep.id === 'bi') return 'بِ' + nounForm;
+  if (prep.id === 'li') return nounForm.startsWith('ال') ? 'لِ' + nounForm.slice(1) : 'لِ' + nounForm;
+  return null;
+}
+
+/* ---------- Verbes : conjugaison ---------- */
+const HOLLOW_LONG = { w: 'و', y: 'ي', a: 'ا' };
+const HOLLOW_SHORT = { w: D, y: K, a: F };
+function isHamza(c) { return /[ءأإ]/.test(c); }
+function form4Past(v, passive) {
+  const [c1, c2, c3] = [...v.r];
+  if (isHamza(c1)) return passive ? 'أُو' + c2 + K + c3 : 'آ' + c2 + F + c3;
+  return passive ? 'أُ' + c1 + S + c2 + K + c3 : 'أَ' + c1 + S + c2 + F + c3;
+}
+function pastStem(v, passive) {
+  if (v.form === 4) return form4Past(v, passive);
+  const [c1, c2, c3] = [...v.r];
+  return passive ? c1 + D + c2 + K + c3 : c1 + F + c2 + VOWEL[v.pv] + c3;
+}
+function conjPast(v, pid, passive) {
+  return conjPast0(v, pid, passive).replace(/نْنَا$/, 'نَّا').replace(/نْنَ$/, 'نَّ');
+}
+function conjPast0(v, pid, passive) {
+  if (v.hollow) {
+    const [c1, , c3] = [...v.r];
+    const third = ['huwa', 'hiya', 'hum'].includes(pid);
+    const b = third ? c1 + (passive ? K + 'ي' : F + 'ا') + c3 : c1 + (passive ? K : (v.hollow === 'w' ? D : K)) + c3;
+    switch (pid) {
+      case 'huwa': return b + F;
+      case 'hiya': return b + F + 'ت' + S;
+      case 'hum': return b + D + 'وا';
+      case 'anaM': case 'anaF': return b + S + 'ت' + D;
+      case 'anta': return b + S + 'ت' + F;
+      case 'anti': return b + S + 'ت' + K;
+      case 'nahnu': return b + S + 'ن' + F + 'ا';
+      case 'antum': return b + S + 'ت' + D + 'م' + S;
+    }
+  }
+  const b = pastStem(v, passive);
+  switch (pid) {
+    case 'huwa': return b + F;
+    case 'hiya': return b + F + 'ت' + S;
+    case 'anaM': case 'anaF': return b + S + 'ت' + D;
+    case 'anta': return b + S + 'ت' + F;
+    case 'anti': return b + S + 'ت' + K;
+    case 'nahnu': return b + S + 'ن' + F + 'ا';
+    case 'antum': return b + S + 'ت' + D + 'م' + S;
+    case 'hum': return b + D + 'وا';
+  }
+}
+function conjPresent(v, pid, mood, passive) {
+  const [c1, c2, c3] = [...v.r];
+  const pre = { anaM: 'أ', anaF: 'أ', anta: 'ت', anti: 'ت', huwa: 'ي', hiya: 'ت', nahnu: 'ن', antum: 'ت', hum: 'ي' }[pid];
+  let stem;
+  const suffixed = ['anti', 'antum', 'hum'].includes(pid);
+  if (v.hollow) {
+    const shortJ = mood === 'jus' && !suffixed;
+    const mid = passive ? (shortJ ? F : F + 'ا') : (shortJ ? HOLLOW_SHORT[v.hollow] : HOLLOW_SHORT[v.hollow] + HOLLOW_LONG[v.hollow]);
+    stem = pre + (passive ? D : F) + c1 + mid + c3;
+  } else if (v.form === 4) {
+    if (isHamza(c1)) stem = (pre === 'أ' ? 'أُو' : pre + D + 'ؤْ') + c2 + (passive ? F : K) + c3;
+    else stem = pre + D + c1 + S + c2 + (passive ? F : K) + c3;
+  } else stem = pre + (passive ? D : F) + c1 + S + c2 + (passive ? F : VOWEL[v.iv]) + c3;
+  if (pid === 'anti') return stem + K + (mood === 'ind' ? 'ين' + F : 'ي');
+  if (pid === 'antum' || pid === 'hum') return stem + D + (mood === 'ind' ? 'ون' + F : 'وا');
+  return stem + { ind: D, subj: F, jus: S }[mood];
+}
+function conjImperative(v, pid) {
+  const j = conjPresent(v, pid, 'jus');
+  if (v.hollow) return j.slice(2); // قُلْ, قُولِي, قُولُوا : pas besoin d'alif
+  if (v.form === 4) { const [c1, c2, c3] = [...v.r]; const st = isHamza(c1) ? 'آ' + c2 + K + c3 : 'أَ' + c1 + S + c2 + K + c3; return st + (pid === 'anti' ? K + 'ي' : pid === 'antum' ? D + 'وا' : S); }
+  const body = j.slice(2); // on enlève le préfixe تَ
+  return 'ا' + body; // alif de liaison (prononcé u ou i en début de phrase)
+}
+function attachObj(verb, objGender) {
+  let v = verb;
+  if (v.endsWith('وا')) v = v.slice(0, -1);
+  else if (v.endsWith('ت' + D + 'م' + S)) v = v.slice(0, -1) + D + 'و';
+  const afterI = v.endsWith(K) || v.endsWith('ي');
+  if (objGender === 'f') return v + 'ه' + F + 'ا';
+  return v + 'ه' + (afterI ? K : D);
+}
+function verbForm(v, pid, tense, passive) {
+  switch (tense) {
+    case 'past': return { pre: '', v: conjPast(v, pid, passive), mood: 'past' };
+    case 'pres': return { pre: '', v: conjPresent(v, pid, 'ind', passive), mood: 'ind' };
+    case 'fut': return { pre: 'سَ', v: conjPresent(v, pid, 'ind', passive), mood: 'ind', attached: true };
+    case 'futS': return { pre: 'سَوْفَ', v: conjPresent(v, pid, 'ind', passive), mood: 'ind' };
+    case 'negPastLam': return { pre: 'لَمْ', v: conjPresent(v, pid, 'jus', passive), mood: 'jus' };
+    case 'negPastMa': return { pre: 'مَا', v: conjPast(v, pid, passive), mood: 'past' };
+    case 'negPres': return { pre: 'لَا', v: conjPresent(v, pid, 'ind', passive), mood: 'ind' };
+    case 'negFut': return { pre: 'لَنْ', v: conjPresent(v, pid, 'subj', passive), mood: 'subj' };
+    case 'imp': return { pre: '', v: conjImperative(v, pid), mood: 'imp' };
+    case 'impNeg': return { pre: 'لَا', v: conjPresent(v, pid, 'jus'), mood: 'jus' };
+  }
+}
+
+/* ---------- Français ---------- */
+const VOW = /^[aeiouyéèêâîôûœh]/i;
+function frJoin(tokens) {
+  const t = tokens.filter(x => x !== '' && x != null);
+  const out = [];
+  for (let i = 0; i < t.length; i++) {
+    let w = t[i]; const nx = t[i + 1] || '';
+    if ((w === 'à' || w === 'de') && nx === 'le' && !VOW.test(t[i + 2] || '')) { out.push(w === 'à' ? 'au' : 'du'); i++; continue; }
+    if (['je', 'ne', 'le', 'la', 'de', 'que', 'me', 'te'].includes(w) && VOW.test(nx) && !/^h(a|é|o)/i.test(nx === 'homme' ? 'x' : 'x')) { out.push(w[0] + "'" + nx); i++; continue; }
+    out.push(w);
+  }
+  return out.join(' ').replace(/' /g, "'").replace(/\s+([?!])/g, ' $1');
+}
+function frNP(n, def, adj, adjGenderFr) {
+  if (!n) return [];
+  const g = n.fr[1];
+  const noun = n.fr[0];
+  let a = null, pre = false;
+  if (adj) { a = g === 'f' ? adj.fr[1] : ((adj.fr[2] && VOW.test(noun)) ? adj.fr[2] : adj.fr[0]); pre = !!adj.pre; }
+  const toks = [];
+  if (!n.proper) toks.push(def ? (g === 'f' ? 'la' : 'le') : (g === 'f' ? 'une' : 'un'));
+  if (a && pre) toks.push(a);
+  toks.push(noun);
+  if (a && !pre) toks.push(a);
+  return toks;
+}
+function frAgree(word, g, pl) { return word + (g === 'f' ? 'e' : '') + (pl ? 's' : ''); }
+function frAdjAgree(adj, g, pl) { let a = g === 'f' ? adj.fr[1] : adj.fr[0]; if (pl && !/[sx]$/.test(a)) a += 's'; return a; }
+
+const AVOIR = ['ai', 'as', 'a', 'avons', 'avez', 'ont'], ETRE = ['suis', 'es', 'est', 'sommes', 'êtes', 'sont'], ETAIT = ['étais', 'étais', 'était', 'étions', 'étiez', 'étaient'];
+const FUT_END = ['ai', 'as', 'a', 'ons', 'ez', 'ont'];
+function frVerbPhrase(vfr, tense, p, g, pl, clitic, passive) {
+  // renvoie la liste de jetons (sans le sujet)
+  const neg = /^neg|impNeg/.test(tense);
+  const T = [];
+  const cl = clitic ? [clitic] : [];
+  if (passive) {
+    const pp = frAgree(vfr.pp, g, pl);
+    if (tense === 'past' || tense === 'negPastLam' || tense === 'negPastMa') return neg ? ['n\'a', 'pas', 'été', pp].slice(0) : ['a', 'été', pp];
+    if (tense === 'pres' || tense === 'negPres') return neg ? ['n\'est', 'pas', pp] : ['est', pp];
+    return neg ? ['ne', 'sera', 'pas', pp] : ['sera', pp];
+  }
+  if (tense === 'imp' || tense === 'impNeg') {
+    let f = vfr.pres[p];
+    if (p === 1 && /es$/.test(f)) f = f.slice(0, -1);
+    if (f === 'vas') f = 'va';
+    if (tense === 'imp') return clitic ? [f + '-' + (clitic === "l'" ? (clitic === "l'" ? 'le' : clitic) : clitic)] : [f];
+    return ['ne', ...cl, f, 'pas'];
+  }
+  if (tense === 'past' || tense === 'negPastLam' || tense === 'negPastMa') {
+    const aux = vfr.aux === 'e' ? ETRE[p] : AVOIR[p];
+    let pp = vfr.pp;
+    if (vfr.aux === 'e') pp = frAgree(pp, g, pl);
+    else if (clitic && clitic.g) pp = frAgree(pp, clitic.g === 'f' ? 'f' : 'm', false);
+    const c = clitic ? [clitic.t] : [];
+    return neg ? ['ne', ...c, aux, 'pas', pp] : [...c, aux, pp];
+  }
+  if (tense === 'pres' || tense === 'negPres') {
+    const c = clitic ? [clitic.t] : [];
+    return neg ? ['ne', ...c, vfr.pres[p], 'pas'] : [...c, vfr.pres[p]];
+  }
+  const fut = vfr.fut + FUT_END[p];
+  const c = clitic ? [clitic.t] : [];
+  return neg ? ['ne', ...c, fut, 'pas'] : [...c, fut];
+}
+
+/* ---------- Liaison entre les mots ---------- */
+function applyLiaison(words) {
+  const w = words.slice();
+  for (let i = 0; i < w.length - 1; i++) {
+    if (!w[i] || !w[i + 1]) continue;
+    if (/^ا/.test(w[i + 1]) && w[i].endsWith(S)) {
+      if (w[i] === 'مِنْ') w[i] = 'مِن' + F;
+      else if (/مْ$/.test(w[i]) && /(هُمْ|تُمْ|كُمْ)$/.test(w[i])) w[i] = w[i].slice(0, -1) + D;
+      else w[i] = w[i].slice(0, -1) + K;
+    }
+  }
+  return w;
+}
+
+/* ---------- Construction d'une phrase ----------
+ * cfg = { type: 'nominal' | 'verbal' | 'np', ... }
+ * Renvoie { words: [{ar, role, why, gloss}], fr, notes: [], warn }
+ */
+function W(ar, role, why, gloss) { return { ar, role, why, gloss }; }
+
+function buildNominal(c) {
+  // c : subjKind ('noun'|'pron'), subj, subjDef, pron, pred ('adj'|'pp'), adj, prep, ppNoun, ppDef, mod ('none'|'kana'|'inna'|'laysa'|'laysaBi'), q
+  const words = []; const notes = []; let warn = '';
+  const n = c.subjKind === 'noun' ? byId(NOUNS, c.subj) : null;
+  const P = c.subjKind === 'pron' ? byId(PERS.filter(x => !x.pl), c.pron) || PERS[4] : null;
+  const g = n ? n.g : P.g; // genre arabe
+  const gFr = n ? n.fr[1] : P.g;
+  const def = n ? (n.proper ? true : c.subjDef) : true;
+  const adj = byId(ADJS, c.adj) || ADJS[0];
+  const prep = byId(PREPS, c.prep) || PREPS[0];
+  const ppN = byId(NOUNS, c.ppNoun) || NOUNS[11];
+  const mod = c.mod || 'none';
+  const subjCase = mod === 'inna' ? 'acc' : 'nom';
+  const predCase = (mod === 'kana' || mod === 'laysa') ? 'acc' : (mod === 'laysaBi' ? 'gen' : 'nom');
+  const isPP = c.pred === 'pp';
+  // --- groupe prépositionnel
+  const ppWords = () => {
+    const nf = caseEnding(ppN, 'gen', ppN.proper ? true : c.ppDef);
+    const att = withPrep(prep, nf);
+    if (att) return [W(att, 'pp', 'préposition ' + prep.ar + ' collée + nom au **génitif** (-i) : toute préposition met le nom suivant au génitif.', prep.fr + ' + ' + ppN.fr[0])];
+    return [W(prep.ar, 'prep', 'préposition « ' + prep.fr + ' » : elle met le nom qui suit au génitif.', prep.fr),
+      W(nf, 'gen', 'nom au **génitif** (' + (ppN.proper && ppN.diptote ? '-a, car c\'est un diptote' : (c.ppDef || ppN.proper ? '-i' : '-in')) + ') parce qu\'il suit la préposition ' + prep.ar + '.', ppN.fr[0])];
+  };
+  const frPP = () => [prep.id === 'bi' ? 'avec' : prep.fr, ...frNP(ppN, ppN.proper || c.ppDef)];
+  // --- sujet indéfini + attribut adjectif : ce n'est pas une phrase !
+  if (n && !def && !isPP) {
+    const nf = caseEnding(n, 'nom', false); const af = adjForm(adj, g, 'nom', false);
+    words.push(W(nf, 'subj', 'nom **indéfini** (tanwīn -un).', n.fr[0]), W(af, 'adj', 'adjectif indéfini : il copie le cas et le tanwīn du nom.', adj.fr[0]));
+    warn = 'Attention : ce n\'est pas une phrase ! ' + nf + ' ' + af + ' veut dire « ' + frJoin(frNP(n, false, adj)) + ' ». Pour dire « ' + frJoin(['le', n.fr[0]]) + ' est ' + adj.fr[0] + ' », le sujet doit être **défini** (avec ال) et l\'attribut **indéfini** : ' + caseEnding(n, 'nom', true) + ' ' + af + '.';
+    return { words, fr: cap(frJoin(frNP(n, false, adj))), notes, warn };
+  }
+  // --- sujet indéfini + groupe prépositionnel : « il y a … »
+  if (n && !def && isPP) {
+    const pw = ppWords();
+    const sc = mod === 'inna' ? 'acc' : 'nom';
+    const nf = caseEnding(n, sc, false);
+    const head = [];
+    if (mod === 'kana') head.push(W(g === 'f' ? 'كَانَتْ' : 'كَانَ', 'kana', 'كَانَ « était » : met la phrase au passé. Ici l\'ordre est inversé, mais le sujet reste au nominatif.', 'était'));
+    if (mod === 'laysa' || mod === 'laysaBi') head.push(W(g === 'f' ? 'لَيْسَتْ' : 'لَيْسَ', 'kana', 'لَيْسَ « il n\'y a pas / n\'est pas ».', 'ne… pas'));
+    if (mod === 'inna') head.push(W('إِنَّ', 'inna', 'إِنَّ « certes » : son nom passe à l\'**accusatif**, même s\'il est placé loin, après le groupe « où ».', 'certes'));
+    if (c.q) head.unshift(W('هَلْ', 'q', 'هَلْ : transforme la phrase en question oui/non.', 'est-ce que'));
+    words.push(...head, ...pw, W(nf, 'subj', (mod === 'inna' ? 'nom de إِنَّ, à l\'**accusatif indéfini** (-an).' : 'sujet **indéfini** au nominatif (-un). Un sujet indéfini se place **après** le « où » : on obtient « il y a … ».'), n.fr[0]));
+    notes.push('En arabe, on ne commence pas une phrase par un nom indéfini : on dit « dans la maison [il y a] un garçon ».');
+    const frBase = mod === 'kana' ? ['il', 'y', 'avait'] : (mod.startsWith('laysa') ? ['il', 'n\'y', 'a', 'pas'] : ['il', 'y', 'a']);
+    let obj = frNP(n, false); if (mod.startsWith('laysa')) obj = ['de', n.fr[0]];
+    let fr = frJoin([...(mod === 'inna' ? ['certes,'] : []), ...frBase, ...obj, ...frPP()]);
+    if (c.q) fr = frJoin(['est-ce', 'qu\'' + frJoin(frBase), ...obj, ...frPP()]) + ' ?';
+    return { words: fixLiaison(words), fr: cap(fr), notes, warn };
+  }
+  // --- cas général : sujet défini (ou pronom)
+  const head = [];
+  if (c.q) head.push(W('هَلْ', 'q', 'هَلْ : question oui / non. Devant ال, son soukoun devient kasra : هَلِ.', 'est-ce que'));
+  let subjW = null;
+  if (n) {
+    const nf = caseEnding(n, subjCase, true);
+    subjW = W(nf, 'subj', subjCase === 'acc' ? 'nom de إِنَّ : il passe à l\'**accusatif** (-a). إِنَّ ne change pas le sens, elle insiste : « certes ».' : (mod === 'kana' || mod.startsWith('laysa') ? 'nom de ' + (mod === 'kana' ? 'كَانَ' : 'لَيْسَ') + ' : il reste au **nominatif** (-u).' : 'sujet de la phrase nominale (**mubtadaʾ**) : défini et au **nominatif** (-u).') + (n.proper && n.diptote ? ' C\'est un nom propre **diptote** : jamais de tanwīn.' : '') + (n.proper && !n.diptote && n.id !== 'allah' ? ' Nom propre avec tanwīn.' : ''), n.fr[0]);
+  }
+  if (mod === 'kana') head.push(W(P ? kanaPron(P) : (g === 'f' ? 'كَانَتْ' : 'كَانَ'), 'kana', 'كَانَ « était » : met la phrase au passé, et son attribut passe à l\'**accusatif**.' + (P ? ' Avec un pronom, كَانَ se conjugue et le pronom disparaît.' : (g === 'f' ? ' ـَتْ car le sujet est féminin.' : '')), 'était'));
+  if (mod === 'laysa' || mod === 'laysaBi') head.push(W(P ? laysaPron(P) : (g === 'f' ? 'لَيْسَتْ' : 'لَيْسَ'), 'kana', 'لَيْسَ « n\'est pas » : négation de la phrase nominale ; ' + (mod === 'laysaBi' ? 'ici l\'attribut est introduit par بِـ, donc au **génitif** : c\'est une négation plus forte, « pas du tout ».' : 'son attribut passe à l\'**accusatif**.'), 'n\'est pas'));
+  if (mod === 'inna') head.push(W(P ? innaPron(P) : 'إِنَّ', 'inna', P ? 'إِنَّ + pronom suffixe : le pronom se colle à إِنَّ.' : 'إِنَّ « certes, en vérité » : renforce la phrase ; son nom passe à l\'accusatif, l\'attribut reste au nominatif.', 'certes'));
+  words.push(...head);
+  if (n) words.push(subjW);
+  else if (mod === 'none') words.push(W(P.ar, 'subj', 'pronom personnel sujet : **invariable** (pas de cas visible).', P.fr));
+  // attribut
+  const predWords = [];
+  if (isPP) predWords.push(...ppWords());
+  else {
+    let af;
+    if (mod === 'laysaBi') af = 'بِ' + adjForm(adj, g, 'gen', false);
+    else af = adjForm(adj, g, predCase, false);
+    predWords.push(W(af, 'pred', 'attribut (**khabar**) : **indéfini** et ' + ({ nom: 'au **nominatif** (-un)', acc: 'à l\'**accusatif** (-an) à cause de ' + (mod === 'kana' ? 'كَانَ' : 'لَيْسَ'), gen: 'au **génitif** (-in) à cause de بِـ' }[predCase]) + '. Il s\'accorde en genre avec le sujet' + (g === 'f' ? ' (féminin : ـَة)' : '') + '.', adj.fr[g === 'f' ? 1 : 0]));
+  }
+  words.push(...predWords);
+  // français
+  const subjFr = n ? frNP(n, true) : [P.fr];
+  const p = n ? 2 : P.p;
+  let verb;
+  if (mod === 'kana') verb = [ETAIT[p]]; else if (mod.startsWith('laysa')) verb = ['ne', ETRE[p], 'pas']; else verb = [ETRE[p]];
+  const predFr = isPP ? frPP() : [frAdjAgree(adj, gFr, false)];
+  let fr = frJoin([...subjFr, ...verb, ...(mod === 'laysaBi' ? ['du', 'tout'] : []), ...predFr]);
+  if (mod === 'laysaBi') fr = frJoin([...subjFr, ...verb, ...predFr, 'du', 'tout']);
+  if (mod === 'inna') fr = 'certes, ' + fr;
+  if (c.q) fr = frJoin(['est-ce', 'que', ...subjFr, ...verb, ...predFr]) + ' ?';
+  if (!isPP && !c.q) notes.push('Il n\'y a pas de verbe « être » au présent : الْوَلَدُ كَبِيرٌ = « le garçon [est] grand », comme en russe « мальчик — большой ».');
+  return { words: fixLiaison(words), fr: cap(fr), notes, warn };
+}
+function kanaPron(P) { return { anaM: 'كُنْتُ', anaF: 'كُنْتُ', anta: 'كُنْتَ', anti: 'كُنْتِ', huwa: 'كَانَ', hiya: 'كَانَتْ' }[P.id]; }
+function laysaPron(P) { return { anaM: 'لَسْتُ', anaF: 'لَسْتُ', anta: 'لَسْتَ', anti: 'لَسْتِ', huwa: 'لَيْسَ', hiya: 'لَيْسَتْ' }[P.id]; }
+function innaPron(P) { return { anaM: 'إِنِّي', anaF: 'إِنِّي', anta: 'إِنَّكَ', anti: 'إِنَّكِ', huwa: 'إِنَّهُ', hiya: 'إِنَّهَا' }[P.id]; }
+function fixLiaison(words) { const ar = applyLiaison(words.map(w => w.ar)); words.forEach((w, i) => w.ar = ar[i]); return words; }
+
+function buildVerbal(c) {
+  // c : verb, tense, subjKind ('noun'|'pron'), subj, subjDef, pron, emph, order ('vso'|'svo'), obj ('none'|'noun'|'pron'), objNoun, objDef, pp (bool), prep, ppNoun, ppDef, passive, inna, q, qad
+  const v = byId(VERBS, c.verb) || VERBS[0];
+  const words = []; const notes = []; let warn = '';
+  let tense = c.tense || 'past';
+  const isImp = tense === 'imp' || tense === 'impNeg';
+  let P = byId(PERS, c.pron) || PERS[4];
+  let n = c.subjKind === 'noun' && !isImp ? byId(NOUNS, c.subj) : null;
+  if (n && n.noSubjVerb) n = byId(NOUNS, 'walad');
+  if (isImp && !['anta', 'anti', 'antum'].includes(P.id)) P = PERS[2];
+  const objN = byId(NOUNS, c.objNoun) || byId(NOUNS, (v.obj || ['kitab'])[0]);
+  const hasObj = v.tr && c.obj !== 'none';
+  const objPron = hasObj && c.obj === 'pron';
+  const passive = !!c.passive && v.tr && hasObj && !objPron && !isImp;
+  const prep = byId(PREPS, c.prep) || byId(PREPS, v.prep || 'fi');
+  const ppN = byId(NOUNS, c.ppNoun) || NOUNS[13];
+  // personne grammaticale du verbe
+  let pid = n ? (n.g === 'f' ? 'hiya' : 'huwa') : P.id;
+  if (passive) pid = objN.g === 'f' ? 'hiya' : 'huwa';
+  const vf = verbForm(v, pid, tense, passive);
+  let verbAr = vf.v;
+  if (objPron) verbAr = attachObj(verbAr, objN.g);
+  const verbFull = vf.attached ? vf.pre + verbAr : verbAr;
+  const moodTxt = { past: 'passé (accompli)', ind: 'présent, mode **indicatif** (finale -u / ـونَ)', subj: 'mode **subjonctif** (finale -a / ـوا) à cause de لَنْ', jus: 'mode **apocopé** (soukoun / ـوا) à cause de ' + (tense === 'impNeg' ? 'لَا de défense' : 'لَمْ'), imp: '**impératif** : on part de l\'apocopé, on enlève le préfixe تَـ et on ajoute un alif de liaison' }[vf.mood];
+  const personTxt = passive ? 'au **passif** (voyelles u-i : ' + conjPast(v, 'huwa', true) + ') : ce n\'est plus « quelqu\'un fait », mais « la chose est faite ».' : (n ? '3e personne du singulier (' + (n.g === 'f' ? 'féminin ـَتْ / تَـ, car le sujet est féminin' : 'masculin') + ') : quand le sujet nom vient **après** le verbe, le verbe reste au **singulier**.' : 'conjugué à la personne « ' + P.fr + ' » : la terminaison ou le préfixe contient déjà le sujet, pas besoin de pronom.');
+  const verbWhy = 'verbe ' + v.r.split('').join('-') + ' « ' + v.fr.inf + ' » : ' + moodTxt + ' ; ' + personTxt + (objPron ? ' Le pronom complément ' + (objN.g === 'f' ? 'ـهَا (la)' : 'ـهُ (le)') + ' est collé à la fin.' : '');
+  const verbW = W(verbFull, 'verb', verbWhy + (v.note ? ' — ' + cap(v.note) : ''), v.fr.inf);
+  const head = [];
+  if (c.q) head.push(W('هَلْ', 'q', 'هَلْ : question oui / non.', 'est-ce que'));
+  if (c.qad && tense === 'past') head.push(W('قَدْ', 'part', 'قَدْ + passé : « déjà, bel et bien » — l\'action est accomplie et c\'est sûr.', 'déjà'));
+  if (vf.pre && !vf.attached) head.push(W(vf.pre, 'part', { 'سَوْفَ': 'سَوْفَ : futur (souvent plus lointain que سَـ).', 'لَمْ': 'لَمْ : négation du **passé**, mais suivie du **présent à l\'apocopé** (soukoun final) !', 'مَا': 'مَا + passé : autre négation du passé, plus narrative.', 'لَا': tense === 'impNeg' ? 'لَا de défense + apocopé : « ne fais pas ! »' : 'لَا : négation du présent (le verbe reste à l\'indicatif).', 'لَنْ': 'لَنْ : négation du **futur** (« ne … jamais / pas ») ; le verbe passe au **subjonctif** (-a).' }[vf.pre], 'négation / futur'));
+  const subjInna = c.inna && n;
+  const subjW = n ? W(caseEnding(n, subjInna ? 'acc' : 'nom', n.proper ? true : c.subjDef), 'subj', subjInna ? 'sujet placé après إِنَّ : il passe à l\'**accusatif** (-a), et le verbe vient après lui.' : 'sujet du verbe (**fāʿil**) : au **nominatif** (-u' + (n.proper || c.subjDef ? '' : 'n') + ').' + (n.diptote ? ' Diptote : pas de tanwīn.' : ''), n.fr[0]) : null;
+  const objW = hasObj && !objPron ? W(caseEnding(objN, passive ? 'nom' : 'acc', objN.proper ? true : c.objDef), passive ? 'subj' : 'obj', passive ? 'ancien complément devenu **sujet du passif** (nāʾib al-fāʿil) : il passe au **nominatif** (-u) !' : 'complément d\'objet direct (**mafʿūl bihi**) : à l\'**accusatif** (-a' + (objN.proper || c.objDef ? '' : 'n') + ').' + (!c.objDef && !objN.proper && !objN.ar.endsWith('ة') ? ' L\'alif final ne se prononce pas : il porte seulement le tanwīn -an.' : ''), objN.fr[0]) : null;
+  const ppArr = [];
+  if (c.pp) {
+    const nf = caseEnding(ppN, 'gen', ppN.proper ? true : c.ppDef);
+    const att = withPrep(prep, nf);
+    if (att) ppArr.push(W(att, 'pp', 'préposition ' + prep.ar + ' collée + nom au **génitif**.', prep.fr + ' + ' + ppN.fr[0]));
+    else ppArr.push(W(prep.ar, 'prep', 'préposition « ' + prep.fr + ' » → génitif.', prep.fr), W(nf, 'gen', 'nom au **génitif** après ' + prep.ar + '.', ppN.fr[0]));
+  }
+  words.push(...head);
+  if (c.inna && n) words.push(W('إِنَّ', 'inna', 'إِنَّ « certes » devant une phrase verbale : le sujet passe devant le verbe et à l\'accusatif.', 'certes'), subjW, verbW);
+  else if (n && c.order === 'svo' && !passive) { words.push(subjW, verbW); notes.push('Ordre sujet-verbe : la phrase devient **nominale** (le sujet est mis en avant). Au pluriel, le verbe s\'accorderait alors en nombre.'); }
+  else {
+    if (!n && c.emph && !isImp && !passive) words.push(W(P.ar, 'subj', 'pronom ajouté pour **insister** : « moi, j\'… ». Il n\'est pas obligatoire car le verbe contient déjà la personne.', P.fr));
+    words.push(verbW);
+    if (passive) { if (objW) words.push(objW); }
+    else if (n) words.push(subjW);
+  }
+  if (objW && !passive) words.push(objW);
+  words.push(...ppArr);
+  // français
+  const p = n ? 2 : P.p;
+  const subjFr = passive ? frNP(objN, objN.proper || c.objDef) : (n ? frNP(n, n.proper || c.subjDef) : [P.fr]);
+  const gSubj = passive ? objN.fr[1] : (n ? n.fr[1] : P.g);
+  const clitic = objPron ? { t: objN.fr[1] === 'f' ? 'la' : 'le', g: objN.fr[1] } : null;
+  let vp;
+  if (isImp) {
+    if (tense === 'imp') {
+      let f = v.fr.pres[P.p]; if (P.p === 1 && /es$/.test(f)) f = f.slice(0, -1); if (f === 'vas') f = 'va';
+      vp = [f + (clitic ? '-' + clitic.t : '')];
+    } else vp = ['ne', ...(clitic ? [clitic.t] : []), (v.fr.pres[P.p]), 'pas'];
+  } else vp = frVerbPhrase(v.fr, tense, passive ? 2 : p, gSubj, passive ? false : (!n && P.pl), clitic, passive);
+  if (c.qad && tense === 'past' && !passive) { const i = vp.length - 1; vp.splice(i, 0, 'déjà'); }
+  const objFr = hasObj && !objPron && !passive ? frNP(objN, objN.proper || c.objDef) : [];
+  const ppFr = c.pp ? [v.prepFr && prep.id === v.prep ? v.prepFr : prep.id === 'bi' ? 'avec' : prep.fr, ...frNP(ppN, ppN.proper || c.ppDef)] : [];
+  const emph = !n && c.emph && !isImp && !passive ? [P.em + ','] : [];
+  let fr = frJoin([...emph, ...(isImp ? [] : subjFr), ...vp, ...objFr, ...ppFr]);
+  if (c.inna && n) fr = 'certes, ' + fr;
+  if (c.q) fr = frJoin(['est-ce', 'que', ...(isImp ? [] : subjFr), ...vp, ...objFr, ...ppFr]) + ' ?';
+  if (tense === 'negPastLam') notes.push('Astuce : لَمْ + présent apocopé = « n\'a pas fait ». C\'est la négation du passé la plus courante en arabe littéraire (et dans le Coran : لَمْ يَلِدْ).');
+  if (passive) notes.push('Au passif, l\'auteur de l\'action disparaît : on ne dit pas « par qui ».');
+  if (!v.tr && c.obj && c.obj !== 'none') notes.push('Ce verbe est intransitif : il n\'a pas de complément d\'objet direct ; on utilise une préposition (' + (byId(PREPS, v.prep) || PREPS[0]).ar + ').');
+  return { words: fixLiaison(words), fr: cap(fr), notes, warn, verb: v, pid };
+}
+
+function buildNP(c) {
+  // groupe nominal : noun, def ('indef'|'def'|'idafa'), noun2, def2, adj (id|''), adjTarget (1|2), cas ('nom'|'acc'|'gen')
+  const n = byId(NOUNS.filter(x => !x.proper), c.noun) || NOUNS[7];
+  const n2 = byId(NOUNS, c.noun2) || NOUNS[2];
+  const adj = c.adj ? byId(ADJS, c.adj) : null;
+  const cas = c.cas || 'nom';
+  const words = []; const notes = [];
+  const casName = { nom: 'nominatif (-u)', acc: 'accusatif (-a)', gen: 'génitif (-i)' }[cas];
+  if (c.def === 'idafa') {
+    const d2 = n2.proper ? true : c.def2;
+    words.push(W(caseEnding(n, cas, 'construct'), 'head', '1er terme de l\'**annexion** (iḍāfa) : **ni ال ni tanwīn**, mais il est défini grâce au 2e terme. Son cas dépend de sa place dans la phrase : ici ' + casName + '.', n.fr[0]));
+    words.push(W(caseEnding(n2, 'gen', d2), 'gen', '2e terme de l\'annexion : **toujours au génitif** (« de … »)' + (n2.diptote ? ' ; diptote, donc -a sans tanwīn' : '') + '.', n2.fr[0]));
+    if (adj) {
+      const t2 = c.adjTarget === 2;
+      const g = t2 ? n2.g : n.g;
+      const af = adjForm(adj, g, t2 ? 'gen' : cas, t2 ? d2 : d2);
+      words.push(W(af, 'adj', 'adjectif placé **après toute l\'annexion**. Il qualifie le ' + (t2 ? '2e' : '1er') + ' nom : il copie son cas (' + (t2 ? 'génitif' : casName) + '), son genre et sa définition' + (d2 ? ' (ال)' : ' (tanwīn)') + '. C\'est sa **voyelle finale** qui dit de quel nom il parle !', adj.fr[0]));
+      notes.push('Change « l\'adjectif qualifie » : seule la dernière voyelle de l\'adjectif change, et pourtant le sens change ! كِتَابُ الطَّالِبِ الْكَبِيرُ = le grand livre de l\'étudiant ; كِتَابُ الطَّالِبِ الْكَبِيرِ = le livre du grand étudiant.');
+    }
+    let fr;
+    const np1 = frNP(n, d2, adj && c.adjTarget !== 2 ? adj : null);
+    const np2 = frNP(n2, d2, adj && c.adjTarget === 2 ? adj : null);
+    fr = frJoin([...np1, 'de', ...np2]);
+    return { words: fixLiaison(words), fr: cap(fr), notes };
+  }
+  const def = c.def === 'def';
+  words.push(W(caseEnding(n, cas, def), 'head', (def ? 'nom **défini** par ال : une seule voyelle finale, jamais de tanwīn. ' : 'nom **indéfini** : le tanwīn (voyelle doublée) signifie « un, une ». ') + 'Cas : ' + casName + '.' + (cas === 'acc' && !def && !n.ar.endsWith('ة') ? ' À l\'accusatif indéfini, on ajoute un alif muet : ـًا.' : ''), n.fr[0]));
+  if (adj) words.push(W(adjForm(adj, n.g, cas, def), 'adj', 'adjectif : il se place **après** le nom et copie **tout** : le cas, le genre' + (n.g === 'f' ? ' (féminin ـَة)' : '') + ' et la définition (' + (def ? 'ال' : 'tanwīn') + ').', adj.fr[0]));
+  notes.push({ nom: 'Au nominatif, ce groupe peut être le sujet : « ' + frJoin(frNP(n, def, adj)) + ' est… ».', acc: 'À l\'accusatif, il peut être le complément d\'objet : « j\'ai vu ' + frJoin(frNP(n, def, adj)) + ' ».', gen: 'Au génitif, il suit une préposition : « dans ' + frJoin(frNP(n, def, adj)) + ' ».' }[cas]);
+  return { words: fixLiaison(words), fr: cap(frJoin(frNP(n, def, adj))), notes };
+}
+
+function buildSentence(cfg) {
+  if (cfg.type === 'verbal') return buildVerbal(cfg);
+  if (cfg.type === 'np') return buildNP(cfg);
+  return buildNominal(cfg);
+}
+
+/* « Comment j'aurais pu le dire autrement ? » : variantes automatiques */
+function variantsOf(cfg) {
+  const out = [];
+  const add = (label, change, explain) => {
+    const c = Object.assign({}, cfg, change);
+    try { const r = buildSentence(c); out.push({ label, cfg: c, ar: r.words.map(w => w.ar).join(' '), fr: r.fr, explain }); } catch (e) { /* ignore */ }
+  };
+  if (cfg.type === 'nominal') {
+    const mod = cfg.mod || 'none';
+    if (mod !== 'none') add('Sans mot d\'introduction', { mod: 'none' }, 'la phrase de base : sujet et attribut au nominatif.');
+    if (mod !== 'kana') add('Au passé avec كَانَ', { mod: 'kana' }, 'كَانَ met l\'attribut à l\'accusatif : -un devient -an.');
+    if (mod !== 'inna') add('Avec insistance : إِنَّ', { mod: 'inna' }, 'إِنَّ met le sujet à l\'accusatif : -u devient -a.');
+    if (mod !== 'laysa') add('À la forme négative : لَيْسَ', { mod: 'laysa' }, 'لَيْسَ met l\'attribut à l\'accusatif.');
+    if (cfg.pred !== 'pp' && mod !== 'laysaBi') add('Négation renforcée : لَيْسَ … بِـ', { mod: 'laysaBi' }, 'avec بِـ, l\'attribut passe au génitif : -in.');
+    if (!cfg.q) add('En question', { q: true }, 'هَلْ devant la phrase ; rien d\'autre ne change.');
+    if (cfg.subjKind === 'noun' && cfg.pred !== 'pp') {
+      const n = byId(NOUNS, cfg.subj);
+      if (n && !n.proper) {
+        const t = buildNP({ type: 'np', noun: n.id, def: 'def', adj: cfg.adj, cas: 'nom' });
+        out.push({ label: 'Et si l\'adjectif avait ال ?', ar: t.words.map(w => w.ar).join(' '), fr: t.fr + ' (…)', explain: 'avec ال sur les deux mots, ce n\'est plus une phrase mais un groupe : « ' + t.fr.toLowerCase() + ' », qui attend la suite.', cfg: { type: 'np', noun: n.id, def: 'def', adj: cfg.adj, cas: 'nom' } });
+        const sep = caseEnding(n, 'nom', true) + ' ' + (n.g === 'f' ? 'هِيَ' : 'هُوَ') + ' ' + adjForm(byId(ADJS, cfg.adj) || ADJS[0], n.g, 'nom', true);
+        out.push({ label: 'Pronom de séparation', ar: sep, fr: 'C\'est ' + frJoin(frNP(n, true)).toLowerCase() + ' qui est ' + (n.fr[1] === 'f' ? 'la ' : 'le ') + ((byId(ADJS, cfg.adj) || ADJS[0]).fr[n.fr[1] === 'f' ? 1 : 0]) + ' (et pas un autre)', explain: 'un pronom هُوَ / هِيَ entre deux mots définis : la phrase redevient complète et insiste.', cfg: null });
+      }
+    }
+    if (cfg.subjKind === 'noun' && cfg.subjDef === false) add('Avec un sujet défini', { subjDef: true }, 'avec ال, le sujet peut ouvrir la phrase.');
+  } else if (cfg.type === 'verbal') {
+    const t = cfg.tense || 'past';
+    ['past', 'pres', 'fut', 'negPastLam', 'negFut'].filter(x => x !== t).forEach(x => add(byId(TENSES, x).label, { tense: x }, {
+      past: 'le passé : la personne est à la fin du verbe.', pres: 'le présent : la personne est au début (préfixe) et la fin -u = indicatif.',
+      fut: 'سَـ collé au présent = futur proche.', negPastLam: 'لَمْ + soukoun final : « n\'a pas ».', negFut: 'لَنْ + -a final : « ne … pas » au futur.',
+    }[x]));
+    if (cfg.subjKind === 'noun' && cfg.order !== 'svo' && !cfg.passive) add('Le sujet en premier', { order: 'svo' }, 'phrase nominale : on met le sujet en avant.');
+    if (cfg.subjKind === 'noun' && !cfg.inna) add('Avec insistance : إِنَّ', { inna: true }, 'إِنَّ + sujet à l\'accusatif, puis le verbe.');
+    if (cfg.subjKind === 'noun') add('Avec un pronom à la place du sujet', { subjKind: 'pron', pron: (byId(NOUNS, cfg.subj) || {}).g === 'f' ? 'hiya' : 'huwa' }, 'le sujet disparaît : il est contenu dans le verbe.');
+    const v = byId(VERBS, cfg.verb);
+    if (v && v.tr && cfg.obj === 'noun') add('Le complément remplacé par un pronom', { obj: 'pron' }, 'le complément devient un petit pronom collé au verbe : ـهُ / ـهَا.');
+    if (v && v.tr && cfg.obj === 'noun' && !cfg.passive && !/imp/.test(t)) add('Au passif', { passive: true }, 'les voyelles du verbe deviennent u-i ; le complément devient sujet et passe au nominatif.');
+    if (t === 'past' && !cfg.qad) add('Avec قَدْ', { qad: true }, 'قَدْ + passé : « déjà, bel et bien ».');
+    if (!cfg.q) add('En question', { q: true }, 'هَلْ devant la phrase.');
+  } else if (cfg.type === 'np') {
+    ['nom', 'acc', 'gen'].filter(x => x !== cfg.cas).forEach(x => add({ nom: 'Au nominatif', acc: 'À l\'accusatif', gen: 'Au génitif' }[x], { cas: x }, 'seules les dernières voyelles changent.'));
+    if (cfg.def !== 'def') add('Défini (avec ال)', { def: 'def' }, 'ال remplace le tanwīn.');
+    if (cfg.def !== 'indef') add('Indéfini (tanwīn)', { def: 'indef' }, 'le tanwīn = « un, une ».');
+    if (cfg.def !== 'idafa') add('Annexion « le … de … »', { def: 'idafa' }, 'le 1er nom perd ال et tanwīn, le 2e passe au génitif.');
+    if (cfg.def === 'idafa' && cfg.adj) add('L\'adjectif qualifie l\'autre nom', { adjTarget: cfg.adjTarget === 2 ? 1 : 2 }, 'une seule voyelle change… et le sens aussi !');
+  }
+  return out;
+}
+
+/* Tableau de conjugaison complet d'un verbe */
+function conjugationTable(vid) {
+  const v = byId(VERBS, vid) || VERBS[0];
+  const rows = PERS.filter(p => p.id !== 'anaF').map(p => ({
+    p, past: conjPast(v, p.id), pres: conjPresent(v, p.id, 'ind'), subj: conjPresent(v, p.id, 'subj'), jus: conjPresent(v, p.id, 'jus'),
+    imp: ['anta', 'anti', 'antum'].includes(p.id) ? conjImperative(v, p.id) : '',
+  }));
+  return { v, rows };
+}
+/* ====================================================================
+ * 04 - Données : chargement local du Coran (aucune connexion internet)
+ * ==================================================================== */
+
+const DATA_VERSION = '2';
+const DATA_URL = 'https://raw.githubusercontent.com/lPeaPSqeaKl/arabe-/main/data/';
+const INL_NAMES = { 'ا': 'alif', 'ل': 'lām', 'م': 'mīm', 'ص': 'ṣād', 'ر': 'rā', 'ك': 'kāf', 'ه': 'hā', 'ي': 'yā', 'ع': 'ʿayn', 'ط': 'ṭā', 'س': 'sīn', 'ح': 'ḥā', 'ق': 'qāf', 'ن': 'nūn' };
+const AR_DIGITS = '٠١٢٣٤٥٦٧٨٩';
+function arNum(n) { return String(n).replace(/\d/g, d => AR_DIGITS[d]); }
+
+function wordText(w) { return w.map(g => g[0]).join(''); }
+function isInitials(w) { return w.length === 1 && (w[0][2] || '').split('|')[0] === 'INL'; }
+function initialsTranslit(w) { return skeleton(wordText(w)).split('').map(c => INL_NAMES[c] || c).join('-'); }
+
+/* Translittération d'un verset du corpus (gère les lettres isolées الٓمٓ) */
+function translitVerse(words, style) {
+  const parts = []; let run = [];
+  const flush = () => { if (run.length) { parts.push(translitPhrase(run, style)); run = []; } };
+  for (const w of words) {
+    if (isInitials(w)) { flush(); parts.push(initialsTranslit(w)); } else run.push(wordText(w));
+  }
+  flush();
+  return parts.join(' ');
+}
+function translitTokens(words, style) {
+  const t = translitVerse(words, style).split(' ');
+  return t.length === words.length ? t : words.map(w => isInitials(w) ? initialsTranslit(w) : translitPhrase([wordText(w)], style));
+}
+
+class QuranData {
+  constructor(app, dir) {
+    this.app = app; this.dir = dir; this.cache = new Map();
+    this.surahs = null; this.lemmas = null; this.byRoot = null; this.forms = null; this.formsPromise = null;
+  }
+  async readJSON(rel) {
+    const txt = await this.app.vault.adapter.read(this.dir + '/data/' + rel);
+    return JSON.parse(txt);
+  }
+  /* Sur iPad / installation par BRAT, le dossier data n'existe pas : on le télécharge une seule fois */
+  async ensureData(progress) {
+    const ad = this.app.vault.adapter; const base = this.dir + '/data';
+    try { if ((await ad.read(base + '/version.txt')).trim() === DATA_VERSION) return; } catch (e) { /* absent */ }
+    if (!(await ad.exists(base))) await ad.mkdir(base);
+    if (!(await ad.exists(base + '/s'))) await ad.mkdir(base + '/s');
+    const files = ['surahs.json', 'lemmas.json'];
+    for (let i = 1; i <= 114; i++) files.push('s/' + String(i).padStart(3, '0') + '.json');
+    let done = 0;
+    const worker = async () => {
+      while (files.length) {
+        const f = files.shift();
+        const r = await requestUrl({ url: DATA_URL + f });
+        await ad.write(base + '/' + f, r.text);
+        done++; if (progress) progress(done, 116);
+      }
+    };
+    try { await Promise.all([worker(), worker(), worker(), worker()]); }
+    catch (e) { throw new Error('Première installation : connexion internet nécessaire pour télécharger le Coran (' + e.message + ')'); }
+    await ad.write(base + '/version.txt', DATA_VERSION);
+  }
+  async init(progress) {
+    if (this.surahs) return;
+    await this.ensureData(progress);
+    const [s, l] = await Promise.all([this.readJSON('surahs.json'), this.readJSON('lemmas.json')]);
+    this.surahs = s; this.lemmas = l;
+    this.byRoot = new Map();
+    l.forEach((x, i) => { if (x[3]) { if (!this.byRoot.has(x[3])) this.byRoot.set(x[3], []); this.byRoot.get(x[3]).push(i); } });
+  }
+  async surah(n) {
+    if (this.cache.has(n)) return this.cache.get(n);
+    const d = await this.readJSON('s/' + String(n).padStart(3, '0') + '.json');
+    this.cache.set(n, d);
+    return d;
+  }
+  surahInfo(n) { return this.surahs[n - 1]; }
+  surahLabel(n) { const s = this.surahInfo(n); return n + '. ' + s[1] + ' — ' + s[2]; }
+  rootFamily(root, exceptId) {
+    return (this.byRoot.get(root) || []).filter(i => i !== exceptId).map(i => ({ id: i, l: this.lemmas[i] })).sort((a, b) => b.l[5] - a.l[5]);
+  }
+  allRefsOf(lemId) { return this.lemRefs ? (this.lemRefs.get(lemId) || []) : this.refsOf(lemId); }
+  refsOf(lemId) {
+    const l = this.lemmas[lemId];
+    if (!l || !l[6]) return [];
+    return l[6].split(',').map(r => r.split(':').map(Number));
+  }
+  /* Index de toutes les formes du Coran (construit une seule fois, à la demande) */
+  buildForms(progress) {
+    if (this.forms) return Promise.resolve(this.forms);
+    if (this.formsPromise) return this.formsPromise;
+    this.formsPromise = (async () => {
+      const forms = new Map(); const pos = new Map(); const lemRefs = new Map(); const lemForms = new Map();
+      for (let s = 1; s <= 114; s++) {
+        const d = await this.surah(s);
+        d.v.forEach((v, vi) => v[2].forEach((w, wi) => {
+          const txt = wordText(w);
+          const key = skeleton(txt, true);
+          if (!key) return;
+          if (!pos.has(key)) pos.set(key, []); pos.get(key).push([s, vi + 1, wi + 1]);
+          const lid = stemOf(w).seg[3];
+          if (lid >= 0) {
+            if (!lemRefs.has(lid)) { lemRefs.set(lid, []); lemForms.set(lid, new Map()); }
+            lemRefs.get(lid).push([s, vi + 1, wi + 1]);
+            const fm = lemForms.get(lid); fm.set(txt, (fm.get(txt) || 0) + 1);
+          }
+          let m = forms.get(key);
+          if (!m) { m = new Map(); forms.set(key, m); }
+          const e = m.get(txt);
+          if (e) e.n++; else m.set(txt, { txt, n: 1, ref: [s, vi + 1, wi + 1] });
+        }));
+        if (progress && s % 10 === 0) progress(s);
+      }
+      this.forms = forms; this.pos = pos; this.lemRefs = lemRefs; this.lemForms = lemForms;
+      return forms;
+    })();
+    return this.formsPromise;
+  }
+  /* Cherche des suites de mots du texte dans un même verset (pour choisir la bonne lecture) */
+  async findRuns(words) {
+    const keys = words.map(w => skeleton(w, true));
+    const res = new Array(words.length).fill(null);
+    let i = 0;
+    while (i < words.length) {
+      let best = null;
+      for (const r of (this.pos.get(keys[i]) || []).slice(0, 4000)) {
+        const v = this.cache.get(r[0]).v[r[1] - 1][2];
+        let k = 1;
+        while (i + k < words.length && r[2] - 1 + k < v.length && skeleton(wordText(v[r[2] - 1 + k]), true) === keys[i + k]) k++;
+        if (!best || k > best.k) best = { r, k, v };
+        if (k === words.length - i) break;
+      }
+      if (best && best.k >= 2) {
+        for (let j = 0; j < best.k; j++) res[i + j] = { txt: wordText(best.v[best.r[2] - 1 + j]), ref: [best.r[0], best.r[1], best.r[2] + j], run: best.k };
+        i += best.k;
+      } else i++;
+    }
+    return res;
+  }
+  /* Cherche un mot (voyellé ou non) dans le Coran ; renvoie les candidats triés */
+  lookup(word) {
+    if (!this.forms) return [];
+    const tries = [];
+    const sk = skeleton(word, true);
+    tries.push({ key: sk, strip: '' });
+    if (/^[وف]/.test(sk) && sk.length > 2) tries.push({ key: sk.slice(1), strip: sk[0] });
+    const out = []; const seen = new Set();
+    for (const t of tries) {
+      const m = this.forms.get(t.key);
+      if (!m) continue;
+      for (const e of m.values()) {
+        if (seen.has(e.txt)) continue; seen.add(e.txt);
+        const exact = normalizeForCompare(e.txt) === normalizeForCompare(word);
+        out.push(Object.assign({ score: (exact ? 1000 : 0) + vowelScore(word, e.txt) * 10 + Math.log(1 + e.n) - (t.strip ? 5 : 0), exact, strip: t.strip }, e));
+      }
+      if (out.length) break;
+    }
+    return out.sort((a, b) => b.score - a.score);
+  }
+}
+function normalizeForCompare(w) {
+  return (w || '').replace(/ٱ/g, 'ا').replace(/[ۡ]/g, 'ْ').replace(/[ۖ-ۜ۞۩۝]/g, '').replace(/ى(?=$)/, 'ى');
+}
+/* ====================================================================
+ * 05 - Interface : outils communs + lecture du Coran mot par mot
+ * ==================================================================== */
+
+function h(parent, tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); return el; }
+/* texte avec **gras** */
+function mdText(parent, tag, cls, text) {
+  const e = h(parent, tag, cls);
+  const both = String(text || '').split(' ‖ ');
+  if (both.length > 1) { mdText(e, 'div', null, both[0]); mdText(e, 'div', 'aa-ru', both[1]); return e; }
+  String(text || '').split(/\*\*/).forEach((part, i) => {
+    if (!part) return;
+    addBidi(i % 2 ? h(e, 'b') : e, part);
+  });
+  return e;
+}
+/* isole chaque passage arabe dans un texte français, pour que l'ordre d'affichage reste juste */
+const AR_RUN = /[؀-ۿݐ-ݿࢠ-ࣿ](?:[؀-ۿݐ-ݿࢠ-ࣿ\s…]*[؀-ۿݐ-ݿࢠ-ࣿ])?/g;
+function addBidi(el, text) {
+  let last = 0; let m;
+  AR_RUN.lastIndex = 0;
+  while ((m = AR_RUN.exec(text))) {
+    if (m.index > last) el.appendChild(document.createTextNode(text.slice(last, m.index)));
+    const b = document.createElement('bdi'); b.className = 'aa-ari'; b.setAttribute('dir', 'rtl'); b.textContent = m[0]; el.appendChild(b);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) el.appendChild(document.createTextNode(text.slice(last)));
+}
+function arSpan(parent, text, cls) {
+  const e = h(parent, 'span', 'aa-ar' + (cls ? ' ' + cls : ''), text);
+  e.setAttribute('dir', 'rtl'); e.setAttribute('lang', 'ar');
+  return e;
+}
+function btn(parent, label, onClick, cls) {
+  const b = h(parent, 'button', 'aa-btn' + (cls ? ' ' + cls : ''), label);
+  b.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); onClick(ev); });
+  return b;
+}
+function selectEl(parent, options, value, onChange, cls) {
+  const s = h(parent, 'select', 'aa-select dropdown' + (cls ? ' ' + cls : ''));
+  for (const [v, label] of options) { const o = h(s, 'option', null, label); o.value = String(v); }
+  s.value = String(value);
+  s.addEventListener('change', () => onChange(s.value));
+  return s;
+}
+function field(parent, label) {
+  const f = h(parent, 'label', 'aa-field');
+  h(f, 'span', 'aa-field-label', label);
+  return f;
+}
+function checkbox(parent, label, value, onChange) {
+  const f = h(parent, 'label', 'aa-check');
+  const c = h(f, 'input'); c.type = 'checkbox'; c.checked = !!value;
+  c.addEventListener('change', () => onChange(c.checked));
+  h(f, 'span', null, label);
+  return f;
+}
+function details(parent, title, open, cls) {
+  const d = h(parent, 'details', 'aa-details' + (cls ? ' ' + cls : ''));
+  if (open) d.open = true;
+  h(d, 'summary', null, title);
+  return d;
+}
+function copyText(t) {
+  try { navigator.clipboard.writeText(t); notify('Copié dans le presse-papiers'); } catch (e) { notify('Impossible de copier'); }
+}
+let notify = (msg) => { try { console.log(msg); } catch (e) { /* */ } };
+
+/* ---------- Son ---------- */
+const pad3 = n => String(n).padStart(3, '0');
+let currentAudio = null;
+function speak(text) {
+  try {
+    const synth = window.speechSynthesis;
+    if (!synth) { notify('La synthèse vocale n\'est pas disponible sur cet appareil.'); return; }
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text.replace(/[ۖ-ۭ]/g, ''));
+    u.lang = 'ar-SA'; u.rate = 0.8;
+    const v = synth.getVoices().find(x => /^ar/i.test(x.lang));
+    if (v) u.voice = v; else notify('Aucune voix arabe installée : la lecture peut être incorrecte.');
+    synth.speak(u);
+  } catch (e) { notify('Son indisponible.'); }
+}
+function playUrl(urls, fallbackText) {
+  if (currentAudio) { try { currentAudio.pause(); } catch (e) { /* */ } }
+  const list = urls.slice();
+  const tryNext = () => {
+    const u = list.shift();
+    if (!u) { if (fallbackText) speak(fallbackText); else notify('Son indisponible (connexion internet nécessaire).'); return; }
+    const a = new Audio(u); currentAudio = a;
+    a.addEventListener('error', tryNext, { once: true });
+    const p = a.play(); if (p && p.catch) p.catch(() => {});
+  };
+  tryNext();
+}
+function playVerse(s, v) { playUrl(['https://everyayah.com/data/Alafasy_128kbps/' + pad3(s) + pad3(v) + '.mp3', 'https://verses.quran.com/Alafasy/mp3/' + pad3(s) + pad3(v) + '.mp3']); }
+function playWord(ref, text, ctx) {
+  if (ctx && ctx.settings.audio === false) { speak(text); return; }
+  if (!ref) { speak(text); return; }
+  playUrl(['https://audio.qurancdn.com/wbw/' + pad3(ref[0]) + '_' + pad3(ref[1]) + '_' + pad3(ref[2]) + '.mp3'], text);
+}
+function soundBtn(parent, onClick, title) { const b = btn(parent, '🔊', onClick, 'aa-btn-quiet aa-sound'); b.title = title || 'Écouter'; return b; }
+
+const POS_CLASS = { N: 'aa-pos-n', V: 'aa-pos-v', P: 'aa-pos-p' };
+const CASE_SHORT = { NOM: 'nominatif', ACC: 'accusatif', GEN: 'génitif' };
+const MOOD_SHORT = { IND: 'indicatif', SUBJ: 'subjonctif', JUS: 'apocopé' };
+
+function refStr(r) { return r[0] + ':' + r[1]; }
+
+/* ---------- Petit résumé du rôle d'un mot (pour la « structure ») ---------- */
+function shortRole(words, wi) {
+  const st = stemOf(words[wi]); const f = st.f;
+  if (isInitials(words[wi])) return { label: 'lettres isolées', cls: 'aa-role-p' };
+  if (f.pos === 'V') {
+    const asp = { PERF: 'verbe au passé', IMPF: 'verbe au présent', IMPV: 'verbe à l\'impératif' }[f.aspect] || 'verbe';
+    return { label: asp + (f.mood ? ' · ' + MOOD_SHORT[f.mood] : '') + (f.pass ? ' · passif' : ''), cls: 'aa-role-v' };
+  }
+  if (f.pos === 'N') {
+    const what = f.sub ? (POS_NAMES[f.sub] || 'nom').split(' (')[0] : 'nom';
+    return { label: what + (f.cas ? ' · ' + CASE_SHORT[f.cas] : ''), cls: f.cas ? 'aa-role-' + f.cas.toLowerCase() : 'aa-role-n' };
+  }
+  return { label: (PARTICLES[f.sub] || 'particule').split(/[ :(]/)[0].replace('conjonction', 'conjonction') || 'particule', cls: 'aa-role-p' };
+}
+function sentenceKind(words) {
+  for (let i = 0; i < words.length; i++) {
+    const st = stemOf(words[i]); const f = st.f;
+    if (isInitials(words[i])) continue;
+    if (f.pos === 'P' && ['CONJ', 'REM'].includes(f.sub)) continue;
+    if (f.pos === 'V') return 'Phrase **verbale** : elle commence par un verbe (ordre arabe habituel : verbe → sujet → complément).';
+    if (f.pos === 'P' && f.fam === 'إِنّ') return 'Phrase **nominale** introduite par ' + st.seg[0] + ' : le nom qui suit est à l\'accusatif, l\'attribut au nominatif.';
+    if (f.pos === 'P' && f.sub === 'NEG') continue;
+    if (f.pos === 'P' && f.sub === 'P') return 'Phrase qui commence par une **préposition** : souvent « à X appartient… / dans X il y a… » (attribut placé en tête).';
+    if (f.pos === 'N') return 'Phrase **nominale** : elle commence par un nom ou un pronom (sujet → attribut, sans verbe « être »).';
+    return 'Phrase introduite par une particule (' + st.seg[0] + ').';
+  }
+  return '';
+}
+
+/* ====================================================================
+ * Détail d'un mot du Coran
+ * ==================================================================== */
+function renderWordDetail(ctx, el, words, wi, ref, verse) {
+  clear(el);
+  el.addClass ? el.addClass('aa-detail-open') : el.classList.add('aa-detail-open');
+  const data = ctx.data; const style = ctx.settings.style;
+  const word = words[wi]; const txt = wordText(word);
+  const e = explainQuranWord(words, wi, data.lemmas);
+  const st = stemOf(word);
+  const tr = translitTokens(words, style)[wi];
+
+  const head = h(el, 'div', 'aa-dhead');
+  const left = h(head, 'div', 'aa-dhead-main');
+  arSpan(left, txt, 'aa-big');
+  h(left, 'div', 'aa-tr', tr);
+  soundBtn(left, () => playWord(ref, txt, ctx), 'Écouter ce mot');
+  const right = h(head, 'div', 'aa-dhead-info');
+  h(right, 'span', 'aa-badge ' + (POS_CLASS[st.f.pos] || ''), isInitials(word) ? 'Lettres isolées' : e.title);
+  if (e.gloss) { const g = h(right, 'div', 'aa-gloss'); h(g, 'span', 'aa-muted', 'sens de base : '); h(g, 'b', null, e.gloss); }
+  if (e.lemma) {
+    const l = h(right, 'div', 'aa-lemma');
+    h(l, 'span', 'aa-muted', 'forme de dictionnaire : '); arSpan(l, e.lemma);
+    if (e.root) { h(l, 'span', 'aa-muted', ' · racine : '); arSpan(l, e.root.split('').join(' '), 'aa-rootl'); }
+    if (e.count) h(l, 'span', 'aa-muted', ' · ' + e.count + ' fois dans le Coran');
+  }
+  const lemRow = st.seg[3] >= 0 ? data.lemmas[st.seg[3]] : null;
+  if (lemRow && lemRow[7]) mdText(right, 'div', 'aa-def', lemRow[7]);
+  if (lemRow && lemRow[8] && (ctx.settings.showRu || ctx.settings.ruExpl)) h(right, 'div', 'aa-ru', '🇷🇺 ' + lemRow[8]);
+  if (lemRow) { const lk = h(right, 'a', 'aa-link aa-small', '📖 Voir dans le dictionnaire'); lk.addEventListener('click', ev => { ev.preventDefault(); ctx.openDict(st.seg[3]); }); }
+  if (isInitials(word)) mdText(el, 'p', 'aa-why', 'Ces lettres se lisent **par leur nom** : ' + initialsTranslit(word) + '. On les appelle « al-ḥurūf al-muqaṭṭaʿa » ; leur sens n\'est connu que d\'Allah.');
+
+  // morceaux
+  if (word.length > 1) {
+    h(el, 'h4', null, 'Les morceaux du mot');
+    const row = h(el, 'div', 'aa-segs');
+    e.segs.forEach(s => {
+      const c = h(row, 'div', 'aa-seg aa-seg-' + s.kind);
+      arSpan(c, s.ar);
+      h(c, 'div', 'aa-seg-label', s.kind === 'stem' ? 'le mot lui-même' : s.label);
+      if (s.text) h(c, 'div', 'aa-seg-text', s.text);
+    });
+  }
+  // fiche
+  if (e.facts.length) {
+    const t = h(el, 'table', 'aa-facts');
+    e.facts.forEach(([k, v]) => { const r = h(t, 'tr'); h(r, 'th', null, k); h(r, 'td', null, v); });
+  }
+  if (e.why.length) {
+    h(el, 'h4', null, 'Pourquoi cette forme ?');
+    const ul = h(el, 'ul', 'aa-why-list');
+    e.why.forEach(w => mdText(ul, 'li', null, w));
+  }
+  // lettres
+  const dl = details(el, 'Lettre par lettre : chaque signe et son son', ctx.settings.openLetters);
+  renderTiles(dl, txt);
+  // alternatives
+  const alts = endingAlternatives(st.seg[0], st.f);
+  if (alts.length) {
+    h(el, 'h4', null, 'Et si on changeait le dernier signe ?');
+    const pre = word.slice(0, st.idx).map(s => s[0]).join(''); const post = word.slice(st.idx + 1).map(s => s[0]).join('');
+    const box = h(el, 'div', 'aa-alts');
+    alts.forEach(a => {
+      const full = pre + a.ar + post;
+      const cur = a.ar === st.seg[0] || (st.f.cas === a.cas) || (st.f.mood === a.cas);
+      const r = h(box, 'div', 'aa-alt' + (cur ? ' aa-alt-cur' : ''));
+      arSpan(r, full, 'aa-mid');
+      h(r, 'span', 'aa-tr', translitPhrase([full], style));
+      const lab = h(r, 'span', 'aa-alt-why');
+      const parts = a.why.split(' : ');
+      h(lab, 'b', null, parts[0] + ' : ');
+      lab.appendChild(document.createTextNode(parts.slice(1).join(' : ')));
+      if (cur) h(r, 'span', 'aa-tag', '← c\'est la forme du verset');
+    });
+    mdText(el, 'p', 'aa-muted aa-small', 'Le sens du mot ne change pas : c\'est son **rôle dans la phrase** qui change. Seule la dernière voyelle le montre.');
+  }
+  // famille de la racine
+  if (e.root && data.byRoot) {
+    const fam = data.rootFamily(e.root, st.seg[3]);
+    if (fam.length) {
+      const d = details(el, 'La famille de la racine ' + e.root.split('').join(' ') + ' (' + fam.length + ' autres mots)', false);
+      const grid = h(d, 'div', 'aa-family');
+      fam.slice(0, 24).forEach(x => {
+        const c = h(grid, 'div', 'aa-fam');
+        arSpan(c, x.l[0]);
+        h(c, 'div', 'aa-fam-g', x.l[4]);
+        h(c, 'div', 'aa-muted aa-small', (x.l[1] === 'V' ? 'verbe' : x.l[1] === 'N' ? 'nom' : 'particule') + ' · ' + x.l[5] + '×');
+        c.addEventListener('click', () => renderOccurrences(ctx, occ, x.id, null));
+      });
+      const occ = h(d, 'div', 'aa-occ-box');
+    }
+  }
+  // autres occurrences
+  if (st.seg[3] >= 0) {
+    const d = details(el, 'Ce mot ailleurs dans le Coran', false);
+    const box = h(d, 'div', 'aa-occ-box');
+    d.addEventListener('toggle', () => { if (d.open && !box.firstChild) renderOccurrences(ctx, box, st.seg[3], ref); });
+  }
+  // actions
+  const act = h(el, 'div', 'aa-actions');
+  const caseInfo = e.facts.filter(f => ['Cas', 'Mode', 'Temps'].includes(f[0])).map(f => f[1].split(' — ')[0].split(' (')[0]).join(', ');
+  const summary = txt + ' (' + tr + ') — ' + (e.gloss || e.title) + (caseInfo ? ' · ' + caseInfo : '') + (ref ? ' · Coran ' + ref[0] + ':' + ref[1] : '');
+  btn(act, 'Copier', () => copyText(summary));
+  btn(act, 'Insérer dans la note', () => ctx.insertText('- ' + summary + '\n'));
+  if (lemRow) btn(act, ctx.isMine(st.seg[3]) ? '✓ Dans mon vocabulaire' : 'Ajouter à mon vocabulaire', (ev) => { ctx.addVocab(st.seg[3], txt, isInitials(word) ? tr : translitPhrase([txt], ctx.settings.style), e.gloss, ref ? ref[0] + ':' + ref[1] : ''); ev.target.textContent = '✓ Dans mon vocabulaire'; });
+  btn(act, 'Créer une flashcard', () => ctx.addFlashcard(txt + (ref ? ' (' + ref[0] + ':' + ref[1] + ')' : ''), (e.gloss || e.title) + ' — ' + tr + (caseInfo ? ' — ' + caseInfo : '') + (e.why[0] ? ' — ' + e.why[0].replace(/\*\*/g, '') : '')));
+  btn(act, 'Fermer', () => { clear(el); el.classList.remove('aa-detail-open'); }, 'aa-btn-quiet');
+}
+
+function renderTiles(parent, txt) {
+  const row = h(parent, 'div', 'aa-tiles');
+  row.setAttribute('dir', 'rtl');
+  describeUnits(txt).forEach(u => {
+    const t = h(row, 'div', 'aa-tile' + (u.isLast ? ' aa-tile-last' : ''));
+    arSpan(t, (u.b === 'ـ' ? '' : u.b) + u.m, 'aa-tile-ar');
+    const info = h(t, 'div', 'aa-tile-info'); info.setAttribute('dir', 'ltr');
+    h(info, 'div', 'aa-tile-name', u.name);
+    u.marks.forEach(m => h(info, 'div', 'aa-tile-mark', m.name + ' : ' + m.sound));
+    if (!u.marks.length && u.sound && !u.note) h(info, 'div', 'aa-tile-mark aa-muted', u.sound);
+    if (u.note) h(info, 'div', 'aa-tile-note', u.note);
+    if (u.isLast) h(info, 'div', 'aa-tile-flag', 'dernière lettre : son signe donne le cas / le mode');
+  });
+}
+
+async function renderOccurrences(ctx, box, lemId, curRef) {
+  clear(box);
+  const data = ctx.data; const l = data.lemmas[lemId];
+  const refs = data.refsOf(lemId).filter(r => !curRef || r[0] !== curRef[0] || r[1] !== curRef[1]);
+  const head = h(box, 'div', 'aa-occ-head');
+  arSpan(head, l[0]); h(head, 'span', null, ' « ' + l[4] + ' » — ' + l[5] + ' fois dans le Coran' + (l[5] > 40 ? ' (40 premiers exemples)' : ''));
+  const list = h(box, 'div', 'aa-occ-list');
+  let shown = 0;
+  const showMore = async (k) => {
+    for (const r of refs.slice(shown, shown + k)) {
+      const d = await data.surah(r[0]); const v = d.v[r[1] - 1]; if (!v) continue;
+      const item = h(list, 'div', 'aa-occ');
+      const a = h(item, 'div', 'aa-occ-ar'); a.setAttribute('dir', 'rtl');
+      v[2].forEach((w, wi) => { arSpan(a, wordText(w), wi === r[2] - 1 ? 'aa-hl' : ''); a.appendChild(document.createTextNode(' ')); });
+      const m = h(item, 'div', 'aa-occ-meta');
+      const link = h(m, 'a', 'aa-link', data.surahInfo(r[0])[1] + ' ' + r[0] + ':' + r[1]);
+      link.addEventListener('click', (ev) => { ev.preventDefault(); ctx.openQuran(r[0], r[1]); });
+      h(m, 'span', 'aa-muted', ' — ' + v[0]);
+    }
+    shown += k;
+    more.style.display = shown < refs.length ? '' : 'none';
+  };
+  const more = btn(box, 'Voir plus d\'exemples', () => showMore(6), 'aa-btn-quiet');
+  await showMore(4);
+}
+
+/* ====================================================================
+ * Affichage de versets (onglet Coran et bloc ```coran```)
+ * ==================================================================== */
+async function renderVerses(ctx, container, surahN, from, to, opts) {
+  opts = opts || {};
+  const data = ctx.data; const S = ctx.settings;
+  const d = await data.surah(surahN);
+  const info = data.surahInfo(surahN);
+  to = Math.min(to || d.v.length, d.v.length); from = Math.max(1, from || 1);
+  if (opts.title) {
+    const t = h(container, 'div', 'aa-surah-title');
+    arSpan(t, info[3], 'aa-mid');
+    h(t, 'div', null, 'Sourate ' + surahN + ' · ' + info[1] + ' — ' + info[2] + ' · ' + info[4] + ' · ' + info[5] + ' versets');
+  }
+  if (from === 1 && surahN !== 1 && surahN !== 9 && opts.basmala !== false) {
+    const b = h(container, 'div', 'aa-basmala'); arSpan(b, 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ');
+  }
+  for (let vn = from; vn <= to; vn++) {
+    const v = d.v[vn - 1]; const words = v[2];
+    const box = h(container, 'div', 'aa-verse'); box.dataset.ref = surahN + ':' + vn;
+    const line = h(box, 'div', 'aa-verse-ar'); line.setAttribute('dir', 'rtl'); line.style.fontSize = S.arSize + 'px';
+    const tokens = translitTokens(words, S.style);
+    const detail = h(document.createElement('div'), 'div', 'aa-detail');
+    const spans = [];
+    words.forEach((w, wi) => {
+      const st = stemOf(w);
+      const sp = arSpan(line, wordText(w), 'aa-w ' + (POS_CLASS[st.f.pos] || '') + (isInitials(w) ? ' aa-pos-inl' : '') + (st.seg[3] >= 0 && ctx.isMine(st.seg[3]) ? ' aa-mine' : ''));
+      sp.title = tokens[wi];
+      sp.addEventListener('click', () => {
+        spans.forEach(x => x.classList.remove('aa-w-sel')); sp.classList.add('aa-w-sel');
+        renderWordDetail(ctx, detail, words, wi, [surahN, vn, wi + 1], v);
+        detail.scrollIntoView && detail.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+      spans.push(sp);
+      line.appendChild(document.createTextNode(' '));
+    });
+    arSpan(line, '﴿' + arNum(vn) + '﴾', 'aa-vnum');
+    if (S.showTr) {
+      const trl = h(box, 'div', 'aa-tr aa-verse-tr');
+      tokens.forEach((t, i) => { const s = h(trl, 'span', 'aa-trw', t); s.addEventListener('click', () => spans[i].click()); trl.appendChild(document.createTextNode(' ')); });
+    }
+    if (S.showFr) { const fr = h(box, 'div', 'aa-verse-fr'); h(fr, 'span', 'aa-ref', surahN + ':' + vn + ' '); fr.appendChild(document.createTextNode(v[0])); }
+    if (S.showRu && v[1]) h(box, 'div', 'aa-verse-ru', v[1]);
+    const tools = h(box, 'div', 'aa-verse-tools');
+    const structBox = h(document.createElement('div'), 'div', 'aa-struct');
+    btn(tools, 'Structure de la phrase', () => {
+      if (structBox.firstChild) { clear(structBox); return; }
+      mdText(structBox, 'p', 'aa-why', sentenceKind(words));
+      const row = h(structBox, 'div', 'aa-struct-row'); row.setAttribute('dir', 'rtl');
+      words.forEach((w, wi) => {
+        const r = shortRole(words, wi);
+        const c = h(row, 'div', 'aa-struct-w ' + r.cls);
+        arSpan(c, wordText(w));
+        const lab = h(c, 'div', 'aa-struct-lab', r.label); lab.setAttribute('dir', 'ltr');
+        const g = stemOf(w).seg[3] >= 0 ? data.lemmas[stemOf(w).seg[3]][4] : '';
+        if (g) { const gg = h(c, 'div', 'aa-struct-gloss', g); gg.setAttribute('dir', 'ltr'); }
+        c.addEventListener('click', () => spans[wi].click());
+      });
+      h(structBox, 'p', 'aa-muted aa-small', 'Couleurs : bleu = nominatif, vert = accusatif, orange = génitif, rouge = verbe, gris = particule. Clique un mot pour son analyse complète.');
+    }, 'aa-btn-quiet');
+    if (ctx.settings.audio !== false) btn(tools, '▶ Écouter le verset', () => playVerse(surahN, vn), 'aa-btn-quiet');
+    btn(tools, 'Copier le verset', () => copyText(words.map(wordText).join(' ') + '\n' + tokens.join(' ') + '\n' + v[0] + ' (' + surahN + ':' + vn + ')'), 'aa-btn-quiet');
+    btn(tools, 'Insérer dans la note', () => ctx.insertText('> [!quote] ' + info[1] + ' ' + surahN + ':' + vn + '\n> ' + words.map(wordText).join(' ') + '\n> *' + tokens.join(' ') + '*\n> ' + v[0] + '\n\n'), 'aa-btn-quiet');
+    box.appendChild(structBox);
+    box.appendChild(detail);
+  }
+}
+
+/* « 1:1-7 », « 112 », « 2:255 », « 2:1-5, 3:7 » */
+function parseRefs(src) {
+  const out = [];
+  for (const part of String(src).split(/[,;\n]+/)) {
+    const m = part.trim().match(/^(\d{1,3})(?::(\d{1,3})(?:\s*-\s*(\d{1,3}))?)?$/);
+    if (!m) continue;
+    const s = +m[1]; if (s < 1 || s > 114) continue;
+    out.push({ s, from: m[2] ? +m[2] : 1, to: m[3] ? +m[3] : (m[2] ? +m[2] : 0) });
+  }
+  return out;
+}
+/* ====================================================================
+ * 06 - Onglets : Coran, Analyser, Construire, Signes, Entraînement
+ * ==================================================================== */
+
+/* ---------------------------- Coran ---------------------------- */
+function renderQuranTab(ctx, root, state) {
+  clear(root);
+  const data = ctx.data;
+  const PAGE = 20;
+  const bar = h(root, 'div', 'aa-toolbar');
+  const f1 = field(bar, 'Sourate');
+  selectEl(f1, data.surahs.map(s => [s[0], s[0] + '. ' + s[1] + ' — ' + s[2]]), state.surah, v => { state.surah = +v; state.page = 0; state.focus = 0; renderQuranTab(ctx, root, state); });
+  const info = data.surahInfo(state.surah); const nV = info[5];
+  const pages = Math.ceil(nV / PAGE);
+  if (state.focus) state.page = Math.floor((state.focus - 1) / PAGE);
+  if (pages > 1) {
+    const f2 = field(bar, 'Versets');
+    const opts = []; for (let p = 0; p < pages; p++) opts.push([p, (p * PAGE + 1) + '–' + Math.min(nV, (p + 1) * PAGE)]);
+    selectEl(f2, opts, state.page, v => { state.page = +v; state.focus = 0; renderQuranTab(ctx, root, state); });
+  }
+  const tg = h(bar, 'div', 'aa-toggles');
+  checkbox(tg, 'translittération', ctx.settings.showTr, v => { ctx.settings.showTr = v; ctx.save(); renderQuranTab(ctx, root, state); });
+  checkbox(tg, 'français', ctx.settings.showFr, v => { ctx.settings.showFr = v; ctx.save(); renderQuranTab(ctx, root, state); });
+  checkbox(tg, 'русский', ctx.settings.showRu, v => { ctx.settings.showRu = v; ctx.save(); renderQuranTab(ctx, root, state); });
+  const course = ctx.courseSurahs();
+  if (course.length) {
+    const cb = h(root, 'div', 'aa-course');
+    h(cb, 'span', 'aa-muted', 'Mon cours : ');
+    course.forEach(c => {
+      const ch = h(cb, 'span', 'aa-chip' + (c.n === state.surah ? ' aa-chip-on' : ''), c.label);
+      ch.addEventListener('click', () => { state.surah = c.n; state.page = 0; state.focus = 0; renderQuranTab(ctx, root, state); });
+    });
+    const mine = course.find(c => c.n === state.surah);
+    if (mine) { const lk = h(cb, 'a', 'aa-link aa-small', '📝 ouvrir ma note « ' + mine.file.basename + ' »'); lk.addEventListener('click', ev => { ev.preventDefault(); ctx.openNote(mine.file); }); }
+  }
+  mdText(root, 'p', 'aa-help', '**Clique sur un mot** pour voir ses morceaux, ses signes lettre par lettre, la raison de sa terminaison et les autres formes possibles. Couleurs : bleu = nom, rouge = verbe, gris = particule. Les mots **soulignés en pointillé** sont déjà dans ton vocabulaire.');
+  const body = h(root, 'div', 'aa-verses');
+  const from = state.page * PAGE + 1, to = Math.min(nV, from + PAGE - 1);
+  renderVerses(ctx, body, state.surah, from, to, { title: true, basmala: from === 1 }).then(() => {
+    if (state.focus) {
+      const el = body.querySelector('[data-ref="' + state.surah + ':' + state.focus + '"]');
+      if (el) { el.classList.add('aa-verse-focus'); el.scrollIntoView && el.scrollIntoView({ block: 'center' }); }
+    }
+    if (pages > 1) {
+      const nav = h(root, 'div', 'aa-pager');
+      if (state.page > 0) btn(nav, '← versets précédents', () => { state.page--; state.focus = 0; renderQuranTab(ctx, root, state); });
+      if (state.page < pages - 1) btn(nav, 'versets suivants →', () => { state.page++; state.focus = 0; renderQuranTab(ctx, root, state); });
+    }
+  });
+}
+
+/* ---------------------------- Analyser ---------------------------- */
+function renderAnalyseTab(ctx, root, state) {
+  clear(root);
+  mdText(root, 'p', 'aa-help', 'Colle ou tape un texte arabe (avec ou sans voyelles). Chaque mot est **cherché dans tout le Coran** : tu obtiens sa forme voyellée, son sens et son analyse complète.');
+  const ta = h(root, 'textarea', 'aa-input'); ta.setAttribute('dir', 'rtl'); ta.rows = 3;
+  if (!state.text) state.text = 'قل هو الله احد';
+  ta.value = state.text;
+  const bar = h(root, 'div', 'aa-actions');
+  const out = h(root, 'div', 'aa-analyse-out');
+  const go = () => { state.text = ta.value; analyseInto(ctx, out, ta.value); };
+  btn(bar, 'Analyser', go, 'mod-cta');
+  btn(bar, 'Effacer', () => { ta.value = ''; clear(out); }, 'aa-btn-quiet');
+  ta.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) go(); });
+  if (state.text) go();
+}
+
+async function analyseInto(ctx, out, text) {
+  clear(out);
+  const data = ctx.data; const style = ctx.settings.style;
+  const words = splitWords(text).filter(w => hasArabic(w));
+  if (!words.length) { h(out, 'p', 'aa-muted', 'Aucun mot arabe trouvé.'); return; }
+  if (!data.forms) {
+    const wait = h(out, 'p', 'aa-muted', 'Préparation de l\'index du Coran (une seule fois)…');
+    await data.buildForms(s => { wait.textContent = 'Préparation de l\'index du Coran… sourate ' + s + ' / 114'; });
+    wait.remove();
+  }
+  const sum = h(out, 'div', 'aa-analyse-sum');
+  const line = h(sum, 'div', 'aa-verse-ar'); line.setAttribute('dir', 'rtl'); line.style.fontSize = ctx.settings.arSize + 'px';
+  const trLine = h(sum, 'div', 'aa-tr aa-verse-tr');
+  const cards = h(out, 'div', 'aa-cards');
+  const chosen = [];
+  const spans = [];
+  const runs = words.length > 1 ? await data.findRuns(words) : [];
+  if (runs.some(Boolean)) out.insertBefore(mdText(null, 'p', 'aa-ok', 'Ces mots se suivent dans le Coran : la lecture est choisie **d\'après le verset** où ils apparaissent ensemble.'), out.firstChild);
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    let cands = data.lookup(w);
+    if (runs[i]) { const rr = runs[i]; const hit = cands.find(c => c.txt === rr.txt); const c0 = Object.assign({}, hit || { txt: rr.txt, n: 1 }, { ref: rr.ref }); cands = [c0, ...cands.filter(c => c.txt !== rr.txt)]; }
+    chosen.push(cands[0] ? cands[0].txt : w);
+    const sp = arSpan(line, cands[0] ? cands[0].txt : w, 'aa-w');
+    line.appendChild(document.createTextNode(' '));
+    spans.push(sp);
+    const card = h(cards, 'div', 'aa-card');
+    const det = h(card, 'div', 'aa-detail');
+    sp.addEventListener('click', () => card.scrollIntoView && card.scrollIntoView({ block: 'start', behavior: 'smooth' }));
+    const show = async (c) => {
+      clear(det);
+      if (!c) {
+        const hd = h(det, 'div', 'aa-dhead'); arSpan(hd, w, 'aa-big'); h(hd, 'div', 'aa-tr', translitPhrase([w], style));
+        mdText(det, 'p', 'aa-warn', 'Ce mot (ou cette orthographe) **n\'est pas dans le Coran**. Voici au moins ses lettres et ses signes :');
+        renderTiles(det, w);
+        return;
+      }
+      const d = await data.surah(c.ref[0]); const v = d.v[c.ref[1] - 1];
+      renderWordDetail(ctx, det, v[2], c.ref[2] - 1, c.ref, v);
+      const ctxLine = h(det, 'div', 'aa-occ');
+      const a = h(ctxLine, 'div', 'aa-occ-ar'); a.setAttribute('dir', 'rtl');
+      v[2].forEach((x, wi) => { arSpan(a, wordText(x), wi === c.ref[2] - 1 ? 'aa-hl' : ''); a.appendChild(document.createTextNode(' ')); });
+      const m = h(ctxLine, 'div', 'aa-occ-meta');
+      h(m, 'span', 'aa-muted', 'Exemple du Coran (' + c.n + ' fois cette forme exacte) : ');
+      const link = h(m, 'a', 'aa-link', data.surahInfo(c.ref[0])[1] + ' ' + c.ref[0] + ':' + c.ref[1]);
+      link.addEventListener('click', ev => { ev.preventDefault(); ctx.openQuran(c.ref[0], c.ref[1]); });
+      h(m, 'div', 'aa-muted', v[0]);
+    };
+    if (cands.length > 1) {
+      const alt = h(card, 'div', 'aa-cands');
+      h(alt, 'span', 'aa-muted', (hasVowels(w) ? 'Autres lectures possibles : ' : 'Sans voyelles, ce mot peut se lire : '));
+      cands.slice(0, 6).forEach((c, k) => {
+        const ch = h(alt, 'span', 'aa-chip' + (k === 0 ? ' aa-chip-on' : ''));
+        arSpan(ch, c.txt); h(ch, 'span', 'aa-muted aa-small', ' ' + c.n + '×');
+        ch.addEventListener('click', () => {
+          alt.querySelectorAll('.aa-chip').forEach(x => x.classList.remove('aa-chip-on')); ch.classList.add('aa-chip-on');
+          sp.textContent = c.txt; chosen[i] = c.txt; trLine.textContent = translitPhrase(chosen, style); show(c);
+        });
+      });
+      if (!hasVowels(w)) mdText(alt, 'div', 'aa-muted aa-small', 'Sans les voyelles, **seul le contexte** permet de choisir : c\'est exactement pour cela que le Coran est entièrement voyellé.');
+    }
+    card.insertBefore(det, card.firstChild);
+    await show(cands[0]);
+  }
+  trLine.textContent = translitPhrase(chosen, style);
+}
+function hasVowels(w) { return /[ً-ْ]/.test(w); }
+
+/* ---------------------------- Construire ---------------------------- */
+const BUILD_DEFAULTS = {
+  nominal: { type: 'nominal', subjKind: 'noun', subj: 'walad', subjDef: true, pron: 'huwa', pred: 'adj', adj: 'kabir', prep: 'fi', ppNoun: 'bayt', ppDef: true, mod: 'none', q: false },
+  verbal: { type: 'verbal', verb: 'kataba', tense: 'past', subjKind: 'noun', subj: 'talib', subjDef: true, pron: 'huwa', order: 'vso', obj: 'noun', objNoun: 'risala', objDef: true, pp: false, prep: 'fi', ppNoun: 'madrasa', ppDef: true, passive: false, inna: false, qad: false, q: false },
+  np: { type: 'np', noun: 'kitab', def: 'idafa', noun2: 'talib', adj: 'jadid', adjTarget: 1, cas: 'nom' },
+};
+const ROLE_NAMES = {
+  subj: 'sujet', pred: 'attribut', adj: 'adjectif', verb: 'verbe', obj: 'complément', pp: 'préposition + nom', prep: 'préposition', gen: 'nom au génitif',
+  kana: 'كَانَ / لَيْسَ', inna: 'إِنَّ', q: 'question', neg: 'négation', fut: 'futur', qad: 'قَدْ', emph: 'insistance', n1: '1er nom', n2: '2e nom',
+};
+const nounOpts = (list) => list.map(n => [n.id, n.ar + ' — ' + n.fr[0]]);
+
+function renderBuildTab(ctx, root, state) {
+  clear(root);
+  if (!state.cfg) state.cfg = Object.assign({}, BUILD_DEFAULTS.nominal);
+  const c = state.cfg;
+  mdText(root, 'p', 'aa-help', 'Choisis les morceaux : la phrase se construit avec **les bonnes terminaisons**, et chaque mot explique **pourquoi** il a ce signe. En bas : comment on aurait pu la dire autrement.');
+  const types = h(root, 'div', 'aa-seg-tabs');
+  [['nominal', 'Phrase nominale (« X est Y »)'], ['verbal', 'Phrase verbale (« X fait Y »)'], ['np', 'Groupe de mots (« le livre de… »)']].forEach(([t, l]) => {
+    const b = btn(types, l, () => { state.cfg = Object.assign({}, BUILD_DEFAULTS[t]); renderBuildTab(ctx, root, state); });
+    if (c.type === t) b.classList.add('aa-on');
+  });
+  const form = h(root, 'div', 'aa-form');
+  const set = (k) => (v) => { c[k] = v === 'true' ? true : v === 'false' ? false : (/^\d+$/.test(v) ? +v : v); renderBuildTab(ctx, root, state); };
+  const sel = (label, k, opts) => selectEl(field(form, label), opts, c[k], set(k));
+  const chk = (label, k) => checkbox(form, label, c[k], v => { c[k] = v; renderBuildTab(ctx, root, state); });
+  const common = NOUNS.filter(n => !n.proper);
+  if (c.type === 'nominal') {
+    sel('Sujet', 'subjKind', [['noun', 'un nom'], ['pron', 'un pronom (je, tu, il…)']]);
+    if (c.subjKind === 'noun') { sel('Nom', 'subj', nounOpts(NOUNS.filter(n => n.id !== 'allah'))); if (!byId(NOUNS, c.subj).proper) chk('avec ال (défini)', 'subjDef'); }
+    else sel('Pronom', 'pron', PERS.filter(p => !p.pl).map(p => [p.id, p.label]));
+    sel('Ce qu\'on dit du sujet', 'pred', [['adj', 'un adjectif (il est grand)'], ['pp', 'un lieu (il est dans…)']]);
+    if (c.pred === 'adj') sel('Adjectif', 'adj', ADJS.map(a => [a.id, a.ar + ' — ' + a.fr[0]]));
+    else { sel('Préposition', 'prep', PREPS.map(p => [p.id, p.ar + ' — ' + p.fr])); sel('Nom', 'ppNoun', nounOpts(NOUNS)); if (!byId(NOUNS, c.ppNoun).proper) chk('avec ال', 'ppDef'); }
+    sel('Mot d\'introduction', 'mod', [['none', 'aucun (présent)'], ['kana', 'كَانَ — était'], ['inna', 'إِنَّ — certes'], ['laysa', 'لَيْسَ — n\'est pas'], ['laysaBi', 'لَيْسَ … بِـ — pas du tout']]);
+    chk('en question (هَلْ)', 'q');
+  } else if (c.type === 'verbal') {
+    selectEl(field(form, 'Verbe'), VERBS.map(v => [v.id, conjPast(v, 'huwa') + ' — ' + v.fr.inf + (v.hollow ? ' (creux)' : v.form === 4 ? ' (forme IV)' : '')]), c.verb, val => {
+      const nv = byId(VERBS, val); c.verb = val;
+      if (nv.prep) c.prep = nv.prep;
+      if (nv.defPP) { c.pp = true; c.ppNoun = nv.defPP; }
+      if (!nv.tr) c.obj = 'none'; else if (c.obj === 'none') c.obj = 'noun';
+      if (nv.obj) c.objNoun = nv.obj[0];
+      renderBuildTab(ctx, root, state);
+    });
+    const v = byId(VERBS, c.verb);
+    sel('Temps', 'tense', TENSES.map(t => [t.id, t.label]));
+    const isImp = /^imp/.test(c.tense);
+    if (isImp) sel('À qui ?', 'pron', PERS.filter(p => ['anta', 'anti', 'antum'].includes(p.id)).map(p => [p.id, p.label]));
+    else {
+      sel('Qui fait l\'action ?', 'subjKind', [['noun', 'un nom'], ['pron', 'un pronom']]);
+      if (c.subjKind === 'noun') { sel('Sujet', 'subj', nounOpts(NOUNS.filter(n => !n.noSubjVerb))); if (!byId(NOUNS, c.subj).proper) chk('avec ال', 'subjDef'); sel('Ordre', 'order', [['vso', 'verbe d\'abord (habituel)'], ['svo', 'sujet d\'abord']]); }
+      else sel('Pronom', 'pron', PERS.map(p => [p.id, p.label]));
+    }
+    if (v.tr) {
+      sel('Complément', 'obj', [['noun', 'un nom'], ['pron', 'un pronom collé (le, la)'], ['none', 'aucun']]);
+      if (c.obj !== 'none') { sel('Quoi ?', 'objNoun', nounOpts(NOUNS)); if (c.obj === 'noun' && !byId(NOUNS, c.objNoun).proper) chk('avec ال', 'objDef'); }
+      if (c.obj === 'noun' && !isImp) chk('au passif (« a été … »)', 'passive');
+    }
+    chk('ajouter un lieu / une personne', 'pp');
+    if (c.pp) { sel('Préposition', 'prep', PREPS.map(p => [p.id, p.ar + ' — ' + p.fr])); sel('Nom', 'ppNoun', nounOpts(NOUNS)); if (!byId(NOUNS, c.ppNoun).proper) chk('avec ال', 'ppDef'); }
+    if (!isImp) { chk('avec إِنَّ', 'inna'); if (c.tense === 'past') chk('avec قَدْ', 'qad'); chk('en question', 'q'); }
+  } else {
+    sel('Nom', 'noun', nounOpts(common));
+    sel('Forme', 'def', [['indef', 'indéfini : un livre'], ['def', 'défini : le livre'], ['idafa', 'annexion : le livre de…']]);
+    if (c.def === 'idafa') sel('… de qui / de quoi ?', 'noun2', nounOpts(NOUNS));
+    sel('Adjectif', 'adj', [['', 'aucun'], ...ADJS.map(a => [a.id, a.ar + ' — ' + a.fr[0]])]);
+    if (c.def === 'idafa' && c.adj) sel('L\'adjectif qualifie', 'adjTarget', [[1, 'le 1er nom'], [2, 'le 2e nom']]);
+    sel('Cas (rôle dans une phrase)', 'cas', [['nom', 'nominatif — sujet'], ['acc', 'accusatif — complément'], ['gen', 'génitif — après une préposition']]);
+  }
+
+  let r;
+  try { r = buildSentence(c); } catch (e) { h(root, 'p', 'aa-warn', 'Combinaison impossible : ' + e.message); return; }
+  const out = h(root, 'div', 'aa-build-out');
+  const line = h(out, 'div', 'aa-build-ar'); line.setAttribute('dir', 'rtl'); line.style.fontSize = (ctx.settings.arSize + 6) + 'px';
+  const arText = r.words.map(w => w.ar).join(' ');
+  const tr = translitPhrase(r.words.map(w => w.ar), ctx.settings.style);
+  const whyBox = h(document.createElement('div'), 'div');
+  const rows = [];
+  r.words.forEach((w, i) => {
+    const sp = arSpan(line, w.ar, 'aa-bw aa-r-' + w.role);
+    sp.title = (ROLE_NAMES[w.role] || w.role) + ' — ' + (w.gloss || '');
+    sp.addEventListener('click', () => { rows.forEach(x => x.classList.remove('aa-row-hl')); rows[i].classList.add('aa-row-hl'); rows[i].scrollIntoView && rows[i].scrollIntoView({ block: 'nearest' }); });
+    line.appendChild(document.createTextNode(' '));
+  });
+  h(out, 'div', 'aa-tr aa-build-tr', tr);
+  h(out, 'div', 'aa-build-fr', r.fr);
+  if (r.warn) mdText(out, 'div', 'aa-warn', r.warn);
+  const act = h(out, 'div', 'aa-actions');
+  soundBtn(act, () => speak(arText), 'Écouter (voix de l\'appareil)');
+  btn(act, 'Copier', () => copyText(arText + '\n' + tr + '\n' + r.fr));
+  btn(act, 'Insérer dans la note', () => ctx.insertText('- ' + arText + ' — *' + tr + '* — ' + r.fr + '\n'));
+  btn(act, 'Créer une flashcard', () => ctx.addFlashcard(r.fr, arText + ' (' + tr + ')'));
+
+  h(root, 'h4', null, 'Pourquoi chaque mot a cette forme');
+  const tbl = h(root, 'div', 'aa-why-table');
+  r.words.forEach(w => {
+    const row = h(tbl, 'div', 'aa-why-row');
+    const a = h(row, 'div', 'aa-why-ar'); arSpan(a, w.ar, 'aa-r-' + w.role);
+    h(a, 'div', 'aa-tr aa-small', translitPhrase([w.ar], ctx.settings.style));
+    const b = h(row, 'div', 'aa-why-txt');
+    const hd = h(b, 'div'); h(hd, 'span', 'aa-badge aa-r-' + w.role + '-bg', ROLE_NAMES[w.role] || w.role); if (w.gloss) h(hd, 'span', 'aa-muted', ' « ' + w.gloss + ' »');
+    mdText(b, 'div', null, w.why);
+    rows.push(row);
+  });
+  if (r.notes && r.notes.length) { const ul = h(root, 'ul', 'aa-notes'); r.notes.forEach(n => mdText(ul, 'li', null, n)); }
+
+  const vs = variantsOf(c);
+  if (vs.length) {
+    h(root, 'h4', null, 'Comment j\'aurais pu le dire autrement ?');
+    const list = h(root, 'div', 'aa-variants');
+    vs.forEach(v => {
+      const it = h(list, 'div', 'aa-variant' + (v.cfg ? ' aa-click' : ''));
+      h(it, 'div', 'aa-variant-label', v.label);
+      arSpan(it, v.ar, 'aa-mid');
+      h(it, 'div', 'aa-tr aa-small', translitPhrase(v.ar.split(' '), ctx.settings.style));
+      h(it, 'div', 'aa-variant-fr', v.fr);
+      mdText(it, 'div', 'aa-muted aa-small', v.explain);
+      if (v.cfg) it.addEventListener('click', () => { state.cfg = Object.assign({}, BUILD_DEFAULTS[v.cfg.type], v.cfg); renderBuildTab(ctx, root, state); root.scrollIntoView && root.scrollIntoView({ block: 'start' }); });
+    });
+  }
+  if (c.type === 'verbal' && byId(VERBS, c.verb).note) mdText(root, 'p', 'aa-help', '💡 ' + cap(byId(VERBS, c.verb).note));
+  if (c.type === 'verbal') renderConjugation(ctx, details(root, 'Tableau de conjugaison de ' + conjPast(byId(VERBS, c.verb), 'huwa') + ' (' + byId(VERBS, c.verb).fr.inf + ')', false), c.verb);
+  else if (c.type !== 'np') {
+    const d = details(root, 'Rappel : les 3 cas, comme en russe', false);
+    const t = h(d, 'table', 'aa-table');
+    const hr = h(t, 'tr'); ['Cas', 'Signe', 'Rôle', 'En russe'].forEach(x => h(hr, 'th', null, x));
+    [['NOM', 'sujet, attribut, après كَانَ (son nom)'], ['ACC', 'complément d\'objet, après إِنَّ, attribut de كَانَ / لَيْسَ'], ['GEN', 'après une préposition, 2e nom d\'une annexion']].forEach(([k, role]) => {
+      const rr = h(t, 'tr'); h(rr, 'td', null, CASES[k].fr + ' (' + CASES[k].tr + ')'); arSpan(h(rr, 'td'), CASES[k].sign); h(rr, 'td', null, role); h(rr, 'td', null, CASES[k].ru);
+    });
+  }
+}
+
+function renderConjugation(ctx, parent, vid) {
+  const ct = conjugationTable(vid);
+  const t = h(parent, 'table', 'aa-table aa-conj');
+  const hr = h(t, 'tr');
+  ['Personne', 'Passé', 'Présent (-u)', 'Subjonctif (-a)', 'Apocopé (ـْ)', 'Impératif'].forEach(x => h(hr, 'th', null, x));
+  ct.rows.forEach(r => {
+    const tr = h(t, 'tr');
+    const p = h(tr, 'td'); arSpan(p, r.p.ar); h(p, 'span', 'aa-muted aa-small', ' ' + r.p.fr + (r.p.id === 'anti' ? ' (f.)' : r.p.id === 'hiya' ? '' : ''));
+    [r.past, r.pres, r.subj, r.jus, r.imp].forEach(x => { const td = h(tr, 'td'); if (x) { arSpan(td, x); h(td, 'div', 'aa-tr aa-small', translitPhrase([x], ctx.settings.style)); } });
+  });
+  mdText(parent, 'p', 'aa-muted aa-small', 'Au **passé**, la personne est à la **fin** du verbe. Au **présent**, elle est surtout au **début** (أَ نَ يَ تَ). Le subjonctif et l\'apocopé ne changent que la fin.');
+}
+
+/* ---------------------------- Signes ---------------------------- */
+const SIGN_PAIRS = [
+  { title: 'Une seule racine, beaucoup de sens : ك ت ب (écrire)', items: [
+    ['كَتَبَ', 'il a écrit', 'trois fatḥa : verbe au passé, actif'], ['كُتِبَ', 'il a été écrit', 'u-i : le passif'], ['كَتَّبَ', 'il a fait écrire', 'shadda sur le t : forme II'],
+    ['كَاتَبَ', 'il a correspondu avec', 'alif après le k : forme III'], ['كِتَابٌ', 'un livre', 'i-ā : un nom'], ['كُتُبٌ', 'des livres', 'u-u : pluriel brisé'],
+    ['كَاتِبٌ', 'un écrivain', 'ā-i : celui qui fait (participe actif)'], ['مَكْتُوبٌ', 'écrit (ce qui est écrit)', 'ma-…-ū : celui qui subit (participe passif)'] ] },
+  { title: 'م ل ك : roi, ange ou possesseur ? (Al-Fātiḥa 1:4)', items: [
+    ['مَلِكٌ', 'un roi', 'a-i (مَلِكِ ٱلنَّاسِ, 114:2)'], ['مَلَكٌ', 'un ange', 'a-a'], ['مُلْكٌ', 'la royauté', 'u-soukoun (بِيَدِهِ ٱلْمُلْكُ, 67:1)'],
+    ['مَالِكٌ', 'un possesseur, maître', 'ā-i (مَٰلِكِ يَوْمِ ٱلدِّينِ, 1:4)'], ['مَلَكَ', 'il a possédé', 'a-a-a : verbe au passé'] ] },
+  { title: 'ع ل م : savoir', items: [
+    ['عَلِمَ', 'il a su', 'a-i-a : passé'], ['عُلِمَ', 'il a été su', 'u-i : passif'], ['عَلَّمَ', 'il a enseigné', 'shadda : forme II, « faire savoir »'],
+    ['عِلْمٌ', 'la science, le savoir', 'i-soukoun : nom'], ['عَالِمٌ', 'un savant', 'ā-i : celui qui sait'], ['عَالَمٌ', 'un monde', 'ā-a (ٱلْعَٰلَمِينَ, 1:2)'], ['عَلَمٌ', 'un drapeau, un repère', 'a-a'] ] },
+  { title: 'La dernière voyelle d\'un nom = son rôle (le cas)', items: [
+    ['ٱلْحَمْدُ', 'la louange (sujet)', '-u : nominatif — comme dans 1:2'], ['ٱلْحَمْدَ', 'la louange (complément)', '-a : accusatif'], ['ٱلْحَمْدِ', 'de la louange', '-i : génitif'],
+    ['كِتَابٌ', 'un livre (sujet)', '-un : tanwīn = indéfini'], ['كِتَابًا', 'un livre (complément)', '-an (+ alif)'], ['كِتَابٍ', 'd\'un livre', '-in'], ['ٱلْكِتَابُ', 'le livre', 'ال remplace le tanwīn'] ] },
+  { title: 'La dernière voyelle d\'un verbe au présent = son mode', items: [
+    ['يَكْتُبُ', 'il écrit', '-u : indicatif (normal)'], ['لَنْ يَكْتُبَ', 'il n\'écrira jamais', '-a : subjonctif après لَنْ'], ['لَمْ يَكْتُبْ', 'il n\'a pas écrit', 'soukoun : apocopé après لَمْ (comme لَمْ يَلِدْ, 112:3)'],
+    ['لَا تَكْتُبْ', 'n\'écris pas !', 'soukoun : لَا d\'interdiction'], ['ٱكْتُبْ', 'écris !', 'impératif'] ] },
+  { title: 'Une voyelle change tout', items: [
+    ['مَنْ', 'qui ?', 'fatḥa'], ['مِنْ', 'de, parmi', 'kasra'], ['إِنَّ', 'certes', 'kasra + shadda'], ['أَنَّ', 'que (+ nom)', 'fatḥa + shadda'], ['إِنْ', 'si', 'kasra, sans shadda'], ['أَنْ', 'que (+ verbe)', 'fatḥa, sans shadda'],
+    ['ذَهَبَ', 'il est parti', 'verbe'], ['ذَهَبٌ', 'de l\'or', 'nom'], ['قَتَلَ', 'il a tué', 'a-a-a'], ['قُتِلَ', 'il a été tué', 'u-i : passif'], ['قَاتَلَ', 'il a combattu', 'ā : forme III'],
+    ['جَنَّةٌ', 'un jardin, le paradis', 'a'], ['جِنَّةٌ', 'les djinns', 'i'], ['جُنَّةٌ', 'un bouclier', 'u'] ] },
+];
+const VOWEL_CHOICES = [['', '— aucun —'], ['َ', 'fatḥa  ـَ  (a)'], ['ُ', 'ḍamma  ـُ  (u)'], ['ِ', 'kasra  ـِ  (i)'], ['ْ', 'soukoun  ـْ'], ['ً', 'tanwīn  ـً  (-an)'], ['ٌ', 'tanwīn  ـٌ  (-un)'], ['ٍ', 'tanwīn  ـٍ  (-in)']];
+
+function renderSignsTab(ctx, root, state) {
+  clear(root);
+  const style = ctx.settings.style;
+  mdText(root, 'p', 'aa-help', 'Le **laboratoire des signes** : change une voyelle et regarde ce qui se passe. En haut, tu modifies un mot toi-même ; en dessous, des exemples où **un seul signe change le sens**.');
+  // --- éditeur
+  const ed = h(root, 'div', 'aa-lab');
+  h(ed, 'h4', null, 'Mon mot');
+  const inRow = h(ed, 'div', 'aa-actions');
+  const inp = h(inRow, 'input', 'aa-input-line'); inp.type = 'text'; inp.setAttribute('dir', 'rtl'); inp.value = state.labWord || 'كَتَبَ';
+  btn(inRow, 'Charger', () => { state.labWord = inp.value.trim(); renderSignsTab(ctx, root, state); });
+  const us = units(state.labWord || 'كَتَبَ').filter(u => u.b && u.b !== ' ');
+  const res = h(ed, 'div', 'aa-lab-res');
+  const tiles = h(ed, 'div', 'aa-lab-tiles'); tiles.setAttribute('dir', 'rtl');
+  const update = async () => {
+    const w = joinUnits(us);
+    state.labWord = w; inp.value = w;
+    clear(res);
+    arSpan(res, w, 'aa-big');
+    h(res, 'div', 'aa-tr', translitPhrase([w], style));
+    const found = h(res, 'div', 'aa-lab-found');
+    if (!ctx.data.forms) { h(found, 'span', 'aa-muted', 'Recherche dans le Coran…'); await ctx.data.buildForms(); clear(found); }
+    const c = ctx.data.lookup(w).filter(x => x.exact);
+    if (c.length) {
+      const d = await ctx.data.surah(c[0].ref[0]); const v = d.v[c[0].ref[1] - 1];
+      const st = stemOf(v[2][c[0].ref[2] - 1]); const lem = st.seg[3] >= 0 ? ctx.data.lemmas[st.seg[3]] : null;
+      mdText(found, 'div', 'aa-ok', '✓ Ce mot existe dans le Coran (' + c[0].n + ' fois)' + (lem ? ' : **' + lem[4] + '**' : '') + '.');
+      const link = h(found, 'a', 'aa-link', 'Voir ' + ctx.data.surahInfo(c[0].ref[0])[1] + ' ' + refStr(c[0].ref));
+      link.addEventListener('click', ev => { ev.preventDefault(); ctx.openQuran(c[0].ref[0], c[0].ref[1]); });
+    } else {
+      const near = ctx.data.lookup(w).slice(0, 5);
+      h(found, 'div', 'aa-muted', 'Cette forme exacte n\'est pas dans le Coran.' + (near.length ? ' Formes proches qui y sont :' : ''));
+      const chips = h(found, 'div', 'aa-cands');
+      near.forEach(n => { const ch = h(chips, 'span', 'aa-chip'); arSpan(ch, n.txt); ch.addEventListener('click', () => { state.labWord = n.txt; renderSignsTab(ctx, root, state); }); });
+    }
+  };
+  us.forEach((u, i) => {
+    const t = h(tiles, 'div', 'aa-lab-tile');
+    const big = arSpan(t, u.b + u.m, 'aa-tile-ar');
+    const ctl = h(t, 'div', 'aa-lab-ctl'); ctl.setAttribute('dir', 'ltr');
+    h(ctl, 'div', 'aa-tile-name', (LETTERS[u.b] || [u.b])[0]);
+    const cur = (u.m.match(/[ً-ِْ]/) || [''])[0];
+    const s = selectEl(ctl, VOWEL_CHOICES, cur, v => { u.m = (u.m.includes(SH) ? SH : '') + v + u.m.replace(/[ً-ْ]/g, ''); big.textContent = u.b + u.m; update(); });
+    checkbox(ctl, 'shadda ـّ', u.m.includes(SH), v => { u.m = (v ? SH : '') + u.m.replace(SH, ''); big.textContent = u.b + u.m; update(); });
+  });
+  update();
+  // --- paires
+  SIGN_PAIRS.forEach((g, gi) => {
+    const d = details(root, g.title, gi === 0);
+    const grid = h(d, 'div', 'aa-pairs');
+    g.items.forEach(([ar, fr, why]) => {
+      const c = h(grid, 'div', 'aa-pair');
+      arSpan(c, ar, 'aa-mid');
+      h(c, 'div', 'aa-tr', translitPhrase(ar.split(' '), style));
+      h(c, 'div', 'aa-pair-fr', fr);
+      h(c, 'div', 'aa-muted aa-small', why);
+      c.addEventListener('click', () => { state.labWord = ar.split(' ').pop(); renderSignsTab(ctx, root, state); root.scrollIntoView && root.scrollIntoView({ block: 'start' }); });
+    });
+  });
+  // --- tous les signes
+  const d = details(root, 'Tous les signes (y compris les petits signes du Coran)', false);
+  const t = h(d, 'table', 'aa-table');
+  const hr = h(t, 'tr'); ['Signe', 'Nom', 'Effet', 'À quoi il ressemble'].forEach(x => h(hr, 'th', null, x));
+  Object.entries(MARK_INFO).forEach(([ch, [name, eff, look]]) => {
+    const r = h(t, 'tr'); arSpan(h(r, 'td'), 'ب' + ch, 'aa-mid'); h(r, 'td', null, name); h(r, 'td', null, eff); h(r, 'td', 'aa-muted', look);
+  });
+}
+
+/* ---------------------------- Entraînement ---------------------------- */
+const QUIZ_RANGES = [['review', '⟳ Mes mots à revoir (erreurs)'], ['mine', 'Mon vocabulaire'], ['juz30', 'Juz ʿAmma (sourates 78 à 114)'], ['fatiha', 'Al-Fātiḥa'], ['all', 'Tout le Coran'], ['cur', 'La sourate ouverte dans l\'onglet Coran']];
+const QUIZ_TYPES = [['case', 'Quel est le cas de ce nom ?'], ['mood', 'Quel est le mode de ce verbe ?'], ['sens', 'Que veut dire ce mot ?'], ['phrase', 'Quelle est la bonne phrase ?']];
+
+function renderQuizTab(ctx, root, state) {
+  clear(root);
+  state.score = state.score || { ok: 0, n: 0 };
+  state.qtype = state.qtype || 'case'; state.range = state.range || 'juz30';
+  mdText(root, 'p', 'aa-help', 'Entraîne-toi avec de **vrais mots du Coran**. Après chaque réponse, tu vois l\'explication complète.');
+  const bar = h(root, 'div', 'aa-toolbar');
+  selectEl(field(bar, 'Exercice'), QUIZ_TYPES, state.qtype, v => { state.qtype = v; state.q = null; renderQuizTab(ctx, root, state); });
+  if (state.qtype !== 'phrase') selectEl(field(bar, 'Textes'), QUIZ_RANGES, state.range, v => { state.range = v; state.q = null; renderQuizTab(ctx, root, state); });
+  h(bar, 'div', 'aa-score', 'Score : ' + state.score.ok + ' / ' + state.score.n);
+  if (state.notice) { mdText(root, 'p', 'aa-warn', state.notice); state.notice = null; }
+  renderProgress(ctx, details(root, '📈 Mes progrès', false), () => renderQuizTab(ctx, root, state));
+  const box = h(root, 'div', 'aa-quiz');
+  const next = async () => { state.q = await makeQuestion(ctx, state); renderQuizTab(ctx, root, state); };
+  if (!state.q) { h(box, 'p', 'aa-muted', 'Préparation de la question…'); next(); return; }
+  const q = state.q;
+  h(box, 'div', 'aa-quiz-q', q.prompt);
+  if (q.words) {
+    const a = h(box, 'div', 'aa-verse-ar'); a.setAttribute('dir', 'rtl'); a.style.fontSize = ctx.settings.arSize + 'px';
+    q.words.forEach((w, wi) => { arSpan(a, wordText(w), wi === q.wi ? 'aa-hl' : ''); a.appendChild(document.createTextNode(' ')); });
+    h(box, 'div', 'aa-muted aa-small', q.ref[0] + ':' + q.ref[1] + ' — ' + q.verseFr);
+    const big = h(box, 'div', 'aa-quiz-word'); arSpan(big, wordText(q.words[q.wi]), 'aa-big');
+  } else if (q.fr) {
+    h(box, 'div', 'aa-quiz-fr', '« ' + q.fr + ' »');
+  }
+  const opts = h(box, 'div', 'aa-quiz-opts');
+  const fb = h(box, 'div', 'aa-quiz-fb');
+  q.options.forEach((o, i) => {
+    const b = btn(opts, '', () => {
+      if (q.done) return;
+      q.done = true; state.score.n++;
+      const good = i === q.answer;
+      if (good) state.score.ok++;
+      if (q.words) { const lid = stemOf(q.words[q.wi]).seg[3]; if (lid >= 0) ctx.record(lid, good, state.qtype); }
+      else ctx.record(-1, good, state.qtype);
+      opts.querySelectorAll('button').forEach((x, k) => { if (k === q.answer) x.classList.add('aa-good'); else if (k === i) x.classList.add('aa-bad'); });
+      mdText(fb, 'div', good ? 'aa-ok' : 'aa-warn', good ? '✓ Bravo !' : '✗ Pas tout à fait : la réponse est « ' + q.options[q.answer].replace(/\*\*/g, '') + ' ».');
+      (q.explain || []).forEach(x => mdText(fb, 'div', 'aa-why', x));
+      if (q.words) { const det = h(fb, 'div', 'aa-detail'); renderWordDetail(ctx, det, q.words, q.wi, q.ref, null); }
+      const nb = btn(fb, 'Question suivante →', next, 'mod-cta');
+      nb.focus && nb.focus();
+      root.querySelector('.aa-score').textContent = 'Score : ' + state.score.ok + ' / ' + state.score.n;
+    }, 'aa-quiz-opt');
+    if (q.optAr) arSpan(b, o, 'aa-mid'); else b.textContent = o;
+  });
+}
+
+function rnd(n) { return Math.floor(Math.random() * n); }
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+async function makeQuestion(ctx, state) {
+  const data = ctx.data;
+  if (state.qtype === 'phrase') return makePhraseQuestion();
+  if (state.range === 'review' || state.range === 'mine') {
+    const pool = state.range === 'review' ? ctx.reviewList().map(x => x.id) : ctx.myWordIds();
+    if (!pool.length) { state.notice = state.range === 'review' ? 'Aucune erreur enregistrée pour l\'instant : questions prises dans le Juz ʿAmma.' : 'Ton vocabulaire de l\'atelier est vide : ajoute des mots avec le bouton « Ajouter à mon vocabulaire ». Questions prises dans le Juz ʿAmma.'; }
+    for (let tries = 0; tries < 80 && pool.length; tries++) {
+      const lid = pool[rnd(Math.min(pool.length, 25))];
+      const refs = data.refsOf(lid); if (!refs.length) continue;
+      const r = refs[rnd(refs.length)];
+      const d = await data.surah(r[0]); const v = d.v[r[1] - 1]; if (!v) continue;
+      const words = v[2]; const wi = r[2] - 1; const w = words[wi]; if (!w) continue;
+      const f = stemOf(w).f;
+      const ok = state.qtype === 'sens' || (state.qtype === 'case' && f.pos === 'N' && f.cas && !['PRON', 'DEM', 'REL'].includes(f.sub)) || (state.qtype === 'mood' && f.pos === 'V' && f.mood);
+      if (!ok) continue;
+      return buildWordQuestion(ctx, state, words, wi, r, v);
+    }
+    if (pool.length) state.notice = 'Tes mots à revoir ne conviennent pas à cet exercice : essaie « Que veut dire ce mot ? ». Questions prises dans le Juz ʿAmma.';
+  }
+  const range = state.range === 'fatiha' ? [1, 1] : state.range === 'all' ? [1, 114] : state.range === 'cur' ? [ctx.currentSurah(), ctx.currentSurah()] : [78, 114];
+  for (let tries = 0; tries < 60; tries++) {
+    const s = range[0] + rnd(range[1] - range[0] + 1);
+    const d = await data.surah(s); const vi = rnd(d.v.length); const v = d.v[vi]; const words = v[2];
+    const cands = [];
+    words.forEach((w, wi) => {
+      const f = stemOf(w).f;
+      if (state.qtype === 'case' && f.pos === 'N' && f.cas && !['PRON', 'DEM', 'REL'].includes(f.sub)) cands.push(wi);
+      if (state.qtype === 'mood' && f.pos === 'V' && f.mood) cands.push(wi);
+      if (state.qtype === 'sens' && stemOf(w).seg[3] >= 0 && data.lemmas[stemOf(w).seg[3]][4]) cands.push(wi);
+    });
+    if (!cands.length) continue;
+    const wi = cands[rnd(cands.length)];
+    return buildWordQuestion(ctx, state, words, wi, [s, vi + 1, wi + 1], v);
+  }
+  return makePhraseQuestion();
+}
+function buildWordQuestion(ctx, state, words, wi, ref, v) {
+  const data = ctx.data;
+  {
+    const st = stemOf(words[wi]); const e = explainQuranWord(words, wi, data.lemmas);
+    const base = { words, wi, ref: [ref[0], ref[1], wi + 1], verseFr: v[0] };
+    if (state.qtype === 'case') {
+      const keys = ['NOM', 'ACC', 'GEN'];
+      return Object.assign(base, { prompt: 'Quel est le cas du mot surligné ? Regarde sa dernière voyelle… et ce qui le précède.', options: keys.map(k => CASES[k].fr + ' (' + CASES[k].sign + ')'), answer: keys.indexOf(st.f.cas), explain: e.why });
+    }
+    if (state.qtype === 'mood') {
+      const keys = ['IND', 'SUBJ', 'JUS'];
+      return Object.assign(base, { prompt: 'Ce verbe au présent est à quel mode ? Regarde sa fin et le mot juste avant.', options: keys.map(k => MOODS[k].fr + ' — ' + MOODS[k].sign), answer: keys.indexOf(st.f.mood), explain: e.why });
+    }
+    const good = data.lemmas[st.seg[3]][4];
+    const pool = data.lemmas.filter(l => l[5] >= 15 && l[4] && l[4] !== good && l[1] === st.f.pos);
+    const opts = shuffle([good, ...shuffle(pool.slice()).slice(0, 3).map(l => l[4])]);
+    return Object.assign(base, { prompt: 'Que veut dire le mot surligné (sens de base) ?', options: opts, answer: opts.indexOf(good), explain: [] });
+  }
+  return makePhraseQuestion();
+}
+
+function corruptEnding(ar) {
+  const swaps = { 'ُ': 'َ', 'َ': 'ِ', 'ِ': 'ُ', 'ٌ': 'ًا', 'ٍ': 'ٌ' };
+  const m = ar.match(/([ًٌٍَُِ])(ا?)$/);
+  if (!m) return null;
+  let rep = swaps[m[1]];
+  if (m[1] === 'ً') rep = 'ٌ';
+  return ar.slice(0, ar.length - m[0].length) + rep;
+}
+function makePhraseQuestion() {
+  for (let tries = 0; tries < 30; tries++) {
+    const kind = ['nominal', 'verbal'][rnd(2)];
+    const c = Object.assign({}, BUILD_DEFAULTS[kind]);
+    if (kind === 'nominal') {
+      Object.assign(c, { subj: NOUNS[rnd(25)].id, adj: ADJS[rnd(ADJS.length)].id, mod: ['none', 'kana', 'inna', 'laysa'][rnd(4)] });
+    } else {
+      const v = VERBS[rnd(VERBS.length)];
+      Object.assign(c, { verb: v.id, tense: ['past', 'pres', 'negPastLam', 'negFut', 'fut'][rnd(5)], subj: NOUNS[rnd(25)].id, objNoun: v.obj ? v.obj[rnd(v.obj.length)] : 'kitab', obj: v.tr ? 'noun' : 'none', pp: !v.tr, ppNoun: ['bayt', 'madrasa', 'masjid', 'hadiqa'][rnd(4)], prep: v.prep || 'fi' });
+    }
+    let r; try { r = buildSentence(c); } catch (e) { continue; }
+    if (r.warn) continue;
+    const good = r.words.map(w => w.ar);
+    const wrong = [];
+    const idx = shuffle(good.map((_, i) => i));
+    for (const i of idx) { const x = corruptEnding(good[i]); if (x) { const copy = good.slice(); copy[i] = x; wrong.push({ ar: copy.join(' '), i, w: r.words[i] }); } if (wrong.length === 2) break; }
+    if (wrong.length < 2) continue;
+    const all = shuffle([{ ar: good.join(' '), good: true }, ...wrong]);
+    return {
+      prompt: 'Laquelle de ces phrases veut dire :', fr: r.fr, optAr: true, options: all.map(x => x.ar), answer: all.findIndex(x => x.good),
+      explain: wrong.map(x => 'Dans une mauvaise réponse, ' + x.w.ar + ' a la mauvaise fin. La bonne forme : ' + x.w.why),
+    };
+  }
+  return { prompt: 'Erreur : aucune question.', options: ['—'], answer: 0 };
+}
+
+function renderProgress(ctx, el, refresh) {
+  const P = ctx.settings.progress;
+  const types = { case: 'cas', mood: 'modes', sens: 'sens des mots', phrase: 'phrases' };
+  const tot = Object.values(P.byType).reduce((a, x) => ({ ok: a.ok + x.ok, n: a.n + x.n }), { ok: 0, n: 0 });
+  if (!tot.n) { h(el, 'p', 'aa-muted', 'Pas encore de réponses enregistrées. Chaque réponse au quiz est mémorisée ici.'); return; }
+  mdText(el, 'p', null, '**' + tot.n + '** réponses, **' + Math.round(100 * tot.ok / tot.n) + ' %** de bonnes réponses. Mots de ton vocabulaire : **' + ctx.myWordIds().length + '**.');
+  const t = h(el, 'table', 'aa-table');
+  const hr = h(t, 'tr'); ['Exercice', 'Réponses', 'Réussite'].forEach(x => h(hr, 'th', null, x));
+  Object.entries(P.byType).forEach(([k, x]) => { if (!x.n) return; const r = h(t, 'tr'); h(r, 'td', null, types[k] || k); h(r, 'td', null, String(x.n)); h(r, 'td', null, Math.round(100 * x.ok / x.n) + ' %'); });
+  const rev = ctx.reviewList();
+  if (rev.length) {
+    h(el, 'h4', null, 'Mots à revoir (' + rev.length + ')');
+    const grid = h(el, 'div', 'aa-family');
+    rev.slice(0, 30).forEach(x => {
+      const l = ctx.data.lemmas[x.id];
+      const c = h(grid, 'div', 'aa-fam');
+      arSpan(c, l[0]); h(c, 'div', 'aa-fam-g', l[4]); h(c, 'div', 'aa-muted aa-small', '✗ ' + x.ko + ' · ✓ ' + x.ok);
+      c.addEventListener('click', () => ctx.openDict(x.id));
+    });
+    mdText(el, 'p', 'aa-muted aa-small', 'Choisis « ⟳ Mes mots à revoir » dans **Textes** pour t\'entraîner sur eux. Un mot sort de la liste quand tu as plus de bonnes réponses que d\'erreurs.');
+  }
+  btn(el, 'Remettre à zéro', () => { ctx.resetProgress(); refresh(); }, 'aa-btn-quiet');
+}
+/* ====================================================================
+ * 06b - Dictionnaire : tous les mots du Coran
+ * ==================================================================== */
+const AR_ALPHA = 'ابتثجحخدذرزسشصضطظعغفقكلمنهوي';
+function stripAr(s) { return (s || '').replace(/[ً-ٰٟۖ-ۭ]/g, '').replace(/[ٱأإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/ؤ/g, 'و').replace(/ئ/g, 'ي'); }
+function stripLat(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[ʿʾ'’\-]/g, ''); }
+function lemmaType(l) {
+  const sub = (l[2] || '').split('/');
+  if (l[1] === 'V') { const f = (sub.find(x => x.startsWith('VF:')) || 'VF:1').slice(3); return 'verbe, forme ' + (VERB_FORMS[f] ? VERB_FORMS[f][0] : f); }
+  if (l[1] === 'P') return 'particule' + (sub[0] && PARTICLES[sub[0]] ? ' — ' + PARTICLES[sub[0]].split(/[:(]/)[0].trim() : '');
+  const k = sub.filter(x => POS_NAMES[x]);
+  return k.length ? k.map(x => POS_NAMES[x].split(' (')[0]).join(', ') : 'nom';
+}
+let LEM_TR = null;
+function lemmaTranslit(i, lemmas) {
+  if (!LEM_TR) LEM_TR = new Array(lemmas.length);
+  if (LEM_TR[i] == null) { try { LEM_TR[i] = translitPhrase([lemmas[i][0].replace(/([بتثجحخدذرزسشصضطظعغفقكلمنهوي])ا/g, '$1َا')]); } catch (e) { LEM_TR[i] = ''; } }
+  return LEM_TR[i];
+}
+
+function dictSearch(data, q, filter) {
+  const L = data.lemmas; const out = [];
+  q = (q || '').trim();
+  const isAr = hasArabic(q);
+  const qa = stripAr(q).replace(/\s+/g, ''); const ql = stripLat(q);
+  for (let i = 0; i < L.length; i++) {
+    const l = L[i];
+    if (filter && filter !== 'all' && l[1] !== filter) continue;
+    let score = 0;
+    if (!q) score = l[5];
+    else if (isAr) {
+      const sk = stripAr(l[0]);
+      if (sk === qa) score = 100000;
+      else if (l[3] && l[3].replace(/\s/g, '') === qa.replace(/ء/g, 'أ')) score = 50000;
+      else if (l[3] && stripAr(l[3]) === qa) score = 50000;
+      else if (sk.startsWith(qa)) score = 20000;
+      else if (qa.length >= 2 && sk.includes(qa)) score = 5000;
+      if (score) score += l[5];
+    } else {
+      const g = stripLat(l[4]); const d = stripLat(l[7]); const r = stripLat(l[8]);
+      const words = g.split(/[\s,;()…/]+/);
+      const re = new RegExp('(^|[^a-z])' + ql.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      if (words.includes(ql)) score = 60000;
+      else if (g.startsWith(ql)) score = 40000;
+      else if (re.test(g)) score = 20000;
+      else if (q.length >= 3 && (re.test(d) || r.includes(ql))) score = 5000;
+      else if (q.length >= 2 && stripLat(lemmaTranslit(i, L)).startsWith(ql)) score = 15000;
+      if (score) score += l[5];
+    }
+    if (score) out.push([i, score]);
+  }
+  // un mot conjugué / avec préfixes : passer par l'index des formes du Coran
+  if (isAr && data.forms && out.length < 3) {
+    for (const c of data.lookup(q).slice(0, 3)) {
+      const dd = data.cache.get(c.ref[0]); if (!dd) continue;
+      const w = dd.v[c.ref[1] - 1][2][c.ref[2] - 1]; const lid = stemOf(w).seg[3];
+      if (lid >= 0 && !out.some(x => x[0] === lid)) out.push([lid, 1]);
+    }
+  }
+  return out.sort((a, b) => b[1] - a[1]).map(x => x[0]);
+}
+
+function renderDictTab(ctx, root, state) {
+  clear(root);
+  const data = ctx.data;
+  if (!data.forms) {
+    const p = h(root, 'p', 'aa-muted', 'Préparation du dictionnaire (une seule fois)…');
+    data.buildForms(s => { p.textContent = 'Préparation du dictionnaire… sourate ' + s + ' / 114'; }).then(() => renderDictTab(ctx, root, state));
+    return;
+  }
+  state.mode = state.mode || 'search';
+  mdText(root, 'p', 'aa-help', 'Les **' + data.lemmas.length.toLocaleString('fr-FR') + ' mots** du Coran. Cherche en arabe (avec ou sans voyelles, même un mot conjugué), en français, en translittération ou par **racine** (ex. كتب).');
+  const tabs = h(root, 'div', 'aa-seg-tabs');
+  [['search', 'Rechercher'], ['roots', 'Par racine'], ['mine', 'Mon vocabulaire']].forEach(([k, l]) => {
+    const b = btn(tabs, l, () => { state.mode = k; state.entry = null; renderDictTab(ctx, root, state); }); if (state.mode === k) b.classList.add('aa-on');
+  });
+  const cols = h(root, 'div', 'aa-dict');
+  const listEl = h(cols, 'div', 'aa-dict-list');
+  const entryEl = h(cols, 'div', 'aa-dict-entry');
+  const showEntry = (id) => { state.entry = id; renderDictEntry(ctx, entryEl, id, showEntry); listEl.querySelectorAll('.aa-dict-row').forEach(r => r.classList.toggle('aa-on', +r.dataset.id === id)); entryEl.scrollIntoView && window.innerWidth < 800 && entryEl.scrollIntoView({ block: 'start' }); };
+  if (state.mode === 'search') {
+    const bar = h(listEl, 'div', 'aa-toolbar');
+    const inp = h(bar, 'input', 'aa-input-line aa-dict-q'); inp.type = 'search'; inp.placeholder = 'كتب · livre · kitāb'; inp.value = state.q || '';
+    selectEl(bar, [['all', 'tous'], ['N', 'noms'], ['V', 'verbes'], ['P', 'particules']], state.filter || 'all', v => { state.filter = v; renderDictTab(ctx, root, state); });
+    const res = h(listEl, 'div');
+    const run = () => {
+      state.q = inp.value; clear(res);
+      const ids = dictSearch(data, state.q, state.filter);
+      h(res, 'div', 'aa-muted aa-small', state.q ? ids.length + ' résultat(s)' : 'Les mots les plus fréquents :');
+      renderRows(ctx, h(res, 'div'), ids, 60, showEntry);
+    };
+    let timer = null;
+    inp.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(run, 250); });
+    run();
+  } else if (state.mode === 'roots') {
+    const alpha = h(listEl, 'div', 'aa-alpha'); alpha.setAttribute('dir', 'rtl');
+    state.letter = state.letter || 'ك';
+    [...AR_ALPHA].forEach(ch => { const b = arSpan(alpha, ch, 'aa-alpha-l' + (ch === state.letter ? ' aa-on' : '')); b.addEventListener('click', () => { state.letter = ch; renderDictTab(ctx, root, state); }); });
+    const roots = [...data.byRoot.keys()].filter(r => stripAr(r[0]) === state.letter || r[0] === state.letter).sort((a, b) => stripAr(a).localeCompare(stripAr(b), 'ar'));
+    h(listEl, 'div', 'aa-muted aa-small', roots.length + ' racines commençant par ' + state.letter);
+    const box = h(listEl, 'div', 'aa-roots');
+    roots.forEach(r => {
+      const ids = data.byRoot.get(r).slice().sort((a, b) => data.lemmas[b][5] - data.lemmas[a][5]);
+      const d = h(box, 'details', 'aa-root-item');
+      const sm = h(d, 'summary'); arSpan(sm, r.split('').join(' '), 'aa-mid'); h(sm, 'span', 'aa-muted aa-small', '  ' + (data.lemmas[ids[0]][4] || '') + ' · ' + ids.length + ' mot(s)');
+      d.addEventListener('toggle', () => { if (d.open && d.children.length === 1) renderRows(ctx, h(d, 'div'), ids, 50, showEntry); });
+    });
+  } else {
+    const ids = ctx.myWordIds();
+    if (!ids.length) mdText(listEl, 'p', 'aa-muted', 'Aucun mot pour l\'instant. Clique **Ajouter à mon vocabulaire** sur un mot du Coran ou du dictionnaire.');
+    renderRows(ctx, listEl, ids, 100, showEntry);
+  }
+  if (state.entry != null) showEntry(state.entry);
+  else h(entryEl, 'p', 'aa-muted', 'Choisis un mot dans la liste pour voir sa fiche complète.');
+}
+
+function renderRows(ctx, parent, ids, limit, onPick) {
+  const data = ctx.data; const box = h(parent, 'div'); let shown = 0;
+  const more = () => {
+    ids.slice(shown, shown + limit).forEach(id => {
+      const l = data.lemmas[id];
+      const r = h(box, 'div', 'aa-dict-row' + (ctx.isMine(id) ? ' aa-dict-mine' : '')); r.dataset.id = id;
+      arSpan(r, l[0], 'aa-dict-ar');
+      const t = h(r, 'div', 'aa-dict-txt');
+      h(t, 'div', 'aa-dict-g', l[4] || '—');
+      h(t, 'div', 'aa-muted aa-small', lemmaTranslit(id, data.lemmas) + ' · ' + lemmaType(l) + ' · ' + l[5] + '×');
+      r.addEventListener('click', () => onPick(id));
+    });
+    shown += limit; mb.style.display = shown < ids.length ? '' : 'none';
+  };
+  const mb = btn(parent, 'Afficher plus', more, 'aa-btn-quiet');
+  more();
+}
+
+function renderDictEntry(ctx, el, id, onPick) {
+  clear(el);
+  const data = ctx.data; const l = data.lemmas[id]; const style = ctx.settings.style;
+  const tr = lemmaTranslit(id, data.lemmas);
+  const head = h(el, 'div', 'aa-dhead');
+  const left = h(head, 'div', 'aa-dhead-main');
+  arSpan(left, l[0], 'aa-big'); h(left, 'div', 'aa-tr', style === 'fr' ? frenchStyle(tr) : tr);
+  soundBtn(left, () => speak(l[0]), 'Écouter (voix de l\'appareil)');
+  const right = h(head, 'div', 'aa-dhead-info');
+  h(right, 'span', 'aa-badge ' + (POS_CLASS[l[1]] || ''), lemmaType(l));
+  const g = h(right, 'div', 'aa-gloss'); h(g, 'b', null, l[4] || '—');
+  if (l[3]) { const r = h(right, 'div', 'aa-lemma'); h(r, 'span', 'aa-muted', 'racine : '); arSpan(r, l[3].split('').join(' '), 'aa-rootl'); }
+  h(right, 'div', 'aa-muted', l[5] + ' fois dans le Coran');
+  h(el, 'h4', null, 'Définition');
+  mdText(el, 'div', 'aa-def', l[7] || (l[4] ? cap(l[4]) + '.' : '—'));
+  if (l[8]) h(el, 'div', 'aa-ru', '🇷🇺 ' + l[8]);
+  if (!l[7]) h(el, 'p', 'aa-muted aa-small', 'Mot plus rare : le sens détaillé vient surtout de ses exemples ci-dessous (traduction de chaque verset).');
+  if (l[1] === 'V') {
+    const f = ((l[2] || '').split('/').find(x => x.startsWith('VF:')) || 'VF:1').slice(3);
+    if (VERB_FORMS[f]) mdText(el, 'p', 'aa-small', '**Forme ' + VERB_FORMS[f][0] + '** (' + VERB_FORMS[f][1] + ') : ' + VERB_FORMS[f][2] + '.');
+  }
+  // formes
+  const fm = data.lemForms && data.lemForms.get(id);
+  if (fm && fm.size) {
+    h(el, 'h4', null, 'Ses formes dans le Coran (' + fm.size + ')');
+    const box = h(el, 'div', 'aa-cands');
+    [...fm.entries()].sort((a, b) => b[1] - a[1]).slice(0, 40).forEach(([txt, n]) => {
+      const c = h(box, 'span', 'aa-chip'); arSpan(c, txt); h(c, 'span', 'aa-muted aa-small', ' ' + n + '×');
+      c.title = translitPhrase([txt], style);
+      c.addEventListener('click', () => { const r = data.lookup(txt).find(x => x.txt === txt); if (r) ctx.openQuran(r.ref[0], r.ref[1]); });
+    });
+    h(el, 'p', 'aa-muted aa-small', 'Clique une forme pour la voir dans son verset. Les différences viennent des préfixes (وَ, ال, بِـ…), des pronoms collés et des terminaisons de cas ou de personne.');
+  }
+  // famille
+  if (l[3]) {
+    const fam = data.rootFamily(l[3], id);
+    if (fam.length) {
+      h(el, 'h4', null, 'Même racine (' + fam.length + ')');
+      const grid = h(el, 'div', 'aa-family');
+      fam.slice(0, 30).forEach(x => { const c = h(grid, 'div', 'aa-fam'); arSpan(c, x.l[0]); h(c, 'div', 'aa-fam-g', x.l[4]); h(c, 'div', 'aa-muted aa-small', x.l[5] + '×'); c.addEventListener('click', () => onPick(x.id)); });
+    }
+  }
+  // actions
+  const act = h(el, 'div', 'aa-actions');
+  btn(act, ctx.isMine(id) ? '✓ Dans mon vocabulaire' : 'Ajouter à mon vocabulaire', (ev) => { ctx.addVocab(id, l[0], tr, l[4], ''); ev.target.textContent = '✓ Dans mon vocabulaire'; });
+  btn(act, 'Créer une flashcard', () => ctx.addFlashcard(l[0], l[4] + ' — ' + tr + (l[8] ? ' — ' + l[8] : '')));
+  btn(act, 'Insérer dans la note', () => ctx.insertText('- ' + l[0] + ' (' + tr + ') — ' + l[4] + (l[3] ? ' · racine ' + l[3] : '') + '\n'));
+  // occurrences
+  const refs = data.allRefsOf(id);
+  h(el, 'h4', null, 'Tous les versets (' + refs.length + ')');
+  const list = h(el, 'div', 'aa-occ-list');
+  let shown = 0;
+  const more = async () => {
+    for (const r of refs.slice(shown, shown + 8)) {
+      const d = await data.surah(r[0]); const v = d.v[r[1] - 1]; if (!v) continue;
+      const item = h(list, 'div', 'aa-occ');
+      const a = h(item, 'div', 'aa-occ-ar'); a.setAttribute('dir', 'rtl');
+      v[2].forEach((w, wi) => { arSpan(a, wordText(w), wi === r[2] - 1 ? 'aa-hl' : ''); a.appendChild(document.createTextNode(' ')); });
+      const m = h(item, 'div', 'aa-occ-meta');
+      const link = h(m, 'a', 'aa-link', data.surahInfo(r[0])[1] + ' ' + r[0] + ':' + r[1]);
+      link.addEventListener('click', ev => { ev.preventDefault(); ctx.openQuran(r[0], r[1]); });
+      h(m, 'span', 'aa-muted', ' — ' + v[0]);
+      if (ctx.settings.showRu && v[1]) h(m, 'div', 'aa-verse-ru', v[1]);
+    }
+    shown += 8; mb.style.display = shown < refs.length ? '' : 'none';
+  };
+  const mb = btn(el, 'Voir plus de versets', more, 'aa-btn-quiet');
+  more();
+}
+/* ====================================================================
+ * 07 - Le plugin Obsidian : vue, commandes, blocs de code, réglages
+ * ==================================================================== */
+const VIEW_TYPE = 'atelier-arabe-view';
+const DEFAULT_SETTINGS = {
+  style: 'sci', showTr: true, showFr: true, showRu: true, arSize: 30, openLetters: false,
+  flashFile: '5 - Flashcards/Atelier - mes phrases.md', lastSurah: 1,
+  audio: true, ruExpl: false, vocabFile: '4 - Références/Vocabulaire.md', textsFolder: '3 - Textes',
+  myWords: {}, progress: null,
+};
+function emptyProgress() { return { byType: { case: { ok: 0, n: 0 }, mood: { ok: 0, n: 0 }, sens: { ok: 0, n: 0 }, phrase: { ok: 0, n: 0 } }, lem: {} }; }
+const TABS = [
+  ['coran', 'Coran', 'Lire une sourate mot par mot'], ['dict', 'Dictionnaire', 'Tous les mots du Coran'], ['analyse', 'Analyser', 'Analyser un texte arabe'],
+  ['build', 'Construire', 'Construire une phrase'], ['signs', 'Signes', 'Laboratoire des signes'], ['quiz', 'Entraînement', 'S\'entraîner'],
+];
+
+class AtelierView extends ItemView {
+  constructor(leaf, plugin) {
+    super(leaf);
+    this.plugin = plugin;
+    this.tab = 'coran';
+    this.states = { coran: { surah: plugin.settings.lastSurah || 1, page: 0 }, dict: {}, analyse: {}, build: {}, signs: {}, quiz: {} };
+  }
+  getViewType() { return VIEW_TYPE; }
+  getDisplayText() { return 'Atelier arabe'; }
+  getIcon() { return 'languages'; }
+  async onOpen() {
+    const root = this.contentEl;
+    clear(root); root.classList.add('aa-root');
+    this.nav = h(root, 'div', 'aa-tabs');
+    this.body = h(root, 'div', 'aa-body');
+    h(this.body, 'p', 'aa-muted', 'Chargement du Coran…');
+    try { const msg = this.body.firstChild; await this.plugin.data.init((d, n) => { msg.textContent = 'Premier lancement : téléchargement du Coran… ' + d + ' / ' + n; }); } catch (e) {
+      clear(this.body); h(this.body, 'p', 'aa-warn', 'Impossible de lire les données du plugin (dossier data). Vérifie que le dossier .obsidian/plugins/atelier-arabe/data est complet. Détail : ' + e.message);
+      return;
+    }
+    this.render();
+  }
+  async onClose() { clear(this.contentEl); }
+  setTab(tab, opts) {
+    this.tab = tab;
+    if (opts) Object.assign(this.states[tab], opts);
+    if (this.body && this.plugin.data.surahs) this.render();
+  }
+  render() {
+    clear(this.nav);
+    TABS.forEach(([id, label, title]) => {
+      const b = h(this.nav, 'button', 'aa-tab' + (this.tab === id ? ' aa-on' : ''), label);
+      b.title = title;
+      b.addEventListener('click', () => this.setTab(id));
+    });
+    const ctx = this.plugin.ctx(this);
+    const st = this.states[this.tab];
+    clear(this.body);
+    if (this.tab === 'coran') renderQuranTab(ctx, this.body, st);
+    else if (this.tab === 'dict') renderDictTab(ctx, this.body, st);
+    else if (this.tab === 'analyse') renderAnalyseTab(ctx, this.body, st);
+    else if (this.tab === 'build') renderBuildTab(ctx, this.body, st);
+    else if (this.tab === 'signs') renderSignsTab(ctx, this.body, st);
+    else renderQuizTab(ctx, this.body, st);
+  }
+}
+
+class AtelierSettingTab extends PluginSettingTab {
+  constructor(app, plugin) { super(app, plugin); this.plugin = plugin; }
+  display() {
+    const el = this.containerEl; clear(el);
+    h(el, 'h2', null, 'Atelier arabe');
+    h(el, 'p', null, 'Toutes les données (Coran, traductions, analyse grammaticale) sont dans le dossier du plugin : rien n\'est envoyé sur internet.');
+    const p = this.plugin; const s = p.settings;
+    new Setting(el).setName('Translittération').setDesc('Savante (ā, ū, sh, j) ou « à la française » (ou, ch, dj).')
+      .addDropdown(d => d.addOption('sci', 'savante : al-ḥamdu, shukr').addOption('fr', 'à la française : al-ḥamdou, choukr').setValue(s.style).onChange(async v => { s.style = v; await p.saveSettings(); }));
+    new Setting(el).setName('Afficher la translittération').addToggle(t => t.setValue(s.showTr).onChange(async v => { s.showTr = v; await p.saveSettings(); }));
+    new Setting(el).setName('Afficher la traduction française').setDesc('Traduction de Muhammad Hamidullah.').addToggle(t => t.setValue(s.showFr).onChange(async v => { s.showFr = v; await p.saveSettings(); }));
+    new Setting(el).setName('Afficher la traduction russe').setDesc('Traduction d\'Elmir Kuliev (Кулиев).').addToggle(t => t.setValue(s.showRu).onChange(async v => { s.showRu = v; await p.saveSettings(); }));
+    new Setting(el).setName('Taille du texte arabe').setDesc('En pixels (30 par défaut).')
+      .addSlider(sl => sl.setLimits(20, 48, 2).setValue(s.arSize).setDynamicTooltip().onChange(async v => { s.arSize = v; await p.saveSettings(); }));
+    new Setting(el).setName('Explications aussi en russe').setDesc('Ajoute la version russe sous chaque explication de cas et de mode, et le sens russe des mots.')
+      .addToggle(t => t.setValue(s.ruExpl).onChange(async v => { s.ruExpl = v; EXPL_RU = v; await p.saveSettings(); }));
+    new Setting(el).setName('Son en ligne').setDesc('Récitation (Mishary Alafasy) et prononciation des mots depuis internet, seulement quand tu appuies sur ▶ ou 🔊. Désactivé : voix de l\'appareil uniquement.')
+      .addToggle(t => t.setValue(s.audio).onChange(async v => { s.audio = v; await p.saveSettings(); }));
+    new Setting(el).setName('Note de vocabulaire').setDesc('Le bouton « Ajouter à mon vocabulaire » ajoute une ligne au tableau de cette note.')
+      .addText(t => t.setValue(s.vocabFile).onChange(async v => { s.vocabFile = v.trim() || DEFAULT_SETTINGS.vocabFile; await p.saveSettings(); }));
+    new Setting(el).setName('Dossier des textes du cours').setDesc('Les sourates qui ont une note dans ce dossier apparaissent dans « Mon cours ».')
+      .addText(t => t.setValue(s.textsFolder).onChange(async v => { s.textsFolder = v.trim() || DEFAULT_SETTINGS.textsFolder; await p.saveSettings(); }));
+    new Setting(el).setName('Ouvrir « lettre par lettre » automatiquement').addToggle(t => t.setValue(s.openLetters).onChange(async v => { s.openLetters = v; await p.saveSettings(); }));
+    new Setting(el).setName('Fichier des flashcards').setDesc('Note où l\'atelier ajoute tes cartes (format Spaced Repetition « question :: réponse »).')
+      .addText(t => t.setValue(s.flashFile).onChange(async v => { s.flashFile = v.trim() || DEFAULT_SETTINGS.flashFile; await p.saveSettings(); }));
+  }
+}
+
+class AtelierArabePlugin extends Plugin {
+  async onload() {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    if (!this.settings.progress) this.settings.progress = emptyProgress();
+    if (!this.settings.myWords) this.settings.myWords = {};
+    EXPL_RU = !!this.settings.ruExpl;
+    this.data = new QuranData(this.app, this.manifest.dir);
+    notify = (m) => new Notice(m);
+    this.registerView(VIEW_TYPE, leaf => new AtelierView(leaf, this));
+    this.addRibbonIcon('languages', 'Atelier arabe', () => this.openView());
+    this.addCommand({ id: 'ouvrir', name: 'Ouvrir l\'atelier', callback: () => this.openView() });
+    this.addCommand({ id: 'dictionnaire', name: 'Dictionnaire', callback: () => this.openView('dict') });
+    this.addCommand({ id: 'construire', name: 'Construire une phrase', callback: () => this.openView('build') });
+    this.addCommand({ id: 'signes', name: 'Laboratoire des signes', callback: () => this.openView('signs') });
+    this.addCommand({ id: 'entrainement', name: 'Entraînement', callback: () => this.openView('quiz') });
+    this.addCommand({
+      id: 'analyser-selection', name: 'Analyser le texte sélectionné',
+      editorCallback: (editor) => { const t = editor.getSelection(); if (!t || !hasArabic(t)) { new Notice('Sélectionne d\'abord un texte arabe.'); return; } this.openView('analyse', { text: t }); },
+    });
+    this.registerEvent(this.app.workspace.on('editor-menu', (menu, editor) => {
+      const t = editor.getSelection();
+      if (t && hasArabic(t)) menu.addItem(i => i.setTitle('Analyser avec l\'atelier arabe').setIcon('languages').onClick(() => this.openView('analyse', { text: t })));
+    }));
+    this.registerEvent(this.app.workspace.on('active-leaf-change', leaf => { if (leaf && leaf.view instanceof MarkdownView) this.lastMd = leaf; }));
+
+    this.registerMarkdownCodeBlockProcessor('coran', async (src, el) => {
+      el.classList.add('aa-root', 'aa-embed');
+      try {
+        await this.data.init();
+        const refs = parseRefs(src);
+        if (!refs.length) { h(el, 'p', 'aa-warn', 'Écris une référence, par exemple : 1:1-7, 112 ou 2:255'); return; }
+        for (const r of refs) await renderVerses(this.ctx(null), h(el, 'div'), r.s, r.from, r.to, { title: true, basmala: r.from === 1 && !r.to });
+      } catch (e) { h(el, 'p', 'aa-warn', 'Erreur : ' + e.message); }
+    });
+    this.registerMarkdownCodeBlockProcessor('analyse-arabe', async (src, el) => {
+      el.classList.add('aa-root', 'aa-embed');
+      try { await this.data.init(); await analyseInto(this.ctx(null), h(el, 'div'), src); } catch (e) { h(el, 'p', 'aa-warn', 'Erreur : ' + e.message); }
+    });
+    this.addSettingTab(new AtelierSettingTab(this.app, this));
+  }
+  onunload() { /* Obsidian ferme la vue tout seul */ }
+  async saveSettings() {
+    await this.saveData(this.settings);
+    this.app.workspace.getLeavesOfType(VIEW_TYPE).forEach(l => l.view && l.view.render && l.view.plugin.data.surahs && l.view.render());
+  }
+  ctx(view) {
+    const self = this;
+    return {
+      data: this.data, settings: this.settings,
+      save: () => this.saveData(this.settings),
+      insertText: (t) => this.insertText(t),
+      addFlashcard: (q, a) => this.addFlashcard(q, a),
+      openQuran: (s, v) => this.openView('coran', { surah: s, page: 0, focus: v }),
+      openDict: (id) => this.openView('dict', { entry: id, mode: 'search' }),
+      openNote: (file) => this.app.workspace.getLeaf(false).openFile(file),
+      isMine: (id) => !!this.settings.myWords[id],
+      myWordIds: () => Object.keys(this.settings.myWords).map(Number),
+      addVocab: (id, ar, tr, gloss, where) => this.addVocab(id, ar, tr, gloss, where),
+      courseSurahs: () => this.courseSurahs(),
+      record: (id, good, type) => {
+        const P = this.settings.progress; const t = P.byType[type] || (P.byType[type] = { ok: 0, n: 0 });
+        t.n++; if (good) t.ok++;
+        if (id >= 0) { const x = P.lem[id] || (P.lem[id] = { ok: 0, ko: 0 }); if (good) x.ok++; else x.ko++; }
+        this.saveData(this.settings);
+      },
+      reviewList: () => Object.entries(this.settings.progress.lem).filter(([, x]) => x.ko > x.ok).map(([id, x]) => ({ id: +id, ok: x.ok, ko: x.ko })).sort((a, b) => (b.ko - b.ok) - (a.ko - a.ok)),
+      resetProgress: () => { this.settings.progress = emptyProgress(); this.saveData(this.settings); },
+      currentSurah: () => { const l = self.app.workspace.getLeavesOfType(VIEW_TYPE)[0]; return l && l.view.states ? l.view.states.coran.surah : 1; },
+    };
+  }
+  async openView(tab, opts) {
+    const ws = this.app.workspace;
+    let leaf = ws.getLeavesOfType(VIEW_TYPE)[0];
+    if (!leaf) { leaf = ws.getLeaf('tab'); await leaf.setViewState({ type: VIEW_TYPE, active: true }); }
+    ws.revealLeaf(leaf);
+    if (opts && opts.surah) { this.settings.lastSurah = opts.surah; this.saveData(this.settings); }
+    if (tab && leaf.view && leaf.view.setTab) leaf.view.setTab(tab, opts);
+  }
+  courseSurahs() {
+    if (!this.data.surahs) return [];
+    const norm = x => stripLat(x).replace(/[^a-z]/g, '');
+    const names = this.data.surahs.map(s => norm(s[1]));
+    const out = []; const seen = new Set();
+    const folder = this.settings.textsFolder.replace(/\/$/, '') + '/';
+    for (const f of this.app.vault.getMarkdownFiles()) {
+      if (!f.path.startsWith(folder)) continue;
+      const b = norm(f.basename.replace(/^sourate\s*/i, '').replace(/\s+-\s.*$/, ''));
+      const i = names.findIndex(n => n && (n === b || (b.length > 4 && n.startsWith(b))));
+      if (i >= 0 && !seen.has(i)) { seen.add(i); out.push({ n: i + 1, label: this.data.surahs[i][1], file: f }); }
+    }
+    return out.sort((a, b) => a.n - b.n);
+  }
+  async addVocab(id, ar, tr, gloss, where) {
+    const path = this.settings.vocabFile;
+    const f = this.app.vault.getAbstractFileByPath(path);
+    this.settings.myWords[id] = Date.now(); await this.saveData(this.settings);
+    if (!f) { new Notice('Mot gardé dans « Mon vocabulaire » de l\'atelier (la note ' + path + ' est introuvable).'); return; }
+    const content = await this.app.vault.read(f);
+    if (content.includes('| ' + ar + ' |')) { new Notice('Ce mot est déjà dans ta note de vocabulaire.'); return; }
+    const row = '| ' + ar + ' | ' + tr + ' | ' + (gloss || '').replace(/\|/g, '/') + ' | Atelier' + (where ? ' (' + where + ')' : '') + ' |\n';
+    await this.app.vault.modify(f, content.replace(/\n*$/, '\n') + row);
+    new Notice('Ajouté à « ' + f.basename + ' »');
+  }
+  insertText(t) {
+    let leaf = this.lastMd;
+    const active = this.app.workspace.getActiveViewOfType(MarkdownView);
+    const view = active || (leaf && leaf.view instanceof MarkdownView ? leaf.view : null) || (this.app.workspace.getLeavesOfType('markdown')[0] || {}).view;
+    if (!view || !view.editor) { new Notice('Ouvre d\'abord une note (en mode édition) pour y insérer le texte.'); return; }
+    view.editor.replaceSelection(t);
+    new Notice('Ajouté dans « ' + (view.file ? view.file.basename : 'la note') + ' »');
+  }
+  async addFlashcard(q, a) {
+    const path = this.settings.flashFile;
+    const line = q.replace(/::/g, ':').replace(/\n/g, ' ') + ' :: ' + a.replace(/::/g, ':').replace(/\n/g, ' ') + '\n';
+    let f = this.app.vault.getAbstractFileByPath(path);
+    try {
+      if (!f) {
+        const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
+        if (dir && !this.app.vault.getAbstractFileByPath(dir)) await this.app.vault.createFolder(dir);
+        f = await this.app.vault.create(path, '# Atelier arabe – mes cartes\n\nCartes créées depuis l\'atelier arabe (plugin). Révision avec Spaced Repetition.\n\n#flashcards/arabe/phrases\n\n' + line);
+      } else await this.app.vault.append(f, line);
+      new Notice('Flashcard ajoutée dans « ' + path + ' »');
+    } catch (e) { new Notice('Impossible d\'ajouter la flashcard : ' + e.message); }
+  }
+}
+module.exports = AtelierArabePlugin;

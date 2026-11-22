@@ -1,0 +1,540 @@
+/* ====================================================================
+ * 06 - Onglets : Coran, Analyser, Construire, Signes, Entraînement
+ * ==================================================================== */
+
+/* ---------------------------- Coran ---------------------------- */
+function renderQuranTab(ctx, root, state) {
+  clear(root);
+  const data = ctx.data;
+  const PAGE = 20;
+  const bar = h(root, 'div', 'aa-toolbar');
+  const f1 = field(bar, 'Sourate');
+  selectEl(f1, data.surahs.map(s => [s[0], s[0] + '. ' + s[1] + ' — ' + s[2]]), state.surah, v => { state.surah = +v; state.page = 0; state.focus = 0; renderQuranTab(ctx, root, state); });
+  const info = data.surahInfo(state.surah); const nV = info[5];
+  const pages = Math.ceil(nV / PAGE);
+  if (state.focus) state.page = Math.floor((state.focus - 1) / PAGE);
+  if (pages > 1) {
+    const f2 = field(bar, 'Versets');
+    const opts = []; for (let p = 0; p < pages; p++) opts.push([p, (p * PAGE + 1) + '–' + Math.min(nV, (p + 1) * PAGE)]);
+    selectEl(f2, opts, state.page, v => { state.page = +v; state.focus = 0; renderQuranTab(ctx, root, state); });
+  }
+  const tg = h(bar, 'div', 'aa-toggles');
+  checkbox(tg, 'translittération', ctx.settings.showTr, v => { ctx.settings.showTr = v; ctx.save(); renderQuranTab(ctx, root, state); });
+  checkbox(tg, 'français', ctx.settings.showFr, v => { ctx.settings.showFr = v; ctx.save(); renderQuranTab(ctx, root, state); });
+  checkbox(tg, 'русский', ctx.settings.showRu, v => { ctx.settings.showRu = v; ctx.save(); renderQuranTab(ctx, root, state); });
+  const course = ctx.courseSurahs();
+  if (course.length) {
+    const cb = h(root, 'div', 'aa-course');
+    h(cb, 'span', 'aa-muted', 'Mon cours : ');
+    course.forEach(c => {
+      const ch = h(cb, 'span', 'aa-chip' + (c.n === state.surah ? ' aa-chip-on' : ''), c.label);
+      ch.addEventListener('click', () => { state.surah = c.n; state.page = 0; state.focus = 0; renderQuranTab(ctx, root, state); });
+    });
+    const mine = course.find(c => c.n === state.surah);
+    if (mine) { const lk = h(cb, 'a', 'aa-link aa-small', '📝 ouvrir ma note « ' + mine.file.basename + ' »'); lk.addEventListener('click', ev => { ev.preventDefault(); ctx.openNote(mine.file); }); }
+  }
+  mdText(root, 'p', 'aa-help', '**Clique sur un mot** pour voir ses morceaux, ses signes lettre par lettre, la raison de sa terminaison et les autres formes possibles. Couleurs : bleu = nom, rouge = verbe, gris = particule. Les mots **soulignés en pointillé** sont déjà dans ton vocabulaire.');
+  const body = h(root, 'div', 'aa-verses');
+  const from = state.page * PAGE + 1, to = Math.min(nV, from + PAGE - 1);
+  renderVerses(ctx, body, state.surah, from, to, { title: true, basmala: from === 1 }).then(() => {
+    if (state.focus) {
+      const el = body.querySelector('[data-ref="' + state.surah + ':' + state.focus + '"]');
+      if (el) { el.classList.add('aa-verse-focus'); el.scrollIntoView && el.scrollIntoView({ block: 'center' }); }
+    }
+    if (pages > 1) {
+      const nav = h(root, 'div', 'aa-pager');
+      if (state.page > 0) btn(nav, '← versets précédents', () => { state.page--; state.focus = 0; renderQuranTab(ctx, root, state); });
+      if (state.page < pages - 1) btn(nav, 'versets suivants →', () => { state.page++; state.focus = 0; renderQuranTab(ctx, root, state); });
+    }
+  });
+}
+
+/* ---------------------------- Analyser ---------------------------- */
+function renderAnalyseTab(ctx, root, state) {
+  clear(root);
+  mdText(root, 'p', 'aa-help', 'Colle ou tape un texte arabe (avec ou sans voyelles). Chaque mot est **cherché dans tout le Coran** : tu obtiens sa forme voyellée, son sens et son analyse complète.');
+  const ta = h(root, 'textarea', 'aa-input'); ta.setAttribute('dir', 'rtl'); ta.rows = 3;
+  if (!state.text) state.text = 'قل هو الله احد';
+  ta.value = state.text;
+  const bar = h(root, 'div', 'aa-actions');
+  const out = h(root, 'div', 'aa-analyse-out');
+  const go = () => { state.text = ta.value; analyseInto(ctx, out, ta.value); };
+  btn(bar, 'Analyser', go, 'mod-cta');
+  btn(bar, 'Effacer', () => { ta.value = ''; clear(out); }, 'aa-btn-quiet');
+  ta.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) go(); });
+  if (state.text) go();
+}
+
+async function analyseInto(ctx, out, text) {
+  clear(out);
+  const data = ctx.data; const style = ctx.settings.style;
+  const words = splitWords(text).filter(w => hasArabic(w));
+  if (!words.length) { h(out, 'p', 'aa-muted', 'Aucun mot arabe trouvé.'); return; }
+  if (!data.forms) {
+    const wait = h(out, 'p', 'aa-muted', 'Préparation de l\'index du Coran (une seule fois)…');
+    await data.buildForms(s => { wait.textContent = 'Préparation de l\'index du Coran… sourate ' + s + ' / 114'; });
+    wait.remove();
+  }
+  const sum = h(out, 'div', 'aa-analyse-sum');
+  const line = h(sum, 'div', 'aa-verse-ar'); line.setAttribute('dir', 'rtl'); line.style.fontSize = ctx.settings.arSize + 'px';
+  const trLine = h(sum, 'div', 'aa-tr aa-verse-tr');
+  const cards = h(out, 'div', 'aa-cards');
+  const chosen = [];
+  const spans = [];
+  const runs = words.length > 1 ? await data.findRuns(words) : [];
+  if (runs.some(Boolean)) out.insertBefore(mdText(null, 'p', 'aa-ok', 'Ces mots se suivent dans le Coran : la lecture est choisie **d\'après le verset** où ils apparaissent ensemble.'), out.firstChild);
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    let cands = data.lookup(w);
+    if (runs[i]) { const rr = runs[i]; const hit = cands.find(c => c.txt === rr.txt); const c0 = Object.assign({}, hit || { txt: rr.txt, n: 1 }, { ref: rr.ref }); cands = [c0, ...cands.filter(c => c.txt !== rr.txt)]; }
+    chosen.push(cands[0] ? cands[0].txt : w);
+    const sp = arSpan(line, cands[0] ? cands[0].txt : w, 'aa-w');
+    line.appendChild(document.createTextNode(' '));
+    spans.push(sp);
+    const card = h(cards, 'div', 'aa-card');
+    const det = h(card, 'div', 'aa-detail');
+    sp.addEventListener('click', () => card.scrollIntoView && card.scrollIntoView({ block: 'start', behavior: 'smooth' }));
+    const show = async (c) => {
+      clear(det);
+      if (!c) {
+        const hd = h(det, 'div', 'aa-dhead'); arSpan(hd, w, 'aa-big'); h(hd, 'div', 'aa-tr', translitPhrase([w], style));
+        mdText(det, 'p', 'aa-warn', 'Ce mot (ou cette orthographe) **n\'est pas dans le Coran**. Voici au moins ses lettres et ses signes :');
+        renderTiles(det, w);
+        return;
+      }
+      const d = await data.surah(c.ref[0]); const v = d.v[c.ref[1] - 1];
+      renderWordDetail(ctx, det, v[2], c.ref[2] - 1, c.ref, v);
+      const ctxLine = h(det, 'div', 'aa-occ');
+      const a = h(ctxLine, 'div', 'aa-occ-ar'); a.setAttribute('dir', 'rtl');
+      v[2].forEach((x, wi) => { arSpan(a, wordText(x), wi === c.ref[2] - 1 ? 'aa-hl' : ''); a.appendChild(document.createTextNode(' ')); });
+      const m = h(ctxLine, 'div', 'aa-occ-meta');
+      h(m, 'span', 'aa-muted', 'Exemple du Coran (' + c.n + ' fois cette forme exacte) : ');
+      const link = h(m, 'a', 'aa-link', data.surahInfo(c.ref[0])[1] + ' ' + c.ref[0] + ':' + c.ref[1]);
+      link.addEventListener('click', ev => { ev.preventDefault(); ctx.openQuran(c.ref[0], c.ref[1]); });
+      h(m, 'div', 'aa-muted', v[0]);
+    };
+    if (cands.length > 1) {
+      const alt = h(card, 'div', 'aa-cands');
+      h(alt, 'span', 'aa-muted', (hasVowels(w) ? 'Autres lectures possibles : ' : 'Sans voyelles, ce mot peut se lire : '));
+      cands.slice(0, 6).forEach((c, k) => {
+        const ch = h(alt, 'span', 'aa-chip' + (k === 0 ? ' aa-chip-on' : ''));
+        arSpan(ch, c.txt); h(ch, 'span', 'aa-muted aa-small', ' ' + c.n + '×');
+        ch.addEventListener('click', () => {
+          alt.querySelectorAll('.aa-chip').forEach(x => x.classList.remove('aa-chip-on')); ch.classList.add('aa-chip-on');
+          sp.textContent = c.txt; chosen[i] = c.txt; trLine.textContent = translitPhrase(chosen, style); show(c);
+        });
+      });
+      if (!hasVowels(w)) mdText(alt, 'div', 'aa-muted aa-small', 'Sans les voyelles, **seul le contexte** permet de choisir : c\'est exactement pour cela que le Coran est entièrement voyellé.');
+    }
+    card.insertBefore(det, card.firstChild);
+    await show(cands[0]);
+  }
+  trLine.textContent = translitPhrase(chosen, style);
+}
+function hasVowels(w) { return /[ً-ْ]/.test(w); }
+
+/* ---------------------------- Construire ---------------------------- */
+const BUILD_DEFAULTS = {
+  nominal: { type: 'nominal', subjKind: 'noun', subj: 'walad', subjDef: true, pron: 'huwa', pred: 'adj', adj: 'kabir', prep: 'fi', ppNoun: 'bayt', ppDef: true, mod: 'none', q: false },
+  verbal: { type: 'verbal', verb: 'kataba', tense: 'past', subjKind: 'noun', subj: 'talib', subjDef: true, pron: 'huwa', order: 'vso', obj: 'noun', objNoun: 'risala', objDef: true, pp: false, prep: 'fi', ppNoun: 'madrasa', ppDef: true, passive: false, inna: false, qad: false, q: false },
+  np: { type: 'np', noun: 'kitab', def: 'idafa', noun2: 'talib', adj: 'jadid', adjTarget: 1, cas: 'nom' },
+};
+const ROLE_NAMES = {
+  subj: 'sujet', pred: 'attribut', adj: 'adjectif', verb: 'verbe', obj: 'complément', pp: 'préposition + nom', prep: 'préposition', gen: 'nom au génitif',
+  kana: 'كَانَ / لَيْسَ', inna: 'إِنَّ', q: 'question', neg: 'négation', fut: 'futur', qad: 'قَدْ', emph: 'insistance', n1: '1er nom', n2: '2e nom',
+};
+const nounOpts = (list) => list.map(n => [n.id, n.ar + ' — ' + n.fr[0]]);
+
+function renderBuildTab(ctx, root, state) {
+  clear(root);
+  if (!state.cfg) state.cfg = Object.assign({}, BUILD_DEFAULTS.nominal);
+  const c = state.cfg;
+  mdText(root, 'p', 'aa-help', 'Choisis les morceaux : la phrase se construit avec **les bonnes terminaisons**, et chaque mot explique **pourquoi** il a ce signe. En bas : comment on aurait pu la dire autrement.');
+  const types = h(root, 'div', 'aa-seg-tabs');
+  [['nominal', 'Phrase nominale (« X est Y »)'], ['verbal', 'Phrase verbale (« X fait Y »)'], ['np', 'Groupe de mots (« le livre de… »)']].forEach(([t, l]) => {
+    const b = btn(types, l, () => { state.cfg = Object.assign({}, BUILD_DEFAULTS[t]); renderBuildTab(ctx, root, state); });
+    if (c.type === t) b.classList.add('aa-on');
+  });
+  const form = h(root, 'div', 'aa-form');
+  const set = (k) => (v) => { c[k] = v === 'true' ? true : v === 'false' ? false : (/^\d+$/.test(v) ? +v : v); renderBuildTab(ctx, root, state); };
+  const sel = (label, k, opts) => selectEl(field(form, label), opts, c[k], set(k));
+  const chk = (label, k) => checkbox(form, label, c[k], v => { c[k] = v; renderBuildTab(ctx, root, state); });
+  const common = NOUNS.filter(n => !n.proper);
+  if (c.type === 'nominal') {
+    sel('Sujet', 'subjKind', [['noun', 'un nom'], ['pron', 'un pronom (je, tu, il…)']]);
+    if (c.subjKind === 'noun') { sel('Nom', 'subj', nounOpts(NOUNS.filter(n => n.id !== 'allah'))); if (!byId(NOUNS, c.subj).proper) chk('avec ال (défini)', 'subjDef'); }
+    else sel('Pronom', 'pron', PERS.filter(p => !p.pl).map(p => [p.id, p.label]));
+    sel('Ce qu\'on dit du sujet', 'pred', [['adj', 'un adjectif (il est grand)'], ['pp', 'un lieu (il est dans…)']]);
+    if (c.pred === 'adj') sel('Adjectif', 'adj', ADJS.map(a => [a.id, a.ar + ' — ' + a.fr[0]]));
+    else { sel('Préposition', 'prep', PREPS.map(p => [p.id, p.ar + ' — ' + p.fr])); sel('Nom', 'ppNoun', nounOpts(NOUNS)); if (!byId(NOUNS, c.ppNoun).proper) chk('avec ال', 'ppDef'); }
+    sel('Mot d\'introduction', 'mod', [['none', 'aucun (présent)'], ['kana', 'كَانَ — était'], ['inna', 'إِنَّ — certes'], ['laysa', 'لَيْسَ — n\'est pas'], ['laysaBi', 'لَيْسَ … بِـ — pas du tout']]);
+    chk('en question (هَلْ)', 'q');
+  } else if (c.type === 'verbal') {
+    selectEl(field(form, 'Verbe'), VERBS.map(v => [v.id, conjPast(v, 'huwa') + ' — ' + v.fr.inf + (v.hollow ? ' (creux)' : v.form === 4 ? ' (forme IV)' : '')]), c.verb, val => {
+      const nv = byId(VERBS, val); c.verb = val;
+      if (nv.prep) c.prep = nv.prep;
+      if (nv.defPP) { c.pp = true; c.ppNoun = nv.defPP; }
+      if (!nv.tr) c.obj = 'none'; else if (c.obj === 'none') c.obj = 'noun';
+      if (nv.obj) c.objNoun = nv.obj[0];
+      renderBuildTab(ctx, root, state);
+    });
+    const v = byId(VERBS, c.verb);
+    sel('Temps', 'tense', TENSES.map(t => [t.id, t.label]));
+    const isImp = /^imp/.test(c.tense);
+    if (isImp) sel('À qui ?', 'pron', PERS.filter(p => ['anta', 'anti', 'antum'].includes(p.id)).map(p => [p.id, p.label]));
+    else {
+      sel('Qui fait l\'action ?', 'subjKind', [['noun', 'un nom'], ['pron', 'un pronom']]);
+      if (c.subjKind === 'noun') { sel('Sujet', 'subj', nounOpts(NOUNS.filter(n => !n.noSubjVerb))); if (!byId(NOUNS, c.subj).proper) chk('avec ال', 'subjDef'); sel('Ordre', 'order', [['vso', 'verbe d\'abord (habituel)'], ['svo', 'sujet d\'abord']]); }
+      else sel('Pronom', 'pron', PERS.map(p => [p.id, p.label]));
+    }
+    if (v.tr) {
+      sel('Complément', 'obj', [['noun', 'un nom'], ['pron', 'un pronom collé (le, la)'], ['none', 'aucun']]);
+      if (c.obj !== 'none') { sel('Quoi ?', 'objNoun', nounOpts(NOUNS)); if (c.obj === 'noun' && !byId(NOUNS, c.objNoun).proper) chk('avec ال', 'objDef'); }
+      if (c.obj === 'noun' && !isImp) chk('au passif (« a été … »)', 'passive');
+    }
+    chk('ajouter un lieu / une personne', 'pp');
+    if (c.pp) { sel('Préposition', 'prep', PREPS.map(p => [p.id, p.ar + ' — ' + p.fr])); sel('Nom', 'ppNoun', nounOpts(NOUNS)); if (!byId(NOUNS, c.ppNoun).proper) chk('avec ال', 'ppDef'); }
+    if (!isImp) { chk('avec إِنَّ', 'inna'); if (c.tense === 'past') chk('avec قَدْ', 'qad'); chk('en question', 'q'); }
+  } else {
+    sel('Nom', 'noun', nounOpts(common));
+    sel('Forme', 'def', [['indef', 'indéfini : un livre'], ['def', 'défini : le livre'], ['idafa', 'annexion : le livre de…']]);
+    if (c.def === 'idafa') sel('… de qui / de quoi ?', 'noun2', nounOpts(NOUNS));
+    sel('Adjectif', 'adj', [['', 'aucun'], ...ADJS.map(a => [a.id, a.ar + ' — ' + a.fr[0]])]);
+    if (c.def === 'idafa' && c.adj) sel('L\'adjectif qualifie', 'adjTarget', [[1, 'le 1er nom'], [2, 'le 2e nom']]);
+    sel('Cas (rôle dans une phrase)', 'cas', [['nom', 'nominatif — sujet'], ['acc', 'accusatif — complément'], ['gen', 'génitif — après une préposition']]);
+  }
+
+  let r;
+  try { r = buildSentence(c); } catch (e) { h(root, 'p', 'aa-warn', 'Combinaison impossible : ' + e.message); return; }
+  const out = h(root, 'div', 'aa-build-out');
+  const line = h(out, 'div', 'aa-build-ar'); line.setAttribute('dir', 'rtl'); line.style.fontSize = (ctx.settings.arSize + 6) + 'px';
+  const arText = r.words.map(w => w.ar).join(' ');
+  const tr = translitPhrase(r.words.map(w => w.ar), ctx.settings.style);
+  const whyBox = h(document.createElement('div'), 'div');
+  const rows = [];
+  r.words.forEach((w, i) => {
+    const sp = arSpan(line, w.ar, 'aa-bw aa-r-' + w.role);
+    sp.title = (ROLE_NAMES[w.role] || w.role) + ' — ' + (w.gloss || '');
+    sp.addEventListener('click', () => { rows.forEach(x => x.classList.remove('aa-row-hl')); rows[i].classList.add('aa-row-hl'); rows[i].scrollIntoView && rows[i].scrollIntoView({ block: 'nearest' }); });
+    line.appendChild(document.createTextNode(' '));
+  });
+  h(out, 'div', 'aa-tr aa-build-tr', tr);
+  h(out, 'div', 'aa-build-fr', r.fr);
+  if (r.warn) mdText(out, 'div', 'aa-warn', r.warn);
+  const act = h(out, 'div', 'aa-actions');
+  soundBtn(act, () => speak(arText), 'Écouter (voix de l\'appareil)');
+  btn(act, 'Copier', () => copyText(arText + '\n' + tr + '\n' + r.fr));
+  btn(act, 'Insérer dans la note', () => ctx.insertText('- ' + arText + ' — *' + tr + '* — ' + r.fr + '\n'));
+  btn(act, 'Créer une flashcard', () => ctx.addFlashcard(r.fr, arText + ' (' + tr + ')'));
+
+  h(root, 'h4', null, 'Pourquoi chaque mot a cette forme');
+  const tbl = h(root, 'div', 'aa-why-table');
+  r.words.forEach(w => {
+    const row = h(tbl, 'div', 'aa-why-row');
+    const a = h(row, 'div', 'aa-why-ar'); arSpan(a, w.ar, 'aa-r-' + w.role);
+    h(a, 'div', 'aa-tr aa-small', translitPhrase([w.ar], ctx.settings.style));
+    const b = h(row, 'div', 'aa-why-txt');
+    const hd = h(b, 'div'); h(hd, 'span', 'aa-badge aa-r-' + w.role + '-bg', ROLE_NAMES[w.role] || w.role); if (w.gloss) h(hd, 'span', 'aa-muted', ' « ' + w.gloss + ' »');
+    mdText(b, 'div', null, w.why);
+    rows.push(row);
+  });
+  if (r.notes && r.notes.length) { const ul = h(root, 'ul', 'aa-notes'); r.notes.forEach(n => mdText(ul, 'li', null, n)); }
+
+  const vs = variantsOf(c);
+  if (vs.length) {
+    h(root, 'h4', null, 'Comment j\'aurais pu le dire autrement ?');
+    const list = h(root, 'div', 'aa-variants');
+    vs.forEach(v => {
+      const it = h(list, 'div', 'aa-variant' + (v.cfg ? ' aa-click' : ''));
+      h(it, 'div', 'aa-variant-label', v.label);
+      arSpan(it, v.ar, 'aa-mid');
+      h(it, 'div', 'aa-tr aa-small', translitPhrase(v.ar.split(' '), ctx.settings.style));
+      h(it, 'div', 'aa-variant-fr', v.fr);
+      mdText(it, 'div', 'aa-muted aa-small', v.explain);
+      if (v.cfg) it.addEventListener('click', () => { state.cfg = Object.assign({}, BUILD_DEFAULTS[v.cfg.type], v.cfg); renderBuildTab(ctx, root, state); root.scrollIntoView && root.scrollIntoView({ block: 'start' }); });
+    });
+  }
+  if (c.type === 'verbal' && byId(VERBS, c.verb).note) mdText(root, 'p', 'aa-help', '💡 ' + cap(byId(VERBS, c.verb).note));
+  if (c.type === 'verbal') renderConjugation(ctx, details(root, 'Tableau de conjugaison de ' + conjPast(byId(VERBS, c.verb), 'huwa') + ' (' + byId(VERBS, c.verb).fr.inf + ')', false), c.verb);
+  else if (c.type !== 'np') {
+    const d = details(root, 'Rappel : les 3 cas, comme en russe', false);
+    const t = h(d, 'table', 'aa-table');
+    const hr = h(t, 'tr'); ['Cas', 'Signe', 'Rôle', 'En russe'].forEach(x => h(hr, 'th', null, x));
+    [['NOM', 'sujet, attribut, après كَانَ (son nom)'], ['ACC', 'complément d\'objet, après إِنَّ, attribut de كَانَ / لَيْسَ'], ['GEN', 'après une préposition, 2e nom d\'une annexion']].forEach(([k, role]) => {
+      const rr = h(t, 'tr'); h(rr, 'td', null, CASES[k].fr + ' (' + CASES[k].tr + ')'); arSpan(h(rr, 'td'), CASES[k].sign); h(rr, 'td', null, role); h(rr, 'td', null, CASES[k].ru);
+    });
+  }
+}
+
+function renderConjugation(ctx, parent, vid) {
+  const ct = conjugationTable(vid);
+  const t = h(parent, 'table', 'aa-table aa-conj');
+  const hr = h(t, 'tr');
+  ['Personne', 'Passé', 'Présent (-u)', 'Subjonctif (-a)', 'Apocopé (ـْ)', 'Impératif'].forEach(x => h(hr, 'th', null, x));
+  ct.rows.forEach(r => {
+    const tr = h(t, 'tr');
+    const p = h(tr, 'td'); arSpan(p, r.p.ar); h(p, 'span', 'aa-muted aa-small', ' ' + r.p.fr + (r.p.id === 'anti' ? ' (f.)' : r.p.id === 'hiya' ? '' : ''));
+    [r.past, r.pres, r.subj, r.jus, r.imp].forEach(x => { const td = h(tr, 'td'); if (x) { arSpan(td, x); h(td, 'div', 'aa-tr aa-small', translitPhrase([x], ctx.settings.style)); } });
+  });
+  mdText(parent, 'p', 'aa-muted aa-small', 'Au **passé**, la personne est à la **fin** du verbe. Au **présent**, elle est surtout au **début** (أَ نَ يَ تَ). Le subjonctif et l\'apocopé ne changent que la fin.');
+}
+
+/* ---------------------------- Signes ---------------------------- */
+const SIGN_PAIRS = [
+  { title: 'Une seule racine, beaucoup de sens : ك ت ب (écrire)', items: [
+    ['كَتَبَ', 'il a écrit', 'trois fatḥa : verbe au passé, actif'], ['كُتِبَ', 'il a été écrit', 'u-i : le passif'], ['كَتَّبَ', 'il a fait écrire', 'shadda sur le t : forme II'],
+    ['كَاتَبَ', 'il a correspondu avec', 'alif après le k : forme III'], ['كِتَابٌ', 'un livre', 'i-ā : un nom'], ['كُتُبٌ', 'des livres', 'u-u : pluriel brisé'],
+    ['كَاتِبٌ', 'un écrivain', 'ā-i : celui qui fait (participe actif)'], ['مَكْتُوبٌ', 'écrit (ce qui est écrit)', 'ma-…-ū : celui qui subit (participe passif)'] ] },
+  { title: 'م ل ك : roi, ange ou possesseur ? (Al-Fātiḥa 1:4)', items: [
+    ['مَلِكٌ', 'un roi', 'a-i (مَلِكِ ٱلنَّاسِ, 114:2)'], ['مَلَكٌ', 'un ange', 'a-a'], ['مُلْكٌ', 'la royauté', 'u-soukoun (بِيَدِهِ ٱلْمُلْكُ, 67:1)'],
+    ['مَالِكٌ', 'un possesseur, maître', 'ā-i (مَٰلِكِ يَوْمِ ٱلدِّينِ, 1:4)'], ['مَلَكَ', 'il a possédé', 'a-a-a : verbe au passé'] ] },
+  { title: 'ع ل م : savoir', items: [
+    ['عَلِمَ', 'il a su', 'a-i-a : passé'], ['عُلِمَ', 'il a été su', 'u-i : passif'], ['عَلَّمَ', 'il a enseigné', 'shadda : forme II, « faire savoir »'],
+    ['عِلْمٌ', 'la science, le savoir', 'i-soukoun : nom'], ['عَالِمٌ', 'un savant', 'ā-i : celui qui sait'], ['عَالَمٌ', 'un monde', 'ā-a (ٱلْعَٰلَمِينَ, 1:2)'], ['عَلَمٌ', 'un drapeau, un repère', 'a-a'] ] },
+  { title: 'La dernière voyelle d\'un nom = son rôle (le cas)', items: [
+    ['ٱلْحَمْدُ', 'la louange (sujet)', '-u : nominatif — comme dans 1:2'], ['ٱلْحَمْدَ', 'la louange (complément)', '-a : accusatif'], ['ٱلْحَمْدِ', 'de la louange', '-i : génitif'],
+    ['كِتَابٌ', 'un livre (sujet)', '-un : tanwīn = indéfini'], ['كِتَابًا', 'un livre (complément)', '-an (+ alif)'], ['كِتَابٍ', 'd\'un livre', '-in'], ['ٱلْكِتَابُ', 'le livre', 'ال remplace le tanwīn'] ] },
+  { title: 'La dernière voyelle d\'un verbe au présent = son mode', items: [
+    ['يَكْتُبُ', 'il écrit', '-u : indicatif (normal)'], ['لَنْ يَكْتُبَ', 'il n\'écrira jamais', '-a : subjonctif après لَنْ'], ['لَمْ يَكْتُبْ', 'il n\'a pas écrit', 'soukoun : apocopé après لَمْ (comme لَمْ يَلِدْ, 112:3)'],
+    ['لَا تَكْتُبْ', 'n\'écris pas !', 'soukoun : لَا d\'interdiction'], ['ٱكْتُبْ', 'écris !', 'impératif'] ] },
+  { title: 'Une voyelle change tout', items: [
+    ['مَنْ', 'qui ?', 'fatḥa'], ['مِنْ', 'de, parmi', 'kasra'], ['إِنَّ', 'certes', 'kasra + shadda'], ['أَنَّ', 'que (+ nom)', 'fatḥa + shadda'], ['إِنْ', 'si', 'kasra, sans shadda'], ['أَنْ', 'que (+ verbe)', 'fatḥa, sans shadda'],
+    ['ذَهَبَ', 'il est parti', 'verbe'], ['ذَهَبٌ', 'de l\'or', 'nom'], ['قَتَلَ', 'il a tué', 'a-a-a'], ['قُتِلَ', 'il a été tué', 'u-i : passif'], ['قَاتَلَ', 'il a combattu', 'ā : forme III'],
+    ['جَنَّةٌ', 'un jardin, le paradis', 'a'], ['جِنَّةٌ', 'les djinns', 'i'], ['جُنَّةٌ', 'un bouclier', 'u'] ] },
+];
+const VOWEL_CHOICES = [['', '— aucun —'], ['َ', 'fatḥa  ـَ  (a)'], ['ُ', 'ḍamma  ـُ  (u)'], ['ِ', 'kasra  ـِ  (i)'], ['ْ', 'soukoun  ـْ'], ['ً', 'tanwīn  ـً  (-an)'], ['ٌ', 'tanwīn  ـٌ  (-un)'], ['ٍ', 'tanwīn  ـٍ  (-in)']];
+
+function renderSignsTab(ctx, root, state) {
+  clear(root);
+  const style = ctx.settings.style;
+  mdText(root, 'p', 'aa-help', 'Le **laboratoire des signes** : change une voyelle et regarde ce qui se passe. En haut, tu modifies un mot toi-même ; en dessous, des exemples où **un seul signe change le sens**.');
+  // --- éditeur
+  const ed = h(root, 'div', 'aa-lab');
+  h(ed, 'h4', null, 'Mon mot');
+  const inRow = h(ed, 'div', 'aa-actions');
+  const inp = h(inRow, 'input', 'aa-input-line'); inp.type = 'text'; inp.setAttribute('dir', 'rtl'); inp.value = state.labWord || 'كَتَبَ';
+  btn(inRow, 'Charger', () => { state.labWord = inp.value.trim(); renderSignsTab(ctx, root, state); });
+  const us = units(state.labWord || 'كَتَبَ').filter(u => u.b && u.b !== ' ');
+  const res = h(ed, 'div', 'aa-lab-res');
+  const tiles = h(ed, 'div', 'aa-lab-tiles'); tiles.setAttribute('dir', 'rtl');
+  const update = async () => {
+    const w = joinUnits(us);
+    state.labWord = w; inp.value = w;
+    clear(res);
+    arSpan(res, w, 'aa-big');
+    h(res, 'div', 'aa-tr', translitPhrase([w], style));
+    const found = h(res, 'div', 'aa-lab-found');
+    if (!ctx.data.forms) { h(found, 'span', 'aa-muted', 'Recherche dans le Coran…'); await ctx.data.buildForms(); clear(found); }
+    const c = ctx.data.lookup(w).filter(x => x.exact);
+    if (c.length) {
+      const d = await ctx.data.surah(c[0].ref[0]); const v = d.v[c[0].ref[1] - 1];
+      const st = stemOf(v[2][c[0].ref[2] - 1]); const lem = st.seg[3] >= 0 ? ctx.data.lemmas[st.seg[3]] : null;
+      mdText(found, 'div', 'aa-ok', '✓ Ce mot existe dans le Coran (' + c[0].n + ' fois)' + (lem ? ' : **' + lem[4] + '**' : '') + '.');
+      const link = h(found, 'a', 'aa-link', 'Voir ' + ctx.data.surahInfo(c[0].ref[0])[1] + ' ' + refStr(c[0].ref));
+      link.addEventListener('click', ev => { ev.preventDefault(); ctx.openQuran(c[0].ref[0], c[0].ref[1]); });
+    } else {
+      const near = ctx.data.lookup(w).slice(0, 5);
+      h(found, 'div', 'aa-muted', 'Cette forme exacte n\'est pas dans le Coran.' + (near.length ? ' Formes proches qui y sont :' : ''));
+      const chips = h(found, 'div', 'aa-cands');
+      near.forEach(n => { const ch = h(chips, 'span', 'aa-chip'); arSpan(ch, n.txt); ch.addEventListener('click', () => { state.labWord = n.txt; renderSignsTab(ctx, root, state); }); });
+    }
+  };
+  us.forEach((u, i) => {
+    const t = h(tiles, 'div', 'aa-lab-tile');
+    const big = arSpan(t, u.b + u.m, 'aa-tile-ar');
+    const ctl = h(t, 'div', 'aa-lab-ctl'); ctl.setAttribute('dir', 'ltr');
+    h(ctl, 'div', 'aa-tile-name', (LETTERS[u.b] || [u.b])[0]);
+    const cur = (u.m.match(/[ً-ِْ]/) || [''])[0];
+    const s = selectEl(ctl, VOWEL_CHOICES, cur, v => { u.m = (u.m.includes(SH) ? SH : '') + v + u.m.replace(/[ً-ْ]/g, ''); big.textContent = u.b + u.m; update(); });
+    checkbox(ctl, 'shadda ـّ', u.m.includes(SH), v => { u.m = (v ? SH : '') + u.m.replace(SH, ''); big.textContent = u.b + u.m; update(); });
+  });
+  update();
+  // --- paires
+  SIGN_PAIRS.forEach((g, gi) => {
+    const d = details(root, g.title, gi === 0);
+    const grid = h(d, 'div', 'aa-pairs');
+    g.items.forEach(([ar, fr, why]) => {
+      const c = h(grid, 'div', 'aa-pair');
+      arSpan(c, ar, 'aa-mid');
+      h(c, 'div', 'aa-tr', translitPhrase(ar.split(' '), style));
+      h(c, 'div', 'aa-pair-fr', fr);
+      h(c, 'div', 'aa-muted aa-small', why);
+      c.addEventListener('click', () => { state.labWord = ar.split(' ').pop(); renderSignsTab(ctx, root, state); root.scrollIntoView && root.scrollIntoView({ block: 'start' }); });
+    });
+  });
+  // --- tous les signes
+  const d = details(root, 'Tous les signes (y compris les petits signes du Coran)', false);
+  const t = h(d, 'table', 'aa-table');
+  const hr = h(t, 'tr'); ['Signe', 'Nom', 'Effet', 'À quoi il ressemble'].forEach(x => h(hr, 'th', null, x));
+  Object.entries(MARK_INFO).forEach(([ch, [name, eff, look]]) => {
+    const r = h(t, 'tr'); arSpan(h(r, 'td'), 'ب' + ch, 'aa-mid'); h(r, 'td', null, name); h(r, 'td', null, eff); h(r, 'td', 'aa-muted', look);
+  });
+}
+
+/* ---------------------------- Entraînement ---------------------------- */
+const QUIZ_RANGES = [['review', '⟳ Mes mots à revoir (erreurs)'], ['mine', 'Mon vocabulaire'], ['juz30', 'Juz ʿAmma (sourates 78 à 114)'], ['fatiha', 'Al-Fātiḥa'], ['all', 'Tout le Coran'], ['cur', 'La sourate ouverte dans l\'onglet Coran']];
+const QUIZ_TYPES = [['case', 'Quel est le cas de ce nom ?'], ['mood', 'Quel est le mode de ce verbe ?'], ['sens', 'Que veut dire ce mot ?'], ['phrase', 'Quelle est la bonne phrase ?']];
+
+function renderQuizTab(ctx, root, state) {
+  clear(root);
+  state.score = state.score || { ok: 0, n: 0 };
+  state.qtype = state.qtype || 'case'; state.range = state.range || 'juz30';
+  mdText(root, 'p', 'aa-help', 'Entraîne-toi avec de **vrais mots du Coran**. Après chaque réponse, tu vois l\'explication complète.');
+  const bar = h(root, 'div', 'aa-toolbar');
+  selectEl(field(bar, 'Exercice'), QUIZ_TYPES, state.qtype, v => { state.qtype = v; state.q = null; renderQuizTab(ctx, root, state); });
+  if (state.qtype !== 'phrase') selectEl(field(bar, 'Textes'), QUIZ_RANGES, state.range, v => { state.range = v; state.q = null; renderQuizTab(ctx, root, state); });
+  h(bar, 'div', 'aa-score', 'Score : ' + state.score.ok + ' / ' + state.score.n);
+  if (state.notice) { mdText(root, 'p', 'aa-warn', state.notice); state.notice = null; }
+  renderProgress(ctx, details(root, '📈 Mes progrès', false), () => renderQuizTab(ctx, root, state));
+  const box = h(root, 'div', 'aa-quiz');
+  const next = async () => { state.q = await makeQuestion(ctx, state); renderQuizTab(ctx, root, state); };
+  if (!state.q) { h(box, 'p', 'aa-muted', 'Préparation de la question…'); next(); return; }
+  const q = state.q;
+  h(box, 'div', 'aa-quiz-q', q.prompt);
+  if (q.words) {
+    const a = h(box, 'div', 'aa-verse-ar'); a.setAttribute('dir', 'rtl'); a.style.fontSize = ctx.settings.arSize + 'px';
+    q.words.forEach((w, wi) => { arSpan(a, wordText(w), wi === q.wi ? 'aa-hl' : ''); a.appendChild(document.createTextNode(' ')); });
+    h(box, 'div', 'aa-muted aa-small', q.ref[0] + ':' + q.ref[1] + ' — ' + q.verseFr);
+    const big = h(box, 'div', 'aa-quiz-word'); arSpan(big, wordText(q.words[q.wi]), 'aa-big');
+  } else if (q.fr) {
+    h(box, 'div', 'aa-quiz-fr', '« ' + q.fr + ' »');
+  }
+  const opts = h(box, 'div', 'aa-quiz-opts');
+  const fb = h(box, 'div', 'aa-quiz-fb');
+  q.options.forEach((o, i) => {
+    const b = btn(opts, '', () => {
+      if (q.done) return;
+      q.done = true; state.score.n++;
+      const good = i === q.answer;
+      if (good) state.score.ok++;
+      if (q.words) { const lid = stemOf(q.words[q.wi]).seg[3]; if (lid >= 0) ctx.record(lid, good, state.qtype); }
+      else ctx.record(-1, good, state.qtype);
+      opts.querySelectorAll('button').forEach((x, k) => { if (k === q.answer) x.classList.add('aa-good'); else if (k === i) x.classList.add('aa-bad'); });
+      mdText(fb, 'div', good ? 'aa-ok' : 'aa-warn', good ? '✓ Bravo !' : '✗ Pas tout à fait : la réponse est « ' + q.options[q.answer].replace(/\*\*/g, '') + ' ».');
+      (q.explain || []).forEach(x => mdText(fb, 'div', 'aa-why', x));
+      if (q.words) { const det = h(fb, 'div', 'aa-detail'); renderWordDetail(ctx, det, q.words, q.wi, q.ref, null); }
+      const nb = btn(fb, 'Question suivante →', next, 'mod-cta');
+      nb.focus && nb.focus();
+      root.querySelector('.aa-score').textContent = 'Score : ' + state.score.ok + ' / ' + state.score.n;
+    }, 'aa-quiz-opt');
+    if (q.optAr) arSpan(b, o, 'aa-mid'); else b.textContent = o;
+  });
+}
+
+function rnd(n) { return Math.floor(Math.random() * n); }
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+async function makeQuestion(ctx, state) {
+  const data = ctx.data;
+  if (state.qtype === 'phrase') return makePhraseQuestion();
+  if (state.range === 'review' || state.range === 'mine') {
+    const pool = state.range === 'review' ? ctx.reviewList().map(x => x.id) : ctx.myWordIds();
+    if (!pool.length) { state.notice = state.range === 'review' ? 'Aucune erreur enregistrée pour l\'instant : questions prises dans le Juz ʿAmma.' : 'Ton vocabulaire de l\'atelier est vide : ajoute des mots avec le bouton « Ajouter à mon vocabulaire ». Questions prises dans le Juz ʿAmma.'; }
+    for (let tries = 0; tries < 80 && pool.length; tries++) {
+      const lid = pool[rnd(Math.min(pool.length, 25))];
+      const refs = data.refsOf(lid); if (!refs.length) continue;
+      const r = refs[rnd(refs.length)];
+      const d = await data.surah(r[0]); const v = d.v[r[1] - 1]; if (!v) continue;
+      const words = v[2]; const wi = r[2] - 1; const w = words[wi]; if (!w) continue;
+      const f = stemOf(w).f;
+      const ok = state.qtype === 'sens' || (state.qtype === 'case' && f.pos === 'N' && f.cas && !['PRON', 'DEM', 'REL'].includes(f.sub)) || (state.qtype === 'mood' && f.pos === 'V' && f.mood);
+      if (!ok) continue;
+      return buildWordQuestion(ctx, state, words, wi, r, v);
+    }
+    if (pool.length) state.notice = 'Tes mots à revoir ne conviennent pas à cet exercice : essaie « Que veut dire ce mot ? ». Questions prises dans le Juz ʿAmma.';
+  }
+  const range = state.range === 'fatiha' ? [1, 1] : state.range === 'all' ? [1, 114] : state.range === 'cur' ? [ctx.currentSurah(), ctx.currentSurah()] : [78, 114];
+  for (let tries = 0; tries < 60; tries++) {
+    const s = range[0] + rnd(range[1] - range[0] + 1);
+    const d = await data.surah(s); const vi = rnd(d.v.length); const v = d.v[vi]; const words = v[2];
+    const cands = [];
+    words.forEach((w, wi) => {
+      const f = stemOf(w).f;
+      if (state.qtype === 'case' && f.pos === 'N' && f.cas && !['PRON', 'DEM', 'REL'].includes(f.sub)) cands.push(wi);
+      if (state.qtype === 'mood' && f.pos === 'V' && f.mood) cands.push(wi);
+      if (state.qtype === 'sens' && stemOf(w).seg[3] >= 0 && data.lemmas[stemOf(w).seg[3]][4]) cands.push(wi);
+    });
+    if (!cands.length) continue;
+    const wi = cands[rnd(cands.length)];
+    return buildWordQuestion(ctx, state, words, wi, [s, vi + 1, wi + 1], v);
+  }
+  return makePhraseQuestion();
+}
+function buildWordQuestion(ctx, state, words, wi, ref, v) {
+  const data = ctx.data;
+  {
+    const st = stemOf(words[wi]); const e = explainQuranWord(words, wi, data.lemmas);
+    const base = { words, wi, ref: [ref[0], ref[1], wi + 1], verseFr: v[0] };
+    if (state.qtype === 'case') {
+      const keys = ['NOM', 'ACC', 'GEN'];
+      return Object.assign(base, { prompt: 'Quel est le cas du mot surligné ? Regarde sa dernière voyelle… et ce qui le précède.', options: keys.map(k => CASES[k].fr + ' (' + CASES[k].sign + ')'), answer: keys.indexOf(st.f.cas), explain: e.why });
+    }
+    if (state.qtype === 'mood') {
+      const keys = ['IND', 'SUBJ', 'JUS'];
+      return Object.assign(base, { prompt: 'Ce verbe au présent est à quel mode ? Regarde sa fin et le mot juste avant.', options: keys.map(k => MOODS[k].fr + ' — ' + MOODS[k].sign), answer: keys.indexOf(st.f.mood), explain: e.why });
+    }
+    const good = data.lemmas[st.seg[3]][4];
+    const pool = data.lemmas.filter(l => l[5] >= 15 && l[4] && l[4] !== good && l[1] === st.f.pos);
+    const opts = shuffle([good, ...shuffle(pool.slice()).slice(0, 3).map(l => l[4])]);
+    return Object.assign(base, { prompt: 'Que veut dire le mot surligné (sens de base) ?', options: opts, answer: opts.indexOf(good), explain: [] });
+  }
+  return makePhraseQuestion();
+}
+
+function corruptEnding(ar) {
+  const swaps = { 'ُ': 'َ', 'َ': 'ِ', 'ِ': 'ُ', 'ٌ': 'ًا', 'ٍ': 'ٌ' };
+  const m = ar.match(/([ًٌٍَُِ])(ا?)$/);
+  if (!m) return null;
+  let rep = swaps[m[1]];
+  if (m[1] === 'ً') rep = 'ٌ';
+  return ar.slice(0, ar.length - m[0].length) + rep;
+}
+function makePhraseQuestion() {
+  for (let tries = 0; tries < 30; tries++) {
+    const kind = ['nominal', 'verbal'][rnd(2)];
+    const c = Object.assign({}, BUILD_DEFAULTS[kind]);
+    if (kind === 'nominal') {
+      Object.assign(c, { subj: NOUNS[rnd(25)].id, adj: ADJS[rnd(ADJS.length)].id, mod: ['none', 'kana', 'inna', 'laysa'][rnd(4)] });
+    } else {
+      const v = VERBS[rnd(VERBS.length)];
+      Object.assign(c, { verb: v.id, tense: ['past', 'pres', 'negPastLam', 'negFut', 'fut'][rnd(5)], subj: NOUNS[rnd(25)].id, objNoun: v.obj ? v.obj[rnd(v.obj.length)] : 'kitab', obj: v.tr ? 'noun' : 'none', pp: !v.tr, ppNoun: ['bayt', 'madrasa', 'masjid', 'hadiqa'][rnd(4)], prep: v.prep || 'fi' });
+    }
+    let r; try { r = buildSentence(c); } catch (e) { continue; }
+    if (r.warn) continue;
+    const good = r.words.map(w => w.ar);
+    const wrong = [];
+    const idx = shuffle(good.map((_, i) => i));
+    for (const i of idx) { const x = corruptEnding(good[i]); if (x) { const copy = good.slice(); copy[i] = x; wrong.push({ ar: copy.join(' '), i, w: r.words[i] }); } if (wrong.length === 2) break; }
+    if (wrong.length < 2) continue;
+    const all = shuffle([{ ar: good.join(' '), good: true }, ...wrong]);
+    return {
+      prompt: 'Laquelle de ces phrases veut dire :', fr: r.fr, optAr: true, options: all.map(x => x.ar), answer: all.findIndex(x => x.good),
+      explain: wrong.map(x => 'Dans une mauvaise réponse, ' + x.w.ar + ' a la mauvaise fin. La bonne forme : ' + x.w.why),
+    };
+  }
+  return { prompt: 'Erreur : aucune question.', options: ['—'], answer: 0 };
+}
+
+function renderProgress(ctx, el, refresh) {
+  const P = ctx.settings.progress;
+  const types = { case: 'cas', mood: 'modes', sens: 'sens des mots', phrase: 'phrases' };
+  const tot = Object.values(P.byType).reduce((a, x) => ({ ok: a.ok + x.ok, n: a.n + x.n }), { ok: 0, n: 0 });
+  if (!tot.n) { h(el, 'p', 'aa-muted', 'Pas encore de réponses enregistrées. Chaque réponse au quiz est mémorisée ici.'); return; }
+  mdText(el, 'p', null, '**' + tot.n + '** réponses, **' + Math.round(100 * tot.ok / tot.n) + ' %** de bonnes réponses. Mots de ton vocabulaire : **' + ctx.myWordIds().length + '**.');
+  const t = h(el, 'table', 'aa-table');
+  const hr = h(t, 'tr'); ['Exercice', 'Réponses', 'Réussite'].forEach(x => h(hr, 'th', null, x));
+  Object.entries(P.byType).forEach(([k, x]) => { if (!x.n) return; const r = h(t, 'tr'); h(r, 'td', null, types[k] || k); h(r, 'td', null, String(x.n)); h(r, 'td', null, Math.round(100 * x.ok / x.n) + ' %'); });
+  const rev = ctx.reviewList();
+  if (rev.length) {
+    h(el, 'h4', null, 'Mots à revoir (' + rev.length + ')');
+    const grid = h(el, 'div', 'aa-family');
+    rev.slice(0, 30).forEach(x => {
+      const l = ctx.data.lemmas[x.id];
+      const c = h(grid, 'div', 'aa-fam');
+      arSpan(c, l[0]); h(c, 'div', 'aa-fam-g', l[4]); h(c, 'div', 'aa-muted aa-small', '✗ ' + x.ko + ' · ✓ ' + x.ok);
+      c.addEventListener('click', () => ctx.openDict(x.id));
+    });
+    mdText(el, 'p', 'aa-muted aa-small', 'Choisis « ⟳ Mes mots à revoir » dans **Textes** pour t\'entraîner sur eux. Un mot sort de la liste quand tu as plus de bonnes réponses que d\'erreurs.');
+  }
+  btn(el, 'Remettre à zéro', () => { ctx.resetProgress(); refresh(); }, 'aa-btn-quiet');
+}
