@@ -3951,47 +3951,72 @@ function letterSyllables(L) {
 
 /* Coupe de profil de la tête (on regarde vers la gauche) avec les zones cliquables */
 const AL_ZONE_POS = {
-  levres: [33, 136], dents: [61, 135], sifflantes: [74, 146], 'racine-dents': [73, 123], gencive: [88, 116],
-  palais: [118, 117], nez: [128, 97], cote: [120, 152], voile: [158, 122], luette: [183, 139],
-  jawf: [200, 156], 'gorge-haut': [200, 186], 'gorge-milieu': [200, 216], 'gorge-bas': [200, 249],
+  levres: [30, 200], dents: [80, 202], sifflantes: [88, 220], 'racine-dents': [84, 182], gencive: [106, 172],
+  palais: [146, 172], nez: [168, 150], cote: [140, 226], voile: [204, 184], luette: [226, 212],
+  jawf: [257, 238], 'gorge-haut': [257, 264], 'gorge-milieu': [256, 290], 'gorge-bas': [255, 318],
 };
 function articulationSvg(parent, zones, onZone) {
   const NS = 'http://www.w3.org/2000/svg';
   const mk = (p, tag, attrs, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; p.appendChild(e); return e; };
+  const uid = 'aal' + Math.random().toString(36).slice(2, 7);
   const wrap = h(parent, 'div', 'aa-al-svgwrap');
-  const svg = mk(wrap, 'svg', { viewBox: '10 0 310 310', class: 'aa-al-svg', role: 'img', 'aria-label': 'Schéma de la bouche et de la gorge, vu de profil' });
+  const svg = mk(wrap, 'svg', { viewBox: '0 0 360 380', class: 'aa-al-svg', role: 'img', 'aria-label': 'Schéma de la bouche et de la gorge, vu de profil' });
+  const defs = mk(svg, 'defs', {});
+  const grad = (id, x1, y1, x2, y2, stops) => { const g = mk(defs, 'linearGradient', { id: uid + id, x1, y1, x2, y2 }); stops.forEach(([o, c, a]) => mk(g, 'stop', { offset: o, 'stop-color': c, 'stop-opacity': a == null ? 1 : a })); };
+  grad('skin', '0', '0', '1', '1', [['0', '#f6d5c3'], ['1', '#e9b8a0']]);
+  grad('tongue', '0', '0', '1', '1', [['0', '#f08a96'], ['1', '#c9566a']]);
+  grad('air', '0', '0', '0', '1', [['0', '#7d3b4a'], ['1', '#5a2834']]);
+  grad('nose', '0', '0', '1', '0', [['0', '#cfe0f5'], ['1', '#b9cdea']]);
+  const rg = mk(defs, 'radialGradient', { id: uid + 'bg', cx: '.5', cy: '.45', r: '.6' });
+  mk(rg, 'stop', { offset: '0', 'stop-color': 'var(--interactive-accent)', 'stop-opacity': '.10' });
+  mk(rg, 'stop', { offset: '1', 'stop-color': 'var(--interactive-accent)', 'stop-opacity': '0' });
+  const U = id => 'url(#' + uid + id + ')';
   const g = mk(svg, 'g', { class: 'aa-al-anat' });
+  mk(g, 'circle', { cx: 190, cy: 190, r: 185, fill: U('bg') });
   // tête et cou
-  mk(g, 'path', { class: 'aa-al-skin', d: 'M120 12 C70 12 48 40 46 70 L44 84 C40 90 28 100 24 108 C22 113 28 116 38 117 L40 121 C35 124 35 129 40 131 L43 134 C37 137 37 143 43 146 L46 150 C44 162 46 176 58 186 C70 194 92 196 112 196 L140 200 C150 220 156 250 158 310 L236 310 C232 280 232 240 240 200 C270 180 286 150 280 110 C270 40 200 8 120 12 Z' });
+  mk(g, 'path', { class: 'aa-ad-skin', fill: U('skin'), d: 'M150 18 C95 18 62 52 60 98 C59 112 56 120 50 128 C44 138 34 150 28 160 C25 166 28 172 36 173 L46 174 C48 178 46 182 44 184 C38 188 38 194 44 196 L47 198 C40 202 40 210 47 213 C52 220 50 228 52 236 C54 250 66 258 84 260 C110 262 140 262 160 266 C168 290 172 330 172 380 L300 380 C296 340 296 300 306 270 C340 240 352 190 346 140 C336 60 260 16 150 18 Z' });
+  // œil et oreille (discrets)
+  mk(g, 'path', { class: 'aa-ad-face', d: 'M96 104 C104 98 116 98 124 104 C116 108 104 108 96 104 Z' });
+  mk(g, 'path', { class: 'aa-ad-face', d: 'M96 92 C106 86 118 86 128 90' });
+  mk(g, 'path', { class: 'aa-ad-face', d: 'M282 104 C298 98 310 110 306 128 C304 142 294 146 288 140' });
   // fosses nasales
-  mk(g, 'path', { class: 'aa-al-nose', d: 'M40 113 C62 95 110 85 160 89 C190 91 205 100 211 113 C192 109 176 107 168 111 C130 105 92 109 62 119 Z' });
-  // bouche + gorge (cavité)
-  mk(g, 'path', { class: 'aa-al-cavity', d: 'M58 124 C80 112 130 106 168 112 C184 116 193 128 194 142 C200 150 206 152 212 150 L212 300 L188 300 C186 270 184 240 182 210 C186 196 188 170 186 150 C180 136 160 128 130 128 C104 128 84 130 66 138 Z' });
+  mk(g, 'path', { class: 'aa-ad-nose', fill: U('nose'), d: 'M48 172 C70 150 112 138 170 138 C214 138 246 148 268 172 C250 168 224 166 200 168 C152 162 102 164 64 178 Z' });
+  // conduit d'air : bouche, gorge, trachée
+  mk(g, 'path', { class: 'aa-ad-air', fill: U('air'), d: 'M62 194 C86 178 150 170 200 174 C226 180 240 196 242 214 C246 222 256 222 260 210 L262 176 C264 166 272 166 274 176 L276 380 L236 380 C236 330 232 300 230 286 C224 280 220 276 216 272 C180 262 120 244 80 238 C70 236 64 232 62 228 Z' });
   // langue
-  mk(g, 'path', { class: 'aa-al-tongue', d: 'M64 141 C70 133 86 130 104 130 C132 128 160 131 174 142 C186 152 189 170 187 186 C186 196 184 202 182 208 C160 198 130 188 102 178 C84 171 72 162 64 150 Z' });
-  // palais dur, voile, luette
-  mk(g, 'path', { class: 'aa-al-line', d: 'M63 125 C70 117 80 113 96 111 C120 108 146 108 168 112 C182 116 191 126 194 140' });
-  mk(g, 'ellipse', { class: 'aa-al-uvula', cx: 194, cy: 143, rx: 3, ry: 5 });
+  mk(g, 'path', { class: 'aa-ad-tongue', fill: U('tongue'), d: 'M64 214 C70 200 90 194 116 193 C160 192 200 198 222 214 C238 228 242 250 238 272 C236 282 232 288 226 292 C200 288 150 270 112 256 C90 248 72 238 64 226 Z' });
+  mk(g, 'path', { class: 'aa-ad-tongue-line', d: 'M92 212 C130 206 180 210 214 230' });
+  // palais dur (os) et voile du palais + luette
+  mk(g, 'path', { class: 'aa-ad-bone', d: 'M64 188 C74 176 92 170 116 168 C150 165 180 166 200 170' });
+  mk(g, 'path', { class: 'aa-ad-velum', d: 'M200 170 C222 176 236 190 240 208' });
+  mk(g, 'ellipse', { class: 'aa-ad-uvula', cx: 241, cy: 214, rx: 4, ry: 7 });
   // dents et lèvres
-  mk(g, 'path', { class: 'aa-al-teeth', d: 'M57 118 L66 121 L64 133 L56 132 Z' });
-  mk(g, 'path', { class: 'aa-al-teeth', d: 'M57 139 L64 138 L66 151 L58 152 Z' });
-  mk(g, 'path', { class: 'aa-al-lip', d: 'M39 120 C48 117 56 119 58 124 C54 131 46 133 40 131 Z' });
-  mk(g, 'path', { class: 'aa-al-lip', d: 'M42 143 C48 138 56 138 58 142 C56 150 48 153 44 151 Z' });
-  // épiglotte, cordes vocales
-  mk(g, 'path', { class: 'aa-al-line', d: 'M182 208 C186 198 192 194 197 196' });
-  mk(g, 'path', { class: 'aa-al-line aa-al-folds', d: 'M186 258 L198 253 M212 258 L202 253' });
-  // légendes anatomiques
-  const lab = (x, y, t, anchor) => mk(g, 'text', { x, y, class: 'aa-al-lab', 'text-anchor': anchor || 'start' }, t);
-  lab(150, 80, 'nez'); lab(176, 106, 'voile'); lab(110, 170, 'langue'); lab(18, 158, 'lèvres');
-  lab(222, 190, 'gorge'); lab(244, 262, 'cordes vocales'); lab(222, 150, 'luette');
+  mk(g, 'path', { class: 'aa-ad-teeth', d: 'M60 182 C64 180 70 182 72 186 L70 200 C66 202 62 201 60 199 Z' });
+  mk(g, 'path', { class: 'aa-ad-teeth', d: 'M60 206 C64 204 70 205 71 208 L72 222 C68 224 63 223 61 221 Z' });
+  mk(g, 'path', { class: 'aa-ad-lip', d: 'M42 184 C52 180 60 182 62 188 C60 196 52 198 44 196 C40 194 40 188 42 184 Z' });
+  mk(g, 'path', { class: 'aa-ad-lip', d: 'M44 200 C52 198 60 200 62 206 C60 214 52 216 46 214 C42 210 42 204 44 200 Z' });
+  // épiglotte, cordes vocales, anneaux de la trachée
+  mk(g, 'path', { class: 'aa-ad-epi', d: 'M228 290 C234 276 244 268 254 270' });
+  mk(g, 'path', { class: 'aa-ad-folds', d: 'M236 322 L252 317 M276 322 L260 317' });
+  [342, 356, 370].forEach(y => mk(g, 'path', { class: 'aa-ad-ring', d: 'M238 ' + y + ' C250 ' + (y + 3) + ' 262 ' + (y + 3) + ' 274 ' + y }));
+  // légendes
+  const lab = (x, y, t, anchor, line) => { if (line) mk(g, 'path', { class: 'aa-ad-leader', d: line }); return mk(g, 'text', { x, y, class: 'aa-ad-lab', 'text-anchor': anchor || 'start' }, t); };
+  lab(100, 156, 'nez');
+  lab(170, 236, 'langue', 'middle');
+  lab(6, 236, 'lèvres', 'start', 'M22 228 L36 210').classList.add('aa-ad-out');
+  lab(318, 214, 'luette', 'start', 'M246 214 L314 214');
+  lab(318, 266, 'gorge', 'start', 'M270 266 L314 266');
+  lab(318, 322, 'cordes', 'start', 'M276 320 L314 320');
+  lab(318, 334, 'vocales', 'start');
   // zones
   const marks = {};
   zones.forEach((z, i) => {
     const pos = AL_ZONE_POS[z.id]; if (!pos) return;
-    const m = mk(svg, 'g', { class: 'aa-al-zone', tabindex: 0, role: 'button', 'data-zone': z.id });
+    const m = mk(svg, 'g', { class: 'aa-al-zone', tabindex: 0, role: 'button', 'data-zone': z.id, transform: 'translate(' + pos[0] + ' ' + pos[1] + ')' });
     mk(m, 'title', {}, z.name);
-    mk(m, 'circle', { cx: pos[0], cy: pos[1], r: 7.5 });
-    mk(m, 'text', { x: pos[0], y: pos[1] + 3.2, 'text-anchor': 'middle' }, String(i + 1));
+    mk(m, 'circle', { class: 'aa-al-halo', r: 14 });
+    mk(m, 'circle', { class: 'aa-al-dot', r: 8.5 });
+    mk(m, 'text', { y: 3.4, 'text-anchor': 'middle' }, String(i + 1));
     const go = (ev) => { ev.preventDefault(); ev.stopPropagation(); onZone(z.id); };
     m.addEventListener('click', go);
     m.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') go(ev); });

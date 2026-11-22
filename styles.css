@@ -519,3 +519,37 @@ li.aa-rule-inline { list-style: none; border: none; background: none; }
 .aa-dhead-main .aa-tr { display: block; margin-top: -4px; }
 .aa-more { font-size: .82em; white-space: nowrap; }
 .aa-rootl { white-space: nowrap; }
+
+/* --- schéma de la bouche et de la gorge (v2.5) --- */
+.aa-al-diag { background: var(--background-primary); box-shadow: var(--aa-shadow); padding: 12px; }
+.aa-al-svg { max-width: 460px; }
+.aa-ad-skin { stroke: #c98f78; stroke-width: 1.5; }
+.aa-ad-face { fill: none; stroke: #b98270; stroke-width: 1.4; stroke-linecap: round; opacity: .7; }
+.aa-ad-nose { stroke: #9fb6d8; stroke-width: 1; }
+.aa-ad-air { stroke: #4a1f2a; stroke-width: 1; }
+.aa-ad-tongue { stroke: #a8435a; stroke-width: 1.2; }
+.aa-ad-tongue-line { fill: none; stroke: rgba(255, 255, 255, .35); stroke-width: 1.5; stroke-linecap: round; }
+.aa-ad-bone { fill: none; stroke: #f3ecdf; stroke-width: 6; stroke-linecap: round; }
+.aa-ad-velum { fill: none; stroke: #e7a3a7; stroke-width: 6; stroke-linecap: round; }
+.aa-ad-uvula { fill: #e7a3a7; }
+.aa-ad-teeth { fill: #fffdf8; stroke: #d9d2c4; stroke-width: 1; }
+.aa-ad-lip { fill: #d9707c; stroke: #b4505d; stroke-width: 1; }
+.aa-ad-epi { fill: none; stroke: #f1b7a6; stroke-width: 4; stroke-linecap: round; }
+.aa-ad-folds { fill: none; stroke: #f6e4d8; stroke-width: 3.5; stroke-linecap: round; }
+.aa-ad-ring { fill: none; stroke: rgba(255, 230, 220, .35); stroke-width: 2; }
+.aa-ad-leader { fill: none; stroke: #9b6a5c; stroke-width: .8; stroke-dasharray: 2 2; }
+.aa-ad-lab { font-size: 10px; fill: #7a4c40; font-family: var(--font-interface, sans-serif); font-style: italic; }
+.aa-al-zone { cursor: pointer; outline: none; }
+.aa-al-zone .aa-al-halo { fill: var(--interactive-accent); opacity: 0; transition: opacity .2s; }
+.aa-al-zone .aa-al-dot { fill: #fff; stroke: var(--interactive-accent); stroke-width: 2; transition: fill .15s; }
+.aa-al-zone text { font-size: 9.5px; font-weight: 700; fill: var(--interactive-accent); pointer-events: none; font-family: var(--font-interface, sans-serif); }
+.aa-al-zone:hover .aa-al-halo, .aa-al-zone:focus .aa-al-halo { opacity: .2; }
+.aa-al-zone.aa-on .aa-al-halo { opacity: .3; animation: aa-al-pulse 1.6s ease-in-out infinite; }
+.aa-al-zone.aa-on .aa-al-dot { fill: var(--interactive-accent); stroke: #fff; }
+.aa-al-zone.aa-on text { fill: #fff; }
+@keyframes aa-al-pulse { 0%, 100% { opacity: .15; } 50% { opacity: .4; } }
+@media (prefers-reduced-motion: reduce) { .aa-al-zone.aa-on .aa-al-halo { animation: none; } }
+.theme-dark .aa-ad-skin { opacity: .92; }
+.theme-dark .aa-ad-lab { fill: #6a4034; }
+.aa-ad-lab.aa-ad-in { fill: rgba(255,255,255,.85); }
+.aa-ad-lab.aa-ad-out { fill: var(--text-muted); }
