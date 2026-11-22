@@ -338,20 +338,9 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
     if (S.showRu && v[1]) h(box, 'div', 'aa-verse-ru', v[1]);
     const tools = h(box, 'div', 'aa-verse-tools');
     const structBox = h(document.createElement('div'), 'div', 'aa-struct');
-    btn(tools, 'Structure de la phrase', () => {
+    btn(tools, '🧩 Analyse de la phrase', () => {
       if (structBox.firstChild) { clear(structBox); return; }
-      mdText(structBox, 'p', 'aa-why', sentenceKind(words));
-      const row = h(structBox, 'div', 'aa-struct-row'); row.setAttribute('dir', 'rtl');
-      words.forEach((w, wi) => {
-        const r = shortRole(words, wi);
-        const c = h(row, 'div', 'aa-struct-w ' + r.cls);
-        arSpan(c, wordText(w));
-        const lab = h(c, 'div', 'aa-struct-lab', r.label); lab.setAttribute('dir', 'ltr');
-        const g = stemOf(w).seg[3] >= 0 ? data.lemmas[stemOf(w).seg[3]][4] : '';
-        if (g) { const gg = h(c, 'div', 'aa-struct-gloss', g); gg.setAttribute('dir', 'ltr'); }
-        c.addEventListener('click', () => spans[wi].click());
-      });
-      h(structBox, 'p', 'aa-muted aa-small', 'Couleurs : bleu = nominatif, vert = accusatif, orange = génitif, rouge = verbe, gris = particule. Clique un mot pour son analyse complète.');
+      renderIrab(ctx, structBox, words, [surahN, vn], { onWord: wi => spans[wi].click() });
     }, 'aa-btn-quiet');
     if (ctx.settings.audio !== false) btn(tools, '▶ Écouter le verset', () => playVerse(surahN, vn), 'aa-btn-quiet');
     btn(tools, 'Copier le verset', () => copyText(words.map(wordText).join(' ') + '\n' + tokens.join(' ') + '\n' + v[0] + ' (' + surahN + ':' + vn + ')'), 'aa-btn-quiet');
@@ -371,4 +360,95 @@ function parseRefs(src) {
     out.push({ s, from: m[2] ? +m[2] : 1, to: m[3] ? +m[3] : (m[2] ? +m[2] : 0) });
   }
   return out;
+}
+
+/* ====================================================================
+ * Analyse grammaticale complète (iʿrāb) avec schéma des liens
+ * ==================================================================== */
+function irabCls(words, r) {
+  const f = stemOf(words[r.i]).f;
+  if (f.pos === 'V') return 'aa-role-v';
+  if (f.pos === 'P' || isInitials(words[r.i])) return 'aa-role-p';
+  return f.cas ? 'aa-role-' + f.cas.toLowerCase() : 'aa-role-n';
+}
+function renderIrab(ctx, el, words, ref, opts) {
+  opts = opts || {};
+  IRAB_LEMMAS = ctx.data.lemmas;
+  const res = analyseIrab(words);
+  const kind = sentenceKind(words);
+  if (kind) mdText(el, 'p', 'aa-why', kind);
+  const wrap = h(el, 'div', 'aa-irab-wrap');
+  const row = h(wrap, 'div', 'aa-irab-row'); row.setAttribute('dir', 'rtl');
+  const boxes = []; const lines = [];
+  res.forEach(r => {
+    const role = IRAB_ROLES[r.key] || IRAB_ROLES.noun;
+    const b = h(row, 'div', 'aa-irab-w ' + irabCls(words, r));
+    arSpan(b, wordText(words[r.i]));
+    const lab = h(b, 'div', 'aa-irab-lab', role[0].split(/ : | \(/)[0] + (r.guess ? ' ?' : '')); lab.setAttribute('dir', 'ltr');
+    const t = h(b, 'div', 'aa-irab-term', role[2]); t.setAttribute('dir', 'ltr');
+    const lid = stemOf(words[r.i]).seg[3];
+    if (lid >= 0 && ctx.data.lemmas[lid] && ctx.data.lemmas[lid][4]) { const g = h(b, 'div', 'aa-struct-gloss', ctx.data.lemmas[lid][4]); g.setAttribute('dir', 'ltr'); }
+    b.addEventListener('click', () => { boxes.forEach(x => x.classList.remove('aa-irab-sel')); b.classList.add('aa-irab-sel'); lines[r.i].classList.add('aa-irab-flash'); lines[r.i].scrollIntoView && lines[r.i].scrollIntoView({ block: 'nearest', behavior: 'smooth' }); setTimeout(() => lines[r.i].classList.remove('aa-irab-flash'), 1200); });
+    boxes.push(b);
+  });
+  // liens
+  const links = [];
+  res.forEach(r => {
+    const role = IRAB_ROLES[r.key];
+    if (r.head >= 0 && r.head !== r.i && role && role[4]) links.push({ a: r.i, b: r.head, label: role[4], guess: r.guess });
+    if (r.group && r.group.head >= 0 && r.group.head !== r.i) links.push({ a: r.i, b: r.group.head, label: r.group.key === 'taalluq' ? 'complète' : (IRAB_ROLES[r.group.key] || [])[4] || '', guess: false, grp: true });
+  });
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('class', 'aa-irab-svg'); wrap.insertBefore(svg, row);
+  const draw = () => {
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    if (!row.offsetWidth) return;
+    const cx = k => boxes[k].offsetLeft + boxes[k].offsetWidth / 2;
+    const span = l => Math.abs(l.a - l.b);
+    const maxSpan = links.reduce((m, l) => Math.max(m, Math.min(span(l), 6)), 1);
+    const H = links.length ? 24 + maxSpan * 14 : 0;
+    row.style.marginTop = H + 'px';
+    svg.setAttribute('width', row.scrollWidth + 20); svg.setAttribute('height', H + 4);
+    svg.style.width = (row.scrollWidth + 20) + 'px'; svg.style.height = (H + 4) + 'px';
+    const defs = document.createElementNS(NS, 'defs');
+    defs.innerHTML = '<marker id="aa-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>';
+    svg.appendChild(defs);
+    links.sort((x, y) => span(y) - span(x)).forEach(l => {
+      const x1 = cx(l.a), x2 = cx(l.b) + (cx(l.a) > cx(l.b) ? 6 : -6); const y = H; const top = H - 14 - Math.min(span(l), 6) * 14;
+      const p = document.createElementNS(NS, 'path');
+      p.setAttribute('d', 'M' + x1 + ',' + y + ' C' + x1 + ',' + top + ' ' + x2 + ',' + top + ' ' + x2 + ',' + y);
+      p.setAttribute('class', 'aa-irab-arc' + (l.guess ? ' aa-irab-guess' : '') + (l.grp ? ' aa-irab-grp' : ''));
+      p.setAttribute('marker-end', 'url(#aa-arrow)');
+      svg.appendChild(p);
+      if (l.label) {
+        const tx = document.createElementNS(NS, 'text');
+        tx.setAttribute('x', (x1 + x2) / 2); tx.setAttribute('y', top + Math.min(span(l), 6) * 3 + 8); tx.setAttribute('class', 'aa-irab-arc-lab'); tx.setAttribute('text-anchor', 'middle');
+        tx.textContent = l.label; svg.appendChild(tx);
+      }
+    });
+  };
+  let first = true; const draw0 = draw; const drawS = () => { draw0(); if (first && wrap.scrollWidth > wrap.clientWidth) { wrap.scrollLeft = wrap.scrollWidth; } first = false; };
+  const raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (f) => setTimeout(f, 0);
+  raf(drawS);
+  if (typeof ResizeObserver === 'function') { const ro = new ResizeObserver(() => draw()); ro.observe(row); }
+  h(el, 'p', 'aa-muted aa-small', 'Les flèches vont du mot vers celui dont il dépend. Trait plein : lien sûr ; pointillé : lien probable. Couleurs : bleu = nominatif, vert = accusatif, orange = génitif, rouge = verbe, gris = particule.');
+
+  // mot par mot
+  h(el, 'h4', null, 'Mot par mot, comme les grammairiens (iʿrāb)');
+  const list = h(el, 'div', 'aa-why-table');
+  res.forEach(r => {
+    const w = words[r.i];
+    const line = h(list, 'div', 'aa-why-row aa-irab-line'); lines[r.i] = line;
+    const a = h(line, 'div', 'aa-why-ar'); arSpan(a, wordText(w));
+    h(a, 'div', 'aa-tr aa-small', translitTokens(words, ctx.settings.style)[r.i]);
+    const t = h(line, 'div', 'aa-why-txt');
+    mdText(t, 'div', null, irabSentence(words, res, r.i));
+    if (r.mark) mdText(t, 'div', 'aa-small', '**Marque :** ' + r.mark + '.');
+    r.att.filter(x => x.label !== 'mot').forEach(x => { const d = h(t, 'div', 'aa-small aa-irab-att'); arSpan(d, x.ar, 'aa-irab-att-ar'); mdText(d, 'span', null, ' ' + x.label + ' — ' + x.text); });
+    if (r.group && r.group.text) mdText(t, 'div', 'aa-small aa-irab-grp-txt', '↳ ' + r.group.text);
+    r.notes.forEach(n => mdText(t, 'div', 'aa-small aa-muted', n));
+    if (opts.onWord) line.addEventListener('dblclick', () => opts.onWord(r.i));
+  });
+  mdText(el, 'p', 'aa-muted aa-small', 'Analyse **déduite automatiquement** de la morphologie du Coran (Quranic Arabic Corpus) : très fiable pour les cas, les annexions, les prépositions et les adjectifs ; les rôles marqués « probable » sont à vérifier dans un livre d\'iʿrāb pour les versets longs.');
+  return res;
 }

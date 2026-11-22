@@ -6,11 +6,11 @@ const DEFAULT_SETTINGS = {
   style: 'sci', showTr: true, showFr: true, showRu: true, arSize: 30, openLetters: false,
   flashFile: '5 - Flashcards/Atelier - mes phrases.md', lastSurah: 1,
   audio: true, ruExpl: false, vocabFile: '4 - Références/Vocabulaire.md', textsFolder: '3 - Textes',
-  myWords: {}, progress: null,
+  myWords: {}, progress: null, lessons: {},
 };
 function emptyProgress() { return { byType: { case: { ok: 0, n: 0 }, mood: { ok: 0, n: 0 }, sens: { ok: 0, n: 0 }, phrase: { ok: 0, n: 0 } }, lem: {} }; }
 const TABS = [
-  ['coran', 'Coran', 'Lire une sourate mot par mot'], ['dict', 'Dictionnaire', 'Tous les mots du Coran'], ['analyse', 'Analyser', 'Analyser un texte arabe'],
+  ['coran', 'Coran', 'Lire une sourate mot par mot'], ['lessons', 'Leçons', 'Parcours de grammaire guidé'], ['dict', 'Dictionnaire', 'Tous les mots du Coran'], ['analyse', 'Analyser', 'Analyser un texte arabe'],
   ['build', 'Construire', 'Construire une phrase'], ['signs', 'Signes', 'Laboratoire des signes'], ['quiz', 'Entraînement', 'S\'entraîner'],
 ];
 
@@ -19,7 +19,7 @@ class AtelierView extends ItemView {
     super(leaf);
     this.plugin = plugin;
     this.tab = 'coran';
-    this.states = { coran: { surah: plugin.settings.lastSurah || 1, page: 0 }, dict: {}, analyse: {}, build: {}, signs: {}, quiz: {} };
+    this.states = { coran: { surah: plugin.settings.lastSurah || 1, page: 0 }, dict: {}, lessons: {}, analyse: {}, build: {}, signs: {}, quiz: {} };
   }
   getViewType() { return VIEW_TYPE; }
   getDisplayText() { return 'Atelier arabe'; }
@@ -54,6 +54,7 @@ class AtelierView extends ItemView {
     clear(this.body);
     if (this.tab === 'coran') renderQuranTab(ctx, this.body, st);
     else if (this.tab === 'dict') renderDictTab(ctx, this.body, st);
+    else if (this.tab === 'lessons') renderLessonsTab(ctx, this.body, st);
     else if (this.tab === 'analyse') renderAnalyseTab(ctx, this.body, st);
     else if (this.tab === 'build') renderBuildTab(ctx, this.body, st);
     else if (this.tab === 'signs') renderSignsTab(ctx, this.body, st);
@@ -94,12 +95,14 @@ class AtelierArabePlugin extends Plugin {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     if (!this.settings.progress) this.settings.progress = emptyProgress();
     if (!this.settings.myWords) this.settings.myWords = {};
+    if (!this.settings.lessons) this.settings.lessons = {};
     EXPL_RU = !!this.settings.ruExpl;
     this.data = new QuranData(this.app, this.manifest.dir);
     notify = (m) => new Notice(m);
     this.registerView(VIEW_TYPE, leaf => new AtelierView(leaf, this));
     this.addRibbonIcon('languages', 'Atelier arabe', () => this.openView());
     this.addCommand({ id: 'ouvrir', name: 'Ouvrir l\'atelier', callback: () => this.openView() });
+    this.addCommand({ id: 'lecons', name: 'Leçons de grammaire', callback: () => this.openView('lessons') });
     this.addCommand({ id: 'dictionnaire', name: 'Dictionnaire', callback: () => this.openView('dict') });
     this.addCommand({ id: 'construire', name: 'Construire une phrase', callback: () => this.openView('build') });
     this.addCommand({ id: 'signes', name: 'Laboratoire des signes', callback: () => this.openView('signs') });
@@ -123,6 +126,21 @@ class AtelierArabePlugin extends Plugin {
         for (const r of refs) await renderVerses(this.ctx(null), h(el, 'div'), r.s, r.from, r.to, { title: true, basmala: r.from === 1 && !r.to });
       } catch (e) { h(el, 'p', 'aa-warn', 'Erreur : ' + e.message); }
     });
+    this.registerMarkdownCodeBlockProcessor('irab', async (src, el) => {
+      el.classList.add('aa-root', 'aa-embed');
+      try {
+        await this.data.init();
+        const refs = parseRefs(src);
+        if (!refs.length) { h(el, 'p', 'aa-warn', 'Écris un verset, par exemple : 1:2'); return; }
+        for (const r of refs) for (let v = r.from; v <= (r.to || r.from); v++) {
+          const d = await this.data.surah(r.s); const vv = d.v[v - 1]; if (!vv) continue;
+          const box = h(el, 'div', 'aa-verse');
+          const line = h(box, 'div', 'aa-verse-ar'); line.setAttribute('dir', 'rtl'); arSpan(line, vv[2].map(wordText).join(' ') + ' ﴿' + arNum(v) + '﴾');
+          h(box, 'div', 'aa-verse-fr', r.s + ':' + v + ' ' + vv[0]);
+          renderIrab(this.ctx(null), h(box, 'div', 'aa-struct'), vv[2], [r.s, v]);
+        }
+      } catch (e) { h(el, 'p', 'aa-warn', 'Erreur : ' + e.message); }
+    });
     this.registerMarkdownCodeBlockProcessor('analyse-arabe', async (src, el) => {
       el.classList.add('aa-root', 'aa-embed');
       try { await this.data.init(); await analyseInto(this.ctx(null), h(el, 'div'), src); } catch (e) { h(el, 'p', 'aa-warn', 'Erreur : ' + e.message); }
@@ -144,6 +162,7 @@ class AtelierArabePlugin extends Plugin {
       openQuran: (s, v) => this.openView('coran', { surah: s, page: 0, focus: v }),
       openDict: (id) => this.openView('dict', { entry: id, mode: 'search' }),
       openNote: (file) => this.app.workspace.getLeaf(false).openFile(file),
+      openPath: (path) => { const f = this.app.vault.getAbstractFileByPath(path); if (f) this.app.workspace.getLeaf(false).openFile(f); else new Notice('Note introuvable : ' + path); },
       isMine: (id) => !!this.settings.myWords[id],
       myWordIds: () => Object.keys(this.settings.myWords).map(Number),
       addVocab: (id, ar, tr, gloss, where) => this.addVocab(id, ar, tr, gloss, where),

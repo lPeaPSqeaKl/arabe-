@@ -373,7 +373,7 @@ function renderSignsTab(ctx, root, state) {
 
 /* ---------------------------- Entraînement ---------------------------- */
 const QUIZ_RANGES = [['review', '⟳ Mes mots à revoir (erreurs)'], ['mine', 'Mon vocabulaire'], ['juz30', 'Juz ʿAmma (sourates 78 à 114)'], ['fatiha', 'Al-Fātiḥa'], ['all', 'Tout le Coran'], ['cur', 'La sourate ouverte dans l\'onglet Coran']];
-const QUIZ_TYPES = [['case', 'Quel est le cas de ce nom ?'], ['mood', 'Quel est le mode de ce verbe ?'], ['sens', 'Que veut dire ce mot ?'], ['phrase', 'Quelle est la bonne phrase ?']];
+const QUIZ_TYPES = [['case', 'Quel est le cas de ce nom ?'], ['mood', 'Quel est le mode de ce verbe ?'], ['sens', 'Que veut dire ce mot ?'], ['role', 'Quel est le rôle de ce mot dans la phrase ?'], ['phrase', 'Quelle est la bonne phrase ?']];
 
 function renderQuizTab(ctx, root, state) {
   clear(root);
@@ -437,7 +437,7 @@ async function makeQuestion(ctx, state) {
       const d = await data.surah(r[0]); const v = d.v[r[1] - 1]; if (!v) continue;
       const words = v[2]; const wi = r[2] - 1; const w = words[wi]; if (!w) continue;
       const f = stemOf(w).f;
-      const ok = state.qtype === 'sens' || (state.qtype === 'case' && f.pos === 'N' && f.cas && !['PRON', 'DEM', 'REL'].includes(f.sub)) || (state.qtype === 'mood' && f.pos === 'V' && f.mood);
+      const ok = state.qtype === 'sens' || (state.qtype === 'role' && roleOk(ctx, words, wi)) || (state.qtype === 'case' && f.pos === 'N' && f.cas && !['PRON', 'DEM', 'REL'].includes(f.sub)) || (state.qtype === 'mood' && f.pos === 'V' && f.mood);
       if (!ok) continue;
       return buildWordQuestion(ctx, state, words, wi, r, v);
     }
@@ -454,6 +454,7 @@ async function makeQuestion(ctx, state) {
       if (state.qtype === 'mood' && f.pos === 'V' && f.mood) cands.push(wi);
       if (state.qtype === 'sens' && stemOf(w).seg[3] >= 0 && data.lemmas[stemOf(w).seg[3]][4]) cands.push(wi);
     });
+    if (state.qtype === 'role') { IRAB_LEMMAS = data.lemmas; analyseIrab(words).forEach(r => { if (IRAB_SURE.includes(r.key) && !r.guess) cands.push(r.i); }); }
     if (!cands.length) continue;
     const wi = cands[rnd(cands.length)];
     return buildWordQuestion(ctx, state, words, wi, [s, vi + 1, wi + 1], v);
@@ -473,6 +474,11 @@ function buildWordQuestion(ctx, state, words, wi, ref, v) {
       const keys = ['IND', 'SUBJ', 'JUS'];
       return Object.assign(base, { prompt: 'Ce verbe au présent est à quel mode ? Regarde sa fin et le mot juste avant.', options: keys.map(k => MOODS[k].fr + ' — ' + MOODS[k].sign), answer: keys.indexOf(st.f.mood), explain: e.why });
     }
+    if (state.qtype === 'role') {
+      IRAB_LEMMAS = data.lemmas; const res = analyseIrab(words); const r = res[wi];
+      const keys = shuffle([r.key, ...shuffle(IRAB_SURE.filter(k => k !== r.key && !(k.startsWith('khabar') && r.key.startsWith('khabar')))).slice(0, 3)]);
+      return Object.assign(base, { prompt: 'Quel est le rôle (la fonction) du mot surligné dans la phrase ?', options: keys.map(k => irabRoleName(k).split(' ‖ ')[0] + ' — ' + IRAB_ROLES[k][2]), answer: keys.indexOf(r.key), explain: [irabSentence(words, res, wi)].concat(r.notes).concat(r.mark ? ['**Marque :** ' + r.mark + '.'] : []) });
+    }
     const good = data.lemmas[st.seg[3]][4];
     const pool = data.lemmas.filter(l => l[5] >= 15 && l[4] && l[4] !== good && l[1] === st.f.pos);
     const opts = shuffle([good, ...shuffle(pool.slice()).slice(0, 3).map(l => l[4])]);
@@ -481,6 +487,7 @@ function buildWordQuestion(ctx, state, words, wi, ref, v) {
   return makePhraseQuestion();
 }
 
+function roleOk(ctx, words, wi) { IRAB_LEMMAS = ctx.data.lemmas; const r = analyseIrab(words)[wi]; return IRAB_SURE.includes(r.key) && !r.guess; }
 function corruptEnding(ar) {
   const swaps = { 'ُ': 'َ', 'َ': 'ِ', 'ِ': 'ُ', 'ٌ': 'ًا', 'ٍ': 'ٌ' };
   const m = ar.match(/([ًٌٍَُِ])(ا?)$/);
@@ -517,7 +524,7 @@ function makePhraseQuestion() {
 
 function renderProgress(ctx, el, refresh) {
   const P = ctx.settings.progress;
-  const types = { case: 'cas', mood: 'modes', sens: 'sens des mots', phrase: 'phrases' };
+  const types = { case: 'cas', mood: 'modes', sens: 'sens des mots', role: 'rôles', lesson: 'leçons', phrase: 'phrases' };
   const tot = Object.values(P.byType).reduce((a, x) => ({ ok: a.ok + x.ok, n: a.n + x.n }), { ok: 0, n: 0 });
   if (!tot.n) { h(el, 'p', 'aa-muted', 'Pas encore de réponses enregistrées. Chaque réponse au quiz est mémorisée ici.'); return; }
   mdText(el, 'p', null, '**' + tot.n + '** réponses, **' + Math.round(100 * tot.ok / tot.n) + ' %** de bonnes réponses. Mots de ton vocabulaire : **' + ctx.myWordIds().length + '**.');
