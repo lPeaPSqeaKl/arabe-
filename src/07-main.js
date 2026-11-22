@@ -3,14 +3,14 @@
  * ==================================================================== */
 const VIEW_TYPE = 'atelier-arabe-view';
 const DEFAULT_SETTINGS = {
-  style: 'sci', showTr: true, showFr: true, showRu: true, arSize: 30, openLetters: false,
+  style: 'sci', showTr: true, showFr: true, showRu: false, arSize: 30, openLetters: false,
   flashFile: '5 - Flashcards/Atelier - mes phrases.md', lastSurah: 1,
-  audio: true, ruExpl: false, tajwid: false, vocabFile: '4 - Références/Vocabulaire.md', textsFolder: '3 - Textes',
-  myWords: {}, progress: null, lessons: {},
+  audio: true, ruExpl: false, tajwid: false, fixFolder: '4 - Références/Atelier - corrections', vocabFile: '4 - Références/Vocabulaire.md', textsFolder: '3 - Textes',
+  myWords: {}, progress: null, lessons: {}, surahOrder: 'mushaf',
 };
 function emptyProgress() { return { byType: { case: { ok: 0, n: 0 }, mood: { ok: 0, n: 0 }, sens: { ok: 0, n: 0 }, phrase: { ok: 0, n: 0 } }, lem: {} }; }
 const TABS = [
-  ['coran', 'Coran', 'Lire une sourate mot par mot'], ['lessons', 'Leçons', 'Parcours de grammaire guidé'], ['rules', 'Règles', 'Les règles expliquées simplement'], ['dict', 'Dictionnaire', 'Tous les mots du Coran'], ['analyse', 'Analyser', 'Analyser un texte arabe'],
+  ['coran', 'Coran', 'Lire une sourate mot par mot'], ['alphabet', 'Alphabet', 'Les lettres et leur prononciation'], ['lessons', 'Leçons', 'Parcours de grammaire guidé'], ['rules', 'Règles', 'Les règles expliquées simplement'], ['dict', 'Dictionnaire', 'Tous les mots du Coran'], ['analyse', 'Analyser', 'Analyser un texte arabe'],
   ['build', 'Construire', 'Construire une phrase'], ['signs', 'Signes', 'Laboratoire des signes'], ['quiz', 'Entraînement', 'S\'entraîner'],
 ];
 
@@ -19,7 +19,7 @@ class AtelierView extends ItemView {
     super(leaf);
     this.plugin = plugin;
     this.tab = 'coran';
-    this.states = { coran: { surah: plugin.settings.lastSurah || 1, page: 0 }, dict: {}, lessons: {}, rules: {}, analyse: {}, build: {}, signs: {}, quiz: {} };
+    this.states = { coran: { surah: plugin.settings.lastSurah || 1, page: 0 }, dict: {}, alphabet: {}, lessons: {}, rules: {}, analyse: {}, build: {}, signs: {}, quiz: {} };
   }
   getViewType() { return VIEW_TYPE; }
   getDisplayText() { return 'Atelier arabe'; }
@@ -54,6 +54,7 @@ class AtelierView extends ItemView {
     clear(this.body);
     if (this.tab === 'coran') renderQuranTab(ctx, this.body, st);
     else if (this.tab === 'dict') renderDictTab(ctx, this.body, st);
+    else if (this.tab === 'alphabet') renderAlphabetTab(ctx, this.body, st);
     else if (this.tab === 'lessons') renderLessonsTab(ctx, this.body, st);
     else if (this.tab === 'rules') renderRulesTab(ctx, this.body, st);
     else if (this.tab === 'analyse') renderAnalyseTab(ctx, this.body, st);
@@ -75,14 +76,18 @@ class AtelierSettingTab extends PluginSettingTab {
     new Setting(el).setName('Afficher la translittération').addToggle(t => t.setValue(s.showTr).onChange(async v => { s.showTr = v; await p.saveSettings(); }));
     new Setting(el).setName('Afficher la traduction française').setDesc('Traduction de Muhammad Hamidullah.').addToggle(t => t.setValue(s.showFr).onChange(async v => { s.showFr = v; await p.saveSettings(); }));
     new Setting(el).setName('Afficher la traduction russe').setDesc('Traduction d\'Elmir Kuliev (Кулиев).').addToggle(t => t.setValue(s.showRu).onChange(async v => { s.showRu = v; await p.saveSettings(); }));
+    new Setting(el).setName('Ordre des sourates').setDesc('Ordre du Coran (1 à 114, comme dans le livre), ou ordre de la révélation (de la première sourate révélée, al-ʿAlaq, à la dernière).')
+      .addDropdown(d => d.addOption('mushaf', 'ordre du Coran').addOption('nuzul', 'ordre de la révélation').setValue(s.surahOrder || 'mushaf').onChange(async v => { s.surahOrder = v; await p.saveSettings(); p.refreshViews && p.refreshViews(); }));
     new Setting(el).setName('Taille du texte arabe').setDesc('En pixels (30 par défaut).')
       .addSlider(sl => sl.setLimits(20, 48, 2).setValue(s.arSize).setDynamicTooltip().onChange(async v => { s.arSize = v; await p.saveSettings(); }));
-    new Setting(el).setName('Explications aussi en russe').setDesc('Ajoute la version russe sous chaque explication de cas et de mode, et le sens russe des mots.')
+    new Setting(el).setName('Explications aussi en russe').setDesc('Pour les russophones. Ajoute la version russe sous les explications de cas et de mode, le sens russe des mots, et les comparaisons avec la grammaire russe dans les règles. Désactivé : tout est en français.')
       .addToggle(t => t.setValue(s.ruExpl).onChange(async v => { s.ruExpl = v; EXPL_RU = v; await p.saveSettings(); }));
     new Setting(el).setName('Couleurs de prononciation').setDesc('Colore les lettres muettes, les voyelles longues, la nasalisation (ghunna) et l\'écho (qalqala) dans le Coran et dans les blocs ```coran```.')
       .addToggle(t => t.setValue(!!s.tajwid).onChange(async v => { s.tajwid = v; await p.saveSettings(); }));
     new Setting(el).setName('Son en ligne').setDesc('Récitation (Mishary Alafasy) et prononciation des mots depuis internet, seulement quand tu appuies sur ▶ ou 🔊. Désactivé : voix de l\'appareil uniquement.')
       .addToggle(t => t.setValue(s.audio).onChange(async v => { s.audio = v; await p.saveSettings(); }));
+    new Setting(el).setName('Dossier de tes corrections').setDesc('Quand tu corriges ou complètes une explication, ta version est rangée ici. Le texte d\'origine du plugin n\'est jamais modifié.')
+      .addText(t => t.setValue(s.fixFolder).onChange(async v => { s.fixFolder = v.trim() || DEFAULT_SETTINGS.fixFolder; await p.saveSettings(); }));
     new Setting(el).setName('Note de vocabulaire').setDesc('Le bouton « Ajouter à mon vocabulaire » ajoute une ligne au tableau de cette note.')
       .addText(t => t.setValue(s.vocabFile).onChange(async v => { s.vocabFile = v.trim() || DEFAULT_SETTINGS.vocabFile; await p.saveSettings(); }));
     new Setting(el).setName('Dossier des textes du cours').setDesc('Les sourates qui ont une note dans ce dossier apparaissent dans « Mon cours ».')
@@ -105,6 +110,7 @@ class AtelierArabePlugin extends Plugin {
     this.registerView(VIEW_TYPE, leaf => new AtelierView(leaf, this));
     this.addRibbonIcon('languages', 'Atelier arabe', () => this.openView());
     this.addCommand({ id: 'ouvrir', name: 'Ouvrir l\'atelier', callback: () => this.openView() });
+    this.addCommand({ id: 'alphabet', name: 'Alphabet et prononciation', callback: () => this.openView('alphabet') });
     this.addCommand({ id: 'lecons', name: 'Leçons de grammaire', callback: () => this.openView('lessons') });
     this.addCommand({ id: 'regles', name: 'Règles expliquées simplement', callback: () => this.openView('rules') });
     this.addCommand({ id: 'dictionnaire', name: 'Dictionnaire', callback: () => this.openView('dict') });
@@ -164,7 +170,10 @@ class AtelierArabePlugin extends Plugin {
       insertText: (t) => this.insertText(t),
       addFlashcard: (q, a) => this.addFlashcard(q, a),
       openQuran: (s, v) => this.openView('coran', { surah: s, page: 0, focus: v }),
+      readNote: async (path) => { const f = this.app.vault.getAbstractFileByPath(path); return f ? await this.app.vault.read(f) : null; },
+      editNote: (path, initial) => this.editNote(path, initial),
       openRule: (id) => this.openView('rules', { open: id, q: '' }),
+      openTab: (tab, opts) => this.openView(tab, opts),
       openLesson: (id) => this.openView('lessons', { open: id, run: null }),
       openDict: (id) => this.openView('dict', { entry: id, mode: 'search' }),
       openNote: (file) => this.app.workspace.getLeaf(false).openFile(file),
@@ -216,6 +225,18 @@ class AtelierArabePlugin extends Plugin {
     const row = '| ' + ar + ' | ' + tr + ' | ' + (gloss || '').replace(/\|/g, '/') + ' | Atelier' + (where ? ' (' + where + ')' : '') + ' |\n';
     await this.app.vault.modify(f, content.replace(/\n*$/, '\n') + row);
     new Notice('Ajouté à « ' + f.basename + ' »');
+  }
+  async editNote(path, initial) {
+    let f = this.app.vault.getAbstractFileByPath(path);
+    try {
+      if (!f) {
+        const dir = path.slice(0, path.lastIndexOf('/'));
+        if (dir && !this.app.vault.getAbstractFileByPath(dir)) await this.app.vault.createFolder(dir);
+        f = await this.app.vault.create(path, initial);
+        new Notice('Ta version a été créée : modifie-la, l\'original reste intact.');
+      }
+      await this.app.workspace.getLeaf('tab').openFile(f);
+    } catch (e) { new Notice('Impossible de créer la note : ' + e.message); }
   }
   insertText(t) {
     let leaf = this.lastMd;

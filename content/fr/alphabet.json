@@ -1,0 +1,728 @@
+{
+ "intro": "L'arabe s'écrit **de droite à gauche** et compte **28 lettres** (plus la hamza ء). Presque toutes changent un peu de forme selon leur place dans le mot (début, milieu, fin), mais la lettre reste la même. Les voyelles courtes (a, i, u) ne sont pas des lettres : ce sont de petits signes au-dessus ou au-dessous.",
+ "heavy": "Les **lettres lourdes** (tafkhīm) se disent avec l'arrière de la langue levé vers le palais, la bouche un peu arrondie. Les voyelles autour d'elles sonnent plus graves : ṣa se rapproche de « so ». Il y en a 7 : خ ص ض غ ط ق ظ. Pour les retenir : **خُصَّ ضَغْطٍ قِظْ** (khuṣṣa ḍaghṭin qiẓ). Les 4 plus fortes, ص ض ط ظ, sont aussi appelées « emphatiques ».",
+ "noJoin": "Six lettres ne s'attachent **jamais à la lettre suivante** (à gauche) : ا د ذ ر ز و. Après elles, le mot continue avec une forme de début.",
+ "zones": [
+  {
+   "id": "jawf",
+   "name": "Le creux de la bouche et de la gorge",
+   "ar": "الجَوْف",
+   "tr": "al-jawf",
+   "desc": "Ce n'est pas un point précis : c'est tout l'espace vide de la bouche et de la gorge. Les voyelles longues ā, ī, ū y résonnent librement, sans que rien ne touche.",
+   "how": "Ouvre la bouche et laisse sortir l'air sans bloquer : ā (bouche ouverte), ī (sourire), ū (lèvres arrondies)."
+  },
+  {
+   "id": "gorge-bas",
+   "name": "Le fond de la gorge (le plus bas, près de la poitrine)",
+   "ar": "أَقْصَى الحَلْق",
+   "tr": "aqṣā l-ḥalq",
+   "desc": "Tout en bas de la gorge, au niveau des cordes vocales. C'est là qu'on coupe la voix (hamza) ou qu'on souffle doucement (h).",
+   "how": "Dis « a-a » en coupant entre les deux : c'est la hamza. Souffle sur une vitre pour faire de la buée : c'est le hāʾ."
+  },
+  {
+   "id": "gorge-milieu",
+   "name": "Le milieu de la gorge",
+   "ar": "وَسَط الحَلْق",
+   "tr": "wasaṭ al-ḥalq",
+   "desc": "Au milieu de la gorge, là où on serre les muscles du cou. Ces deux sons n'existent pas en français.",
+   "how": "Pour ḥ : souffle fort comme pour réchauffer tes mains, gorge serrée, sans racler. Pour ʿ : même endroit, mais avec la voix : comme un « a » étranglé."
+  },
+  {
+   "id": "gorge-haut",
+   "name": "Le haut de la gorge (près de la bouche)",
+   "ar": "أَدْنَى الحَلْق",
+   "tr": "adnā l-ḥalq",
+   "desc": "En haut de la gorge, tout près du fond de la bouche. Ce sont des sons « raclés ».",
+   "how": "kh : comme la jota espagnole (« Juan ») ou le « ch » allemand de « Bach ». gh : comme le r grasseyé parisien, très au fond."
+  },
+  {
+   "id": "luette",
+   "name": "Le fond de la langue, tout près de la luette",
+   "ar": "أَقْصَى اللِّسَان",
+   "tr": "aqṣā l-lisān",
+   "desc": "Le fond de la langue touche le haut, très en arrière, au niveau de la luette (le petit bout de chair qui pend au fond de la bouche).",
+   "how": "Dis « k » puis recule l'endroit le plus loin possible vers la gorge : c'est le qāf. Le son est sourd et lourd."
+  },
+  {
+   "id": "voile",
+   "name": "Le fond de la langue et le palais mou",
+   "ar": "أَقْصَى اللِّسَان (أَسْفَل)",
+   "tr": "aqṣā l-lisān",
+   "desc": "Le dos de la langue touche le palais mou, un peu plus en avant que pour ق. C'est le « k » français.",
+   "how": "Dis « ka » : tu sens le dos de la langue toucher le haut, à l'arrière."
+  },
+  {
+   "id": "palais",
+   "name": "Le milieu de la langue et le palais dur",
+   "ar": "وَسَط اللِّسَان",
+   "tr": "wasaṭ al-lisān",
+   "desc": "Le milieu de la langue monte vers le palais dur (la partie dure du « plafond » de la bouche).",
+   "how": "Dis « ya », « cha », « dja » : la langue se plaque au milieu du palais."
+  },
+  {
+   "id": "cote",
+   "name": "Le côté de la langue et les molaires",
+   "ar": "حَافَة اللِّسَان",
+   "tr": "ḥāfat al-lisān",
+   "desc": "Le bord (un côté ou les deux) de la langue s'appuie contre les molaires du haut. C'est la lettre la plus difficile : l'arabe est appelé « la langue du ḍād ».",
+   "how": "Place les côtés de ta langue contre tes dents du fond, dis un « d » en gonflant l'arrière de la langue : le son devient lourd et un peu étouffé."
+  },
+  {
+   "id": "gencive",
+   "name": "Le bout de la langue et la gencive du haut",
+   "ar": "طَرَف اللِّسَان",
+   "tr": "ṭaraf al-lisān",
+   "desc": "Le bout de la langue touche la petite bosse derrière les dents du haut (la gencive). Pour ل, ن, ر, l'endroit est presque le même.",
+   "how": "l comme en français ; n comme en français ; r roulé, un seul battement de langue (comme en espagnol « pero »)."
+  },
+  {
+   "id": "racine-dents",
+   "name": "Le bout de la langue et la base des dents du haut",
+   "ar": "طَرَف اللِّسَان مَعَ أُصُول الثَّنَايَا",
+   "tr": "ṭaraf al-lisān",
+   "desc": "Le bout de la langue se pose juste à la base des incisives du haut, puis se décolle d'un coup.",
+   "how": "t et d comme en français. Pour ṭ, même place mais la langue est « creusée » et le son lourd."
+  },
+  {
+   "id": "sifflantes",
+   "name": "Le bout de la langue près des incisives (sifflement)",
+   "ar": "طَرَف اللِّسَان (الصَّفِير)",
+   "tr": "ṭaraf al-lisān",
+   "desc": "Le bout de la langue s'approche des incisives sans les toucher : l'air siffle.",
+   "how": "s et z comme en français. Pour ṣ, même sifflement mais langue creusée et bouche plus ronde : le son est grave."
+  },
+  {
+   "id": "dents",
+   "name": "Le bout de la langue entre les dents",
+   "ar": "طَرَف اللِّسَان مَعَ أَطْرَاف الثَّنَايَا",
+   "tr": "ṭaraf al-lisān",
+   "desc": "Le bout de la langue sort légèrement entre les dents du haut et du bas.",
+   "how": "Comme le « th » anglais : « think » pour ث, « this » pour ذ. ظ : même chose, en son lourd."
+  },
+  {
+   "id": "levres",
+   "name": "Les lèvres",
+   "ar": "الشَّفَتَان",
+   "tr": "ash-shafatān",
+   "desc": "Les deux lèvres se touchent (ب, م), s'arrondissent (و), ou la lèvre du bas touche les dents du haut (ف).",
+   "how": "b, m, w et f comme en français."
+  },
+  {
+   "id": "nez",
+   "name": "Le nez (la nasalisation)",
+   "ar": "الخَيْشُوم",
+   "tr": "al-khayshūm",
+   "desc": "Le son passe par le nez. Ce n'est pas une lettre, c'est la ghunna qui accompagne ن et م (avec chadda, ou cachés).",
+   "how": "Dis « nnnn » ou « mmmm » en bouchant ton nez avec les doigts : si le son s'arrête, c'est qu'il passait bien par le nez."
+  }
+ ],
+ "letters": [
+  {
+   "l": "ء",
+   "name": "hamza",
+   "tr": "ʾ",
+   "z": [
+    "gorge-bas"
+   ],
+   "son": "une petite coupure de la voix",
+   "how": "Comme la petite pause dans « a‿a » ou « oh‿oh ». Elle se pose souvent sur un support : أ, إ, ؤ, ئ.",
+   "heavy": false,
+   "join": false,
+   "sun": false,
+   "ex": [
+    "سَأَلَ",
+    "saʾala",
+    "il a demandé"
+   ],
+   "nameAr": "هَمْزَة"
+  },
+  {
+   "l": "ا",
+   "name": "alif",
+   "tr": "ā",
+   "z": [
+    "jawf"
+   ],
+   "son": "un a long (ā)",
+   "how": "Seul, le alif ne se prononce pas comme une consonne : il allonge le a d'avant (qāla). Au début d'un mot, il porte une hamza (أ, إ) ou c'est un alif de liaison (ٱ).",
+   "heavy": false,
+   "join": false,
+   "sun": false,
+   "ex": [
+    "قَالَ",
+    "qāla",
+    "il a dit"
+   ],
+   "nameAr": "أَلِف"
+  },
+  {
+   "l": "ب",
+   "name": "bāʾ",
+   "tr": "b",
+   "z": [
+    "levres"
+   ],
+   "son": "b comme dans « bébé »",
+   "how": "Les deux lèvres se ferment puis s'ouvrent.",
+   "heavy": false,
+   "join": true,
+   "sun": false,
+   "ex": [
+    "بَيْت",
+    "bayt",
+    "maison"
+   ],
+   "nameAr": "بَاء"
+  },
+  {
+   "l": "ت",
+   "name": "tāʾ",
+   "tr": "t",
+   "z": [
+    "racine-dents"
+   ],
+   "son": "t comme dans « tapis »",
+   "how": "Le bout de la langue sur la base des dents du haut. Un t léger, pas soufflé.",
+   "heavy": false,
+   "join": true,
+   "sun": true,
+   "ex": [
+    "تَوْبَة",
+    "tawba",
+    "repentir"
+   ],
+   "nameAr": "تَاء"
+  },
+  {
+   "l": "ث",
+   "name": "thāʾ",
+   "tr": "th",
+   "z": [
+    "dents"
+   ],
+   "son": "th anglais de « think »",
+   "how": "Le bout de la langue entre les dents, on souffle sans voix. Ce n'est ni un s ni un t.",
+   "heavy": false,
+   "join": true,
+   "sun": true,
+   "ex": [
+    "ثَلَاثَة",
+    "thalātha",
+    "trois"
+   ],
+   "nameAr": "ثَاء"
+  },
+  {
+   "l": "ج",
+   "name": "jīm",
+   "tr": "j",
+   "z": [
+    "palais"
+   ],
+   "son": "dj comme dans « jean » à l'anglaise",
+   "how": "Le milieu de la langue sur le palais : « dj ». En Égypte on dit « g », mais dans la récitation c'est « dj ».",
+   "heavy": false,
+   "join": true,
+   "sun": false,
+   "ex": [
+    "جَنَّة",
+    "janna",
+    "paradis, jardin"
+   ],
+   "nameAr": "جِيم"
+  },
+  {
+   "l": "ح",
+   "name": "ḥāʾ",
+   "tr": "ḥ",
+   "z": [
+    "gorge-milieu"
+   ],
+   "son": "un h soufflé, gorge serrée",
+   "how": "Souffle fort comme pour réchauffer tes mains, en serrant le milieu de la gorge. Sans racler (sinon c'est خ).",
+   "heavy": false,
+   "join": true,
+   "sun": false,
+   "ex": [
+    "رَحْمَة",
+    "raḥma",
+    "miséricorde"
+   ],
+   "nameAr": "حَاء"
+  },
+  {
+   "l": "خ",
+   "name": "khāʾ",
+   "tr": "kh",
+   "z": [
+    "gorge-haut"
+   ],
+   "son": "jota espagnole, « ch » de « Bach »",
+   "how": "Racle légèrement le haut de la gorge, sans voix.",
+   "heavy": true,
+   "join": true,
+   "sun": false,
+   "ex": [
+    "خَلَقَ",
+    "khalaqa",
+    "il a créé"
+   ],
+   "nameAr": "خَاء"
+  },
+  {
+   "l": "د",
+   "name": "dāl",
+   "tr": "d",
+   "z": [
+    "racine-dents"
+   ],
+   "son": "d comme dans « dos »",
+   "how": "Comme le t, mais avec la voix.",
+   "heavy": false,
+   "join": false,
+   "sun": true,
+   "ex": [
+    "دِين",
+    "dīn",
+    "religion, jugement"
+   ],
+   "nameAr": "دَال"
+  },
+  {
+   "l": "ذ",
+   "name": "dhāl",
+   "tr": "dh",
+   "z": [
+    "dents"
+   ],
+   "son": "th anglais de « this »",
+   "how": "Comme ث, mais avec la voix. La langue reste entre les dents.",
+   "heavy": false,
+   "join": false,
+   "sun": true,
+   "ex": [
+    "ذِكْر",
+    "dhikr",
+    "rappel"
+   ],
+   "nameAr": "ذَال"
+  },
+  {
+   "l": "ر",
+   "name": "rāʾ",
+   "tr": "r",
+   "z": [
+    "gencive"
+   ],
+   "son": "r roulé, un seul battement",
+   "how": "Le bout de la langue tape une fois la gencive du haut (comme l'espagnol « pero »). Jamais le r français de la gorge.",
+   "heavy": false,
+   "join": false,
+   "sun": true,
+   "ex": [
+    "رَبّ",
+    "rabb",
+    "Seigneur"
+   ],
+   "nameAr": "رَاء"
+  },
+  {
+   "l": "ز",
+   "name": "zāy",
+   "tr": "z",
+   "z": [
+    "sifflantes"
+   ],
+   "son": "z comme dans « zéro »",
+   "how": "Le bout de la langue près des incisives, l'air siffle avec la voix.",
+   "heavy": false,
+   "join": false,
+   "sun": true,
+   "ex": [
+    "زَكَاة",
+    "zakāh",
+    "aumône"
+   ],
+   "nameAr": "زَاي"
+  },
+  {
+   "l": "س",
+   "name": "sīn",
+   "tr": "s",
+   "z": [
+    "sifflantes"
+   ],
+   "son": "s comme dans « sac »",
+   "how": "Toujours « s », même entre deux voyelles (jamais « z »).",
+   "heavy": false,
+   "join": true,
+   "sun": true,
+   "ex": [
+    "سَلَام",
+    "salām",
+    "paix"
+   ],
+   "nameAr": "سِين"
+  },
+  {
+   "l": "ش",
+   "name": "shīn",
+   "tr": "sh",
+   "z": [
+    "palais"
+   ],
+   "son": "ch comme dans « chat »",
+   "how": "Le milieu de la langue vers le palais, l'air se répand dans la bouche.",
+   "heavy": false,
+   "join": true,
+   "sun": true,
+   "ex": [
+    "شَمْس",
+    "shams",
+    "soleil"
+   ],
+   "nameAr": "شِين"
+  },
+  {
+   "l": "ص",
+   "name": "ṣād",
+   "tr": "ṣ",
+   "z": [
+    "sifflantes"
+   ],
+   "son": "un s lourd et grave",
+   "how": "Fais un s, mais creuse la langue (l'arrière monte) et arrondis un peu la bouche. Les voyelles autour sonnent plus sombres : ṣa ressemble à « so ».",
+   "heavy": true,
+   "join": true,
+   "sun": true,
+   "ex": [
+    "صِرَاط",
+    "ṣirāṭ",
+    "chemin"
+   ],
+   "nameAr": "صَاد"
+  },
+  {
+   "l": "ض",
+   "name": "ḍād",
+   "tr": "ḍ",
+   "z": [
+    "cote"
+   ],
+   "son": "un d lourd, fait sur le côté de la langue",
+   "how": "Le bord de la langue contre les molaires du haut, l'arrière de la langue gonflé. C'est la lettre propre à l'arabe.",
+   "heavy": true,
+   "join": true,
+   "sun": true,
+   "ex": [
+    "ضَالِّين",
+    "ḍāllīn",
+    "égarés"
+   ],
+   "nameAr": "ضَاد"
+  },
+  {
+   "l": "ط",
+   "name": "ṭāʾ",
+   "tr": "ṭ",
+   "z": [
+    "racine-dents"
+   ],
+   "son": "un t lourd et grave",
+   "how": "Fais un t, mais la langue est plaquée plus largement et l'arrière monte. Le son est sourd, sans souffle.",
+   "heavy": true,
+   "join": true,
+   "sun": true,
+   "ex": [
+    "طَعَام",
+    "ṭaʿām",
+    "nourriture"
+   ],
+   "nameAr": "طَاء"
+  },
+  {
+   "l": "ظ",
+   "name": "ẓāʾ",
+   "tr": "ẓ",
+   "z": [
+    "dents"
+   ],
+   "son": "un dh lourd",
+   "how": "Comme ذ (langue entre les dents) mais en son lourd, l'arrière de la langue levé.",
+   "heavy": true,
+   "join": true,
+   "sun": true,
+   "ex": [
+    "ظُلْم",
+    "ẓulm",
+    "injustice"
+   ],
+   "nameAr": "ظَاء"
+  },
+  {
+   "l": "ع",
+   "name": "ʿayn",
+   "tr": "ʿ",
+   "z": [
+    "gorge-milieu"
+   ],
+   "son": "un son de gorge serrée, avec la voix",
+   "how": "Serre le milieu de la gorge comme pour ḥ, mais fais vibrer la voix : un « a » étranglé. N'existe pas en français : écoute-le plusieurs fois.",
+   "heavy": false,
+   "join": true,
+   "sun": false,
+   "ex": [
+    "عِلْم",
+    "ʿilm",
+    "savoir"
+   ],
+   "nameAr": "عَيْن"
+  },
+  {
+   "l": "غ",
+   "name": "ghayn",
+   "tr": "gh",
+   "z": [
+    "gorge-haut"
+   ],
+   "son": "r grasseyé parisien, très au fond",
+   "how": "Comme le r de « Paris » dit très au fond de la gorge, avec la voix.",
+   "heavy": true,
+   "join": true,
+   "sun": false,
+   "ex": [
+    "غَفُور",
+    "ghafūr",
+    "pardonneur"
+   ],
+   "nameAr": "غَيْن"
+  },
+  {
+   "l": "ف",
+   "name": "fāʾ",
+   "tr": "f",
+   "z": [
+    "levres"
+   ],
+   "son": "f comme dans « fête »",
+   "how": "La lèvre du bas touche les dents du haut.",
+   "heavy": false,
+   "join": true,
+   "sun": false,
+   "ex": [
+    "فَتْح",
+    "fatḥ",
+    "ouverture, victoire"
+   ],
+   "nameAr": "فَاء"
+  },
+  {
+   "l": "ق",
+   "name": "qāf",
+   "tr": "q",
+   "z": [
+    "luette"
+   ],
+   "son": "un k très profond, près de la gorge",
+   "how": "Fais un k, mais le plus en arrière possible, au niveau de la luette. Pas de souffle.",
+   "heavy": true,
+   "join": true,
+   "sun": false,
+   "ex": [
+    "قُرْءَان",
+    "qurʾān",
+    "Coran"
+   ],
+   "nameAr": "قَاف"
+  },
+  {
+   "l": "ك",
+   "name": "kāf",
+   "tr": "k",
+   "z": [
+    "voile"
+   ],
+   "son": "k comme dans « kilo »",
+   "how": "Le dos de la langue contre le palais mou, avec un petit souffle.",
+   "heavy": false,
+   "join": true,
+   "sun": false,
+   "ex": [
+    "كِتَاب",
+    "kitāb",
+    "livre"
+   ],
+   "nameAr": "كَاف"
+  },
+  {
+   "l": "ل",
+   "name": "lām",
+   "tr": "l",
+   "z": [
+    "gencive"
+   ],
+   "son": "l comme dans « lune »",
+   "how": "Le bout de la langue sur la gencive du haut. Dans ٱللَّه (après a ou u), il devient lourd : « Allāh » à voix grave.",
+   "heavy": false,
+   "join": true,
+   "sun": true,
+   "ex": [
+    "لَيْل",
+    "layl",
+    "nuit"
+   ],
+   "nameAr": "لَام"
+  },
+  {
+   "l": "م",
+   "name": "mīm",
+   "tr": "m",
+   "z": [
+    "levres",
+    "nez"
+   ],
+   "son": "m comme dans « maman »",
+   "how": "Les lèvres fermées, le son passe par le nez.",
+   "heavy": false,
+   "join": true,
+   "sun": false,
+   "ex": [
+    "مَلِك",
+    "malik",
+    "roi"
+   ],
+   "nameAr": "مِيم"
+  },
+  {
+   "l": "ن",
+   "name": "nūn",
+   "tr": "n",
+   "z": [
+    "gencive",
+    "nez"
+   ],
+   "son": "n comme dans « nez »",
+   "how": "Le bout de la langue sur la gencive, le son passe par le nez. Voir les règles de la ghunna.",
+   "heavy": false,
+   "join": true,
+   "sun": true,
+   "ex": [
+    "نُور",
+    "nūr",
+    "lumière"
+   ],
+   "nameAr": "نُون"
+  },
+  {
+   "l": "ه",
+   "name": "hāʾ",
+   "tr": "h",
+   "z": [
+    "gorge-bas"
+   ],
+   "son": "un h aspiré, léger",
+   "how": "Le h anglais de « hello » : un souffle doux qui vient du bas de la gorge. Il se prononce toujours, même en fin de mot.",
+   "heavy": false,
+   "join": true,
+   "sun": false,
+   "ex": [
+    "هُدًى",
+    "hudan",
+    "guidée"
+   ],
+   "nameAr": "هَاء"
+  },
+  {
+   "l": "و",
+   "name": "wāw",
+   "tr": "w / ū",
+   "z": [
+    "levres",
+    "jawf"
+   ],
+   "son": "w comme dans « oui », ou ū long",
+   "how": "Avec une voyelle ou un soukoun, c'est une consonne (w). Après un u, il allonge : ū (« ou » long).",
+   "heavy": false,
+   "join": false,
+   "sun": false,
+   "ex": [
+    "وَلَد",
+    "walad",
+    "enfant"
+   ],
+   "nameAr": "وَاو"
+  },
+  {
+   "l": "ي",
+   "name": "yāʾ",
+   "tr": "y / ī",
+   "z": [
+    "palais",
+    "jawf"
+   ],
+   "son": "y comme dans « yoga », ou ī long",
+   "how": "Avec une voyelle ou un soukoun, c'est une consonne (y). Après un i, il allonge : ī (« i » long).",
+   "heavy": false,
+   "join": true,
+   "sun": false,
+   "ex": [
+    "يَوْم",
+    "yawm",
+    "jour"
+   ],
+   "nameAr": "يَاء"
+  }
+ ],
+ "pairs": [
+  [
+   "س",
+   "ص",
+   "s léger / s lourd"
+  ],
+  [
+   "ت",
+   "ط",
+   "t léger / t lourd"
+  ],
+  [
+   "د",
+   "ض",
+   "d léger / d lourd"
+  ],
+  [
+   "ذ",
+   "ظ",
+   "dh léger / dh lourd"
+  ],
+  [
+   "ك",
+   "ق",
+   "k devant / k du fond"
+  ],
+  [
+   "ه",
+   "ح",
+   "h doux / h serré"
+  ],
+  [
+   "ح",
+   "خ",
+   "h serré / raclé"
+  ],
+  [
+   "ء",
+   "ع",
+   "coupure / gorge serrée"
+  ],
+  [
+   "ز",
+   "ذ",
+   "z / th de « this »"
+  ],
+  [
+   "س",
+   "ث",
+   "s / th de « think »"
+  ]
+ ]
+}

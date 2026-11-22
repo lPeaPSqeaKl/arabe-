@@ -158,3 +158,13 @@ class QuranData {
 function normalizeForCompare(w) {
   return (w || '').replace(/ٱ/g, 'ا').replace(/[ۡ]/g, 'ْ').replace(/[ۖ-ۜ۞۩۝]/g, '').replace(/ى(?=$)/, 'ى');
 }
+
+/* Ordre de la révélation (nuzūl) : rang de chaque sourate (1 → 114), selon l'ordre
+ * traditionnel de l'édition égyptienne du Coran (al-Azhar, 1924). C'est un ordre approché :
+ * certaines sourates ont été révélées en plusieurs fois. */
+const REVELATION_ORDER = [5,87,89,92,112,55,39,88,113,51,52,53,96,72,54,70,50,69,44,45,73,103,74,102,42,47,48,49,85,84,57,75,90,58,43,41,56,38,59,60,61,62,63,64,65,66,95,111,106,34,67,76,23,37,97,46,94,105,101,91,109,110,104,108,99,107,77,2,78,79,71,40,3,4,31,98,33,80,81,24,7,82,86,83,27,36,8,68,10,35,26,9,11,12,28,1,25,100,93,14,30,16,13,32,19,29,17,15,18,114,6,22,20,21];
+/* Liste des numéros de sourates dans l'ordre choisi ('mushaf' ou 'nuzul') */
+function surahSequence(order) {
+  const a = []; for (let i = 1; i <= 114; i++) a.push(i);
+  return order === 'nuzul' ? a.sort((x, y) => REVELATION_ORDER[x - 1] - REVELATION_ORDER[y - 1]) : a;
+}

@@ -3,14 +3,24 @@
  * ==================================================================== */
 
 /* ---------------------------- Coran ---------------------------- */
+const rankFr = n => n === 1 ? '1re' : n + 'e';
 function renderQuranTab(ctx, root, state) {
   clear(root);
   const data = ctx.data;
   const PAGE = 20;
   const bar = h(root, 'div', 'aa-toolbar');
+  const order = ctx.settings.surahOrder === 'nuzul' ? 'nuzul' : 'mushaf';
+  const seq = surahSequence(order);
+  const goSurah = n => { state.surah = n; state.page = 0; state.focus = 0; renderQuranTab(ctx, root, state); };
+  const f0 = field(bar, 'Ordre');
+  selectEl(f0, [['mushaf', 'ordre du Coran'], ['nuzul', 'ordre de la révélation']], order, v => { ctx.settings.surahOrder = v; ctx.save(); renderQuranTab(ctx, root, state); });
   const f1 = field(bar, 'Sourate');
-  selectEl(f1, data.surahs.map(s => [s[0], s[0] + '. ' + s[1] + ' — ' + s[2]]), state.surah, v => { state.surah = +v; state.page = 0; state.focus = 0; renderQuranTab(ctx, root, state); });
+  selectEl(f1, seq.map(n => { const s = data.surahInfo(n); return [n, (order === 'nuzul' ? rankFr(REVELATION_ORDER[n - 1]) + ' révélée · sourate ' : '') + n + '. ' + s[1] + ' — ' + s[2]]; }), state.surah, v => goSurah(+v));
   const info = data.surahInfo(state.surah); const nV = info[5];
+  const pos = seq.indexOf(state.surah);
+  const nav = h(bar, 'div', 'aa-actions aa-surah-nav');
+  if (pos > 0) btn(nav, '← ' + data.surahInfo(seq[pos - 1])[1], () => goSurah(seq[pos - 1]), 'aa-btn-quiet').title = 'Sourate précédente (' + (order === 'nuzul' ? 'ordre de la révélation' : 'ordre du Coran') + ')';
+  if (pos < seq.length - 1) btn(nav, data.surahInfo(seq[pos + 1])[1] + ' →', () => goSurah(seq[pos + 1]), 'aa-btn-quiet').title = 'Sourate suivante (' + (order === 'nuzul' ? 'ordre de la révélation' : 'ordre du Coran') + ')';
   const pages = Math.ceil(nV / PAGE);
   if (state.focus) state.page = Math.floor((state.focus - 1) / PAGE);
   if (pages > 1) {
@@ -21,7 +31,7 @@ function renderQuranTab(ctx, root, state) {
   const tg = h(bar, 'div', 'aa-toggles');
   checkbox(tg, 'translittération', ctx.settings.showTr, v => { ctx.settings.showTr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'français', ctx.settings.showFr, v => { ctx.settings.showFr = v; ctx.save(); renderQuranTab(ctx, root, state); });
-  checkbox(tg, 'русский', ctx.settings.showRu, v => { ctx.settings.showRu = v; ctx.save(); renderQuranTab(ctx, root, state); });
+  checkbox(tg, 'russe', ctx.settings.showRu, v => { ctx.settings.showRu = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, '🎨 prononciation', !!ctx.settings.tajwid, v => { ctx.settings.tajwid = v; ctx.save(); renderQuranTab(ctx, root, state); });
   const course = ctx.courseSurahs();
   if (course.length) {
@@ -34,6 +44,7 @@ function renderQuranTab(ctx, root, state) {
     const mine = course.find(c => c.n === state.surah);
     if (mine) { const lk = h(cb, 'a', 'aa-link aa-small', '📝 ouvrir ma note « ' + mine.file.basename + ' »'); lk.addEventListener('click', ev => { ev.preventDefault(); ctx.openNote(mine.file); }); }
   }
+  h(root, 'div', 'aa-muted aa-small aa-surah-info', 'Sourate ' + state.surah + ' · ' + info[5] + ' versets · révélée à ' + (info[4] === 'Médine' ? 'Médine' : 'La Mecque') + ' · ' + rankFr(REVELATION_ORDER[state.surah - 1]) + ' dans l\'ordre de la révélation');
   if (ctx.settings.tajwid) renderTajwidLegend(details(root, '🎨 Couleurs de prononciation : ce qu\'on prononce ou pas', true));
   mdText(root, 'p', 'aa-help', '**Clique sur un mot** pour voir ses morceaux, ses signes lettre par lettre, la raison de sa terminaison et les autres formes possibles. Couleurs : bleu = nom, rouge = verbe, gris = particule. Les mots **soulignés en pointillé** sont déjà dans ton vocabulaire.');
   const body = h(root, 'div', 'aa-verses');
@@ -259,11 +270,11 @@ function renderBuildTab(ctx, root, state) {
   if (c.type === 'verbal' && byId(VERBS, c.verb).note) mdText(root, 'p', 'aa-help', '💡 ' + cap(byId(VERBS, c.verb).note));
   if (c.type === 'verbal') renderConjugation(ctx, details(root, 'Tableau de conjugaison de ' + conjPast(byId(VERBS, c.verb), 'huwa') + ' (' + byId(VERBS, c.verb).fr.inf + ')', false), c.verb);
   else if (c.type !== 'np') {
-    const d = details(root, 'Rappel : les 3 cas, comme en russe', false);
+    const d = details(root, 'Rappel : les 3 cas', false);
     const t = h(d, 'table', 'aa-table');
-    const hr = h(t, 'tr'); ['Cas', 'Signe', 'Rôle', 'En russe'].forEach(x => h(hr, 'th', null, x));
+    const hr = h(t, 'tr'); const ruCol = !!ctx.settings.ruExpl; ['Cas', 'Signe', 'Rôle'].concat(ruCol ? ['En russe'] : []).forEach(x => h(hr, 'th', null, x));
     [['NOM', 'sujet, attribut, après كَانَ (son nom)'], ['ACC', 'complément d\'objet, après إِنَّ, attribut de كَانَ / لَيْسَ'], ['GEN', 'après une préposition, 2e nom d\'une annexion']].forEach(([k, role]) => {
-      const rr = h(t, 'tr'); h(rr, 'td', null, CASES[k].fr + ' (' + CASES[k].tr + ')'); arSpan(h(rr, 'td'), CASES[k].sign); h(rr, 'td', null, role); h(rr, 'td', null, CASES[k].ru);
+      const rr = h(t, 'tr'); h(rr, 'td', null, CASES[k].fr + ' (' + CASES[k].tr + ')'); arSpan(h(rr, 'td'), CASES[k].sign); h(rr, 'td', null, role); if (ruCol) h(rr, 'td', null, CASES[k].ru);
     });
   }
 }
