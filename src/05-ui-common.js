@@ -175,6 +175,17 @@ function renderWordDetail(ctx, el, words, wi, ref, verse) {
   if (lemRow) { const lk = h(right, 'a', 'aa-link aa-small', '📖 Voir dans le dictionnaire'); lk.addEventListener('click', ev => { ev.preventDefault(); ctx.openDict(st.seg[3]); }); }
   if (isInitials(word)) mdText(el, 'p', 'aa-why', 'Ces lettres se lisent **par leur nom** : ' + initialsTranslit(word) + '. On les appelle « al-ḥurūf al-muqaṭṭaʿa » ; leur sens n\'est connu que d\'Allah.');
 
+  // prononciation (couleurs)
+  if (ctx.settings.tajwid && verse) {
+    const segs = tajwidVerse(verse[2])[wi].filter(s => s.cls || s.pause);
+    if (segs.length) {
+      h(el, 'h4', null, '🎨 Prononciation de ce mot');
+      const big = h(el, 'div', 'aa-verse-ar aa-tj-on aa-tj-big'); big.setAttribute('dir', 'rtl');
+      fillTajwid(arSpan(big, '', 'aa-w'), tajwidVerse(verse[2])[wi]);
+      const ul = h(el, 'ul', 'aa-why-list');
+      segs.forEach(s => { const li = h(ul, 'li'); arSpan(li, s.t.replace(/ٱ/, 'ٱ'), 'aa-tj-' + (s.cls || 'pausech') + ' aa-mid'); li.appendChild(document.createTextNode(' : ' + [s.tip, s.pause].filter(Boolean).join(' ; '))); });
+    }
+  }
   // morceaux
   if (word.length > 1) {
     h(el, 'h4', null, 'Les morceaux du mot');
@@ -250,8 +261,15 @@ function renderWordDetail(ctx, el, words, wi, ref, verse) {
   if (lemRow) btn(act, ctx.isMine(st.seg[3]) ? '✓ Dans mon vocabulaire' : 'Ajouter à mon vocabulaire', (ev) => { ctx.addVocab(st.seg[3], txt, isInitials(word) ? tr : translitPhrase([txt], ctx.settings.style), e.gloss, ref ? ref[0] + ':' + ref[1] : ''); ev.target.textContent = '✓ Dans mon vocabulaire'; });
   btn(act, 'Créer une flashcard', () => ctx.addFlashcard(txt + (ref ? ' (' + ref[0] + ':' + ref[1] + ')' : ''), (e.gloss || e.title) + ' — ' + tr + (caseInfo ? ' — ' + caseInfo : '') + (e.why[0] ? ' — ' + e.why[0].replace(/\*\*/g, '') : '')));
   btn(act, 'Fermer', () => { clear(el); el.classList.remove('aa-detail-open'); }, 'aa-btn-quiet');
+  linkTerms(ctx, el);
 }
 
+function renderTajwidLegend(parent) {
+  const lg = h(parent, 'div', 'aa-tj-legend');
+  Object.entries(TJ).forEach(([k, v]) => { const c = h(lg, 'span', 'aa-tj-chip'); h(c, 'span', 'aa-tj-dot aa-tjbg-' + k); h(c, 'span', null, v[0]); });
+  const c = h(lg, 'span', 'aa-tj-chip'); h(c, 'span', 'aa-tj-dot aa-tj-pausedot'); h(c, 'span', null, 'souligné en pointillé : à l\'arrêt (fin du verset), la dernière voyelle ne se prononce pas');
+  mdText(parent, 'p', 'aa-muted aa-small', 'Tout ce qui est en couleur normale se prononce normalement. **Touche un mot** pour voir l\'explication de chaque lettre colorée (rubrique « 🎨 Prononciation de ce mot »).');
+}
 function renderTiles(parent, txt) {
   const row = h(parent, 'div', 'aa-tiles');
   row.setAttribute('dir', 'rtl');
@@ -313,14 +331,16 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
   for (let vn = from; vn <= to; vn++) {
     const v = d.v[vn - 1]; const words = v[2];
     const box = h(container, 'div', 'aa-verse'); box.dataset.ref = surahN + ':' + vn;
-    const line = h(box, 'div', 'aa-verse-ar'); line.setAttribute('dir', 'rtl'); line.style.fontSize = S.arSize + 'px';
+    const line = h(box, 'div', 'aa-verse-ar' + (S.tajwid ? ' aa-tj-on' : '')); line.setAttribute('dir', 'rtl'); line.style.fontSize = S.arSize + 'px';
     const tokens = translitTokens(words, S.style);
+    const tj = S.tajwid ? tajwidVerse(words) : null;
     const detail = h(document.createElement('div'), 'div', 'aa-detail');
     const spans = [];
     words.forEach((w, wi) => {
       const st = stemOf(w);
       const sp = arSpan(line, wordText(w), 'aa-w ' + (POS_CLASS[st.f.pos] || '') + (isInitials(w) ? ' aa-pos-inl' : '') + (st.seg[3] >= 0 && ctx.isMine(st.seg[3]) ? ' aa-mine' : ''));
       sp.title = tokens[wi];
+      if (tj) { sp.textContent = ''; fillTajwid(sp, tj[wi]); }
       sp.addEventListener('click', () => {
         spans.forEach(x => x.classList.remove('aa-w-sel')); sp.classList.add('aa-w-sel');
         renderWordDetail(ctx, detail, words, wi, [surahN, vn, wi + 1], v);
@@ -449,6 +469,7 @@ function renderIrab(ctx, el, words, ref, opts) {
     r.notes.forEach(n => mdText(t, 'div', 'aa-small aa-muted', n));
     if (opts.onWord) line.addEventListener('dblclick', () => opts.onWord(r.i));
   });
+  linkTerms(ctx, el);
   mdText(el, 'p', 'aa-muted aa-small', 'Analyse **déduite automatiquement** de la morphologie du Coran (Quranic Arabic Corpus) : très fiable pour les cas, les annexions, les prépositions et les adjectifs ; les rôles marqués « probable » sont à vérifier dans un livre d\'iʿrāb pour les versets longs.');
   return res;
 }

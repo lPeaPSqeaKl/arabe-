@@ -892,6 +892,122 @@ function irabSentence(words, res, k) {
   return s + '.';
 }
 /* ====================================================================
+ * 02d - Prononciation (tajwīd simplifié) : ce qu'on prononce ou pas
+ * Lit les signes de récitation du texte coranique (۟ ٱ ٰ ٓ ۢ …)
+ * ==================================================================== */
+const TJ = {
+  silent: ['ne se prononce pas', 'gris'],
+  merge: ['se fond dans la lettre suivante (on ne l\'entend pas)', 'violet'],
+  madd2: ['voyelle longue : 2 temps', 'orange'],
+  madd: ['allongement long (madd) : 4 à 6 temps', 'rouge'],
+  ghunna: ['nasalisation (ghunna) : le son passe par le nez, 2 temps', 'vert'],
+  qalqala: ['écho (qalqala) : la lettre « rebondit » légèrement', 'bleu'],
+};
+const TJ_COMB = /[\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E4\u06E7-\u06ED]/;
+const TJ_VOWEL = /[\u064B-\u0650]/;
+const TJ_SUK = /[\u0652\u06E1]/;
+const TJ_QALQALA = 'قطبجد';
+const TJ_IZHAR = 'ءأإؤئهعحغخ';
+
+function tjClusters(text) {
+  const out = [];
+  for (const ch of text) {
+    if ((TJ_COMB.test(ch) || ch === 'ۥ' || ch === 'ۦ') && out.length) out[out.length - 1] += ch;
+    else out.push(ch);
+  }
+  return out;
+}
+const tjBase = c => c ? c[0] : '';
+const tjMarks = c => c ? c.slice(1) : '';
+
+/* Pour chaque mot du verset : liste de { t, cls, tip } */
+function tajwidVerse(words) {
+  const W = words.map(w => tjClusters(wordText(w)));
+  const flat = []; W.forEach((cs, wi) => cs.forEach((c, ci) => flat.push({ c, wi, ci })));
+  const res = W.map(cs => cs.map(c => ({ t: c, cls: '', tip: '' })));
+  const N = flat.length;
+  const nextLetter = k => { for (let j = k + 1; j < N; j++) { const b = tjBase(flat[j].c); if (b === 'ٱ' && j + 1 < N) continue; if ((b === 'ا' || b === 'ى') && !tjMarks(flat[j].c) && j === k + 1) continue; if (tjMarks(flat[j].c).includes('۟')) continue; return flat[j]; } return null; };
+  const set = (k, cls, tip) => { const r = res[flat[k].wi][flat[k].ci]; if (!r.cls) { r.cls = cls; r.tip = tip; } };
+  // dernier groupe prononcé du verset (pour l'arrêt)
+  let lastK = N - 1;
+  while (lastK > 0 && (/[ٰ۟]/.test(tjMarks(flat[lastK].c)) && !/[َُِ]/.test(tjMarks(flat[lastK].c)) || (/^[اى]$/.test(flat[lastK].c) && /ً/.test(tjMarks(flat[lastK - 1].c))))) lastK--;
+
+  for (let k = 0; k < N; k++) {
+    const c = flat[k].c, b = tjBase(c), m = tjMarks(c);
+    const prev = k > 0 && flat[k - 1].wi === flat[k].wi ? flat[k - 1].c : '';
+    const nxt = k + 1 < N ? flat[k + 1] : null;
+    const atEnd = k >= lastK;
+    // 1) lettres muettes
+    if (m.includes('۟') || m.includes('۠')) { set(k, 'silent', b === 'ا' ? 'alif muet (écrit mais jamais prononcé)' : 'lettre écrite mais non prononcée (petit rond ۟ au-dessus)'); continue; }
+    if (b === 'ٱ') { if (k > 0) set(k, 'silent', 'alif de liaison (waṣla) : muet au milieu de la lecture, on enchaîne avec le mot d\'avant'); continue; }
+    if ((b === 'ا' || b === 'ى') && !m && prev && /ً/.test(tjMarks(prev))) {
+      if (atEnd || k === N - 1) set(k, 'madd2', 'à l\'arrêt (fin du verset), -an devient ā : on prononce cet alif');
+      else set(k, 'silent', 'alif support du tanwīn -an : muet (on dit -an sans allonger)');
+      continue;
+    }
+    // 2) allongements
+    if (m.includes('ٓ')) { set(k, 'madd', 'signe ٓ (madda) : on allonge longtemps, 4 à 6 temps'); continue; }
+    if ((b === 'ن' || b === 'م') && m.includes('ّ')) { set(k, 'ghunna', (b === 'ن' ? 'nūn' : 'mīm') + ' avec chadda : nasalisation (ghunna) de 2 temps'); continue; }
+    // 3) nūn sākin / tanwīn et la lettre qui suit
+    const tanwin = /[ًٌٍ]/.test(m);
+    const nunSakin = b === 'ن' && !TJ_VOWEL.test(m) && !m.includes('ّ') && !m.includes('ٰ');
+    if ((tanwin || nunSakin) && !atEnd) {
+      const n = nextLetter(k); const nb = n ? tjBase(n.c) : '';
+      if (m.includes('ۢ') || m.includes('ۭ')) { set(k, 'ghunna', 'iqlāb : le n devient m devant ب (petit م), avec nasalisation'); continue; }
+      if (nb && !TJ_IZHAR.includes(nb)) {
+        if ('لر'.includes(nb)) set(k, 'merge', 'idghām : le n' + (tanwin ? ' du tanwīn' : '') + ' se fond dans ' + nb + ' sans nasalisation');
+        else if ('ينمو'.includes(nb)) set(k, 'ghunna', 'idghām avec ghunna : le n' + (tanwin ? ' du tanwīn' : '') + ' se fond dans ' + nb + ' en passant par le nez');
+        else set(k, 'ghunna', 'ikhfāʾ : le n' + (tanwin ? ' du tanwīn' : '') + ' est « caché », à moitié prononcé par le nez devant ' + nb);
+        continue;
+      }
+    }
+    // 4) mīm sākin
+    if (b === 'م' && !TJ_VOWEL.test(m) && !m.includes('ّ') && !atEnd) {
+      const n = nextLetter(k); const nb = n ? tjBase(n.c) : '';
+      if (nb === 'ب') { set(k, 'ghunna', 'ikhfāʾ shafawī : mīm devant ب, lèvres presque fermées, nasalisé'); continue; }
+      if (nb === 'م') { set(k, 'ghunna', 'idghām : mīm qui se fond dans le mīm suivant, nasalisé'); continue; }
+    }
+    // 5) lettre assimilée (ال solaire, etc.)
+    if (!m && 'اويى'.indexOf(b) < 0 && nxt && nxt.wi === flat[k].wi && tjMarks(nxt.c).includes('ّ')) { set(k, 'silent', b === 'ل' ? 'lām de l\'article devant une lettre solaire : muet, la lettre suivante est doublée' : 'lettre assimilée à la suivante (qui porte la chadda)'); continue; }
+    if (!m && b === 'ل' && nxt && nxt.wi !== flat[k].wi) { /* rare */ }
+    // 6) voyelles longues
+    if (m.includes('ٰ')) { set(k, 'madd2', 'petit alif (ٰ) : on allonge en ā, 2 temps'); }
+    else if (/[ۥۦ]/.test(m)) { set(k, 'madd2', 'petit و / ي après le pronom ـهُ / ـهِ : on allonge (hū / hī), 2 temps'); }
+    else if (b === 'ا' && !m && prev && /َ/.test(tjMarks(prev))) { set(k, 'madd2', 'alif après fatḥa : ā long, 2 temps'); continue; }
+    else if (b === 'و' && !TJ_VOWEL.test(m) && !TJ_SUK.test(m) && !m.includes('ّ') && prev && /ُ/.test(tjMarks(prev))) { set(k, 'madd2', 'wāw après ḍamma : ū long, 2 temps'); continue; }
+    else if ((b === 'ي' || b === 'ى') && !TJ_VOWEL.test(m) && !TJ_SUK.test(m) && !m.includes('ّ') && prev && /ِ/.test(tjMarks(prev))) { set(k, 'madd2', 'yāʾ après kasra : ī long, 2 temps'); continue; }
+    else if (b === 'ى' && !m && prev && /َ/.test(tjMarks(prev))) { set(k, 'madd2', 'alif maqṣūra après fatḥa : ā long, 2 temps'); continue; }
+    // 7) qalqala
+    if (TJ_QALQALA.includes(b) && (TJ_SUK.test(m) || (k === lastK && !m.includes('ّ')))) { set(k, 'qalqala', k === lastK ? 'qalqala forte : à l\'arrêt, cette lettre rebondit' : 'qalqala : lettre avec soukoun, elle rebondit légèrement'); continue; }
+  }
+  // l'arrêt en fin de verset
+  if (N) {
+    const k = lastK; const r = res[flat[k].wi][flat[k].ci];
+    const m = tjMarks(flat[k].c);
+    if (/[ٌٍُِ]/.test(m) || (/َ/.test(m) && !/[اى]/.test(tjBase(flat[k].c)))) {
+      r.pause = tjBase(flat[k].c) === 'ة' ? 'à l\'arrêt (fin du verset), ة se prononce h et la voyelle finale tombe' : 'à l\'arrêt (fin du verset), on ne prononce pas la dernière voyelle';
+    }
+  }
+  return res;
+}
+
+/* Remplit un élément avec le mot coloré ; ZWJ pour garder les lettres attachées */
+function fillTajwid(el, segs) {
+  const ZWJ = '‍';
+  let buf = '';
+  const flush = () => { if (buf) { el.appendChild(document.createTextNode(buf)); buf = ''; } };
+  segs.forEach((s, i) => {
+    if (!s.cls && !s.pause) { buf += s.t; return; }
+    flush();
+    const sp = document.createElement('span');
+    sp.className = (s.cls ? 'aa-tj-' + s.cls : '') + (s.pause ? ' aa-tj-pause' : '');
+    sp.textContent = (i > 0 ? ZWJ : '') + s.t + (i < segs.length - 1 ? ZWJ : '');
+    sp.title = [s.tip, s.pause].filter(Boolean).join(' · ');
+    el.appendChild(sp);
+  });
+  flush();
+}
+/* ====================================================================
  * 03 - Constructeur de phrases : vocabulaire, accords, conjugaison
  * ==================================================================== */
 const F = AR.FATHA, D = AR.DAMMA, K = AR.KASRA, S = AR.SUKUN, SH = AR.SHADDA;
@@ -1813,6 +1929,17 @@ function renderWordDetail(ctx, el, words, wi, ref, verse) {
   if (lemRow) { const lk = h(right, 'a', 'aa-link aa-small', '📖 Voir dans le dictionnaire'); lk.addEventListener('click', ev => { ev.preventDefault(); ctx.openDict(st.seg[3]); }); }
   if (isInitials(word)) mdText(el, 'p', 'aa-why', 'Ces lettres se lisent **par leur nom** : ' + initialsTranslit(word) + '. On les appelle « al-ḥurūf al-muqaṭṭaʿa » ; leur sens n\'est connu que d\'Allah.');
 
+  // prononciation (couleurs)
+  if (ctx.settings.tajwid && verse) {
+    const segs = tajwidVerse(verse[2])[wi].filter(s => s.cls || s.pause);
+    if (segs.length) {
+      h(el, 'h4', null, '🎨 Prononciation de ce mot');
+      const big = h(el, 'div', 'aa-verse-ar aa-tj-on aa-tj-big'); big.setAttribute('dir', 'rtl');
+      fillTajwid(arSpan(big, '', 'aa-w'), tajwidVerse(verse[2])[wi]);
+      const ul = h(el, 'ul', 'aa-why-list');
+      segs.forEach(s => { const li = h(ul, 'li'); arSpan(li, s.t.replace(/ٱ/, 'ٱ'), 'aa-tj-' + (s.cls || 'pausech') + ' aa-mid'); li.appendChild(document.createTextNode(' : ' + [s.tip, s.pause].filter(Boolean).join(' ; '))); });
+    }
+  }
   // morceaux
   if (word.length > 1) {
     h(el, 'h4', null, 'Les morceaux du mot');
@@ -1888,8 +2015,15 @@ function renderWordDetail(ctx, el, words, wi, ref, verse) {
   if (lemRow) btn(act, ctx.isMine(st.seg[3]) ? '✓ Dans mon vocabulaire' : 'Ajouter à mon vocabulaire', (ev) => { ctx.addVocab(st.seg[3], txt, isInitials(word) ? tr : translitPhrase([txt], ctx.settings.style), e.gloss, ref ? ref[0] + ':' + ref[1] : ''); ev.target.textContent = '✓ Dans mon vocabulaire'; });
   btn(act, 'Créer une flashcard', () => ctx.addFlashcard(txt + (ref ? ' (' + ref[0] + ':' + ref[1] + ')' : ''), (e.gloss || e.title) + ' — ' + tr + (caseInfo ? ' — ' + caseInfo : '') + (e.why[0] ? ' — ' + e.why[0].replace(/\*\*/g, '') : '')));
   btn(act, 'Fermer', () => { clear(el); el.classList.remove('aa-detail-open'); }, 'aa-btn-quiet');
+  linkTerms(ctx, el);
 }
 
+function renderTajwidLegend(parent) {
+  const lg = h(parent, 'div', 'aa-tj-legend');
+  Object.entries(TJ).forEach(([k, v]) => { const c = h(lg, 'span', 'aa-tj-chip'); h(c, 'span', 'aa-tj-dot aa-tjbg-' + k); h(c, 'span', null, v[0]); });
+  const c = h(lg, 'span', 'aa-tj-chip'); h(c, 'span', 'aa-tj-dot aa-tj-pausedot'); h(c, 'span', null, 'souligné en pointillé : à l\'arrêt (fin du verset), la dernière voyelle ne se prononce pas');
+  mdText(parent, 'p', 'aa-muted aa-small', 'Tout ce qui est en couleur normale se prononce normalement. **Touche un mot** pour voir l\'explication de chaque lettre colorée (rubrique « 🎨 Prononciation de ce mot »).');
+}
 function renderTiles(parent, txt) {
   const row = h(parent, 'div', 'aa-tiles');
   row.setAttribute('dir', 'rtl');
@@ -1951,14 +2085,16 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
   for (let vn = from; vn <= to; vn++) {
     const v = d.v[vn - 1]; const words = v[2];
     const box = h(container, 'div', 'aa-verse'); box.dataset.ref = surahN + ':' + vn;
-    const line = h(box, 'div', 'aa-verse-ar'); line.setAttribute('dir', 'rtl'); line.style.fontSize = S.arSize + 'px';
+    const line = h(box, 'div', 'aa-verse-ar' + (S.tajwid ? ' aa-tj-on' : '')); line.setAttribute('dir', 'rtl'); line.style.fontSize = S.arSize + 'px';
     const tokens = translitTokens(words, S.style);
+    const tj = S.tajwid ? tajwidVerse(words) : null;
     const detail = h(document.createElement('div'), 'div', 'aa-detail');
     const spans = [];
     words.forEach((w, wi) => {
       const st = stemOf(w);
       const sp = arSpan(line, wordText(w), 'aa-w ' + (POS_CLASS[st.f.pos] || '') + (isInitials(w) ? ' aa-pos-inl' : '') + (st.seg[3] >= 0 && ctx.isMine(st.seg[3]) ? ' aa-mine' : ''));
       sp.title = tokens[wi];
+      if (tj) { sp.textContent = ''; fillTajwid(sp, tj[wi]); }
       sp.addEventListener('click', () => {
         spans.forEach(x => x.classList.remove('aa-w-sel')); sp.classList.add('aa-w-sel');
         renderWordDetail(ctx, detail, words, wi, [surahN, vn, wi + 1], v);
@@ -2087,6 +2223,7 @@ function renderIrab(ctx, el, words, ref, opts) {
     r.notes.forEach(n => mdText(t, 'div', 'aa-small aa-muted', n));
     if (opts.onWord) line.addEventListener('dblclick', () => opts.onWord(r.i));
   });
+  linkTerms(ctx, el);
   mdText(el, 'p', 'aa-muted aa-small', 'Analyse **déduite automatiquement** de la morphologie du Coran (Quranic Arabic Corpus) : très fiable pour les cas, les annexions, les prépositions et les adjectifs ; les rôles marqués « probable » sont à vérifier dans un livre d\'iʿrāb pour les versets longs.');
   return res;
 }
@@ -2114,6 +2251,7 @@ function renderQuranTab(ctx, root, state) {
   checkbox(tg, 'translittération', ctx.settings.showTr, v => { ctx.settings.showTr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'français', ctx.settings.showFr, v => { ctx.settings.showFr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'русский', ctx.settings.showRu, v => { ctx.settings.showRu = v; ctx.save(); renderQuranTab(ctx, root, state); });
+  checkbox(tg, '🎨 prononciation', !!ctx.settings.tajwid, v => { ctx.settings.tajwid = v; ctx.save(); renderQuranTab(ctx, root, state); });
   const course = ctx.courseSurahs();
   if (course.length) {
     const cb = h(root, 'div', 'aa-course');
@@ -2125,6 +2263,7 @@ function renderQuranTab(ctx, root, state) {
     const mine = course.find(c => c.n === state.surah);
     if (mine) { const lk = h(cb, 'a', 'aa-link aa-small', '📝 ouvrir ma note « ' + mine.file.basename + ' »'); lk.addEventListener('click', ev => { ev.preventDefault(); ctx.openNote(mine.file); }); }
   }
+  if (ctx.settings.tajwid) renderTajwidLegend(details(root, '🎨 Couleurs de prononciation : ce qu\'on prononce ou pas', true));
   mdText(root, 'p', 'aa-help', '**Clique sur un mot** pour voir ses morceaux, ses signes lettre par lettre, la raison de sa terminaison et les autres formes possibles. Couleurs : bleu = nom, rouge = verbe, gris = particule. Les mots **soulignés en pointillé** sont déjà dans ton vocabulaire.');
   const body = h(root, 'div', 'aa-verses');
   const from = state.page * PAGE + 1, to = Math.min(nV, from + PAGE - 1);
@@ -3190,6 +3329,14 @@ async function renderLesson(ctx, root, state, L) {
   h(head, 'div', 'aa-muted', 'Leçon ' + (k + 1) + ' sur ' + LESSONS.length + ' · ≈ ' + L.min + ' min');
   h(head, 'h2', null, L.title);
   arSpan(head, L.ar, 'aa-lesson-ar');
+  const ess = (LESSON_RULES[L.id] || []).map(ruleById).filter(Boolean);
+  if (ess.length) {
+    const box = h(root, 'div', 'aa-lesson-simple');
+    h(box, 'b', null, '🟢 L\'essentiel, en simple');
+    const ul0 = h(box, 'ul');
+    ess.forEach(r => { const li = h(ul0, 'li'); const a = h(li, 'a', 'aa-link aa-rule-link', r.title); mdText(li, 'span', null, ' : ' + r.one); a.addEventListener('click', e => { e.preventDefault(); const nx = li.nextSibling; if (nx && nx.classList && nx.classList.contains('aa-rule-inline')) { nx.remove(); return; } const hold = document.createElement('li'); hold.className = 'aa-rule-li'; li.parentNode.insertBefore(hold, li.nextSibling); const c = renderRuleCard(ctx, hold, r, { inline: true }); hold.classList.add('aa-rule-inline'); c.classList.remove('aa-rule-inline'); c.querySelector('.aa-actions button:last-child').onclick = () => hold.remove(); }); });
+    h(box, 'div', 'aa-muted aa-small', 'Clique sur un nom de règle pour l\'explication complète. Dans la suite de la leçon, les mots soulignés en pointillé ouvrent aussi leur règle.');
+  }
   const goal = h(root, 'div', 'aa-lesson-goal');
   h(goal, 'b', null, 'Objectifs');
   const ul = h(goal, 'ul'); L.goal.forEach(g => mdText(ul, 'li', null, g));
@@ -3229,6 +3376,7 @@ async function renderLesson(ctx, root, state, L) {
   btn(kb, 'Insérer le résumé dans la note', () => ctx.insertText('> [!abstract] ' + L.title + ' (' + L.ar + ')\n' + L.keep.map(x => '> - ' + x).join('\n') + '\n\n'), 'aa-btn-quiet');
   btn(kb, 'Créer des flashcards', () => { L.keep.forEach((x, i) => ctx.addFlashcard(L.title + ' — point ' + (i + 1), x.replace(/\*\*/g, ''))); }, 'aa-btn-quiet');
 
+  linkTerms(ctx, root);
   h(root, 'h3', null, '✍️ Vérifie que tu as compris');
   const qbox = h(root, 'div', 'aa-quiz aa-lesson-quiz');
   if (!state.run || state.run.id !== L.id) state.run = { id: L.id, i: 0, ok: 0 };
@@ -3261,6 +3409,7 @@ async function renderLessonQuestion(ctx, box, state, L, root) {
     mdText(fb, 'div', good ? 'aa-ok' : 'aa-warn', good ? '✓ Bravo !' : '✗ Pas tout à fait.');
     if (why) mdText(fb, 'div', 'aa-why', why);
     if (extra) extra(fb);
+    linkTerms(ctx, fb);
     const nb = btn(fb, run.i + 1 < n ? 'Question suivante →' : 'Voir mon résultat →', () => { run.i++; renderLessonQuestion(ctx, box, state, L, root); }, 'mod-cta');
     nb.focus && nb.focus();
   };
@@ -3320,18 +3469,358 @@ async function renderLessonQuestion(ctx, box, state, L, root) {
   box.appendChild(fb);
 }
 /* ====================================================================
+ * 06e - Les règles expliquées simplement (onglet Règles)
+ * one : en une phrase · txt : l'explication (phrases courtes) · ru : comparaison russe
+ * ex : [arabe, lecture, sens] · terms : mots qui ouvrent cette règle
+ * ==================================================================== */
+const RULE_GROUPS = [['mot', 'Le mot'], ['nom', 'Le nom et ses cas'], ['phrase', 'La phrase'], ['verbe', 'Le verbe'], ['lecture', 'La prononciation']];
+const RULES = [
+  { id: 'racine', g: 'mot', title: 'La racine', ar: 'الجَذْر',
+    one: 'Presque chaque mot arabe est construit sur 3 consonnes qui portent une idée.',
+    txt: 'Prends les lettres **ك ت ب** (k-t-b). Elles veulent dire « écrire ».\nTous les mots qui parlent d\'écriture ont ces 3 lettres, dans le même ordre.\nOn change seulement les voyelles et on ajoute des lettres autour.\nCes 3 lettres s\'appellent **la racine**.',
+    ru: 'Comme en russe « писать, писатель, письмо, переписка » : la partie « пис » ne change pas.',
+    ex: [['كَتَبَ', 'kataba', 'il a écrit'], ['كَاتِب', 'kātib', 'un écrivain'], ['كِتَاب', 'kitāb', 'un livre'], ['مَكْتُوب', 'maktūb', 'écrit']],
+    terms: ['racine', 'racines'] },
+  { id: 'scheme', g: 'mot', title: 'Le moule (schème)', ar: 'الوَزْن',
+    one: 'Le moule, c\'est la forme dans laquelle on met la racine ; il donne la nuance du sens.',
+    txt: 'Les grammairiens écrivent les moules avec les lettres **ف ع ل** à la place de la racine.\nExemple : le moule **fāʿil** (ā après la 1re lettre, i après la 2e) veut dire « celui qui fait ».\nOn verse n\'importe quelle racine dedans : k-t-b → kātib (celui qui écrit), ʿ-l-m → ʿālim (celui qui sait).',
+    ru: 'Comme les suffixes russes : -тель (писатель, учитель) veut toujours dire « celui qui fait ».',
+    ex: [['كَاتِب', 'kātib', 'celui qui écrit'], ['عَالِم', 'ʿālim', 'celui qui sait'], ['مَكْتُوب', 'maktūb', 'ce qui est écrit (moule mafʿūl)']],
+    terms: ['moule', 'moules', 'schème', 'fāʿil'] },
+  { id: 'defini', g: 'nom', title: 'Défini : l\'article ال', ar: 'المَعْرِفَة',
+    one: 'ال collé devant un nom veut dire « le, la ».',
+    txt: 'كِتَاب = un livre. **ٱلْكِتَاب** = **le** livre.\nال se colle au mot, il ne s\'écrit jamais seul.\nUn nom avec ال n\'a **jamais** de tanwīn (le petit « n » à la fin).',
+    ru: 'Le russe n\'a pas d\'article. Pense « этот / тот » : ال montre qu\'on parle d\'une chose précise.',
+    ex: [['ٱلْحَمْدُ', 'al-ḥamdu', 'la louange'], ['ٱلْقَمَرُ', 'al-qamaru', 'la lune']],
+    terms: ['défini', 'définis', 'définie', 'article'] },
+  { id: 'tanwin', g: 'nom', title: 'Indéfini : le tanwīn', ar: 'التَّنْوِين',
+    one: 'Le tanwīn est une voyelle doublée à la fin du mot ; on l\'entend comme un « n » et il veut dire « un, une ».',
+    txt: 'On écrit la voyelle **deux fois** : ـٌ (-un), ـً (-an), ـٍ (-in).\nكِتَابٌ = kitābun = **un** livre.\nSoit ال au début, soit tanwīn à la fin : **jamais les deux**.',
+    ru: 'Pense « какой-то / один » : كِتَابٌ = « (какая-то) книга ».',
+    ex: [['أَحَدٌ', 'aḥadun', 'un, unique'], ['كِتَابًا', 'kitāban', 'un livre (complément)'], ['خُسْرٍ', 'khusrin', 'une perte (après préposition)']],
+    terms: ['tanwīn', 'indéfini', 'indéfinis', 'indéfinie'] },
+  { id: 'cas', g: 'nom', title: 'Les 3 cas : -u, -a, -i', ar: 'الإِعْرَاب',
+    one: 'La dernière voyelle d\'un nom montre son rôle dans la phrase : -u, -a ou -i.',
+    txt: 'Le sens du mot ne change pas. Seule sa **dernière voyelle** change.\n**-u** (nominatif) : c\'est le sujet, celui dont on parle.\n**-a** (accusatif) : c\'est le complément, ce qui subit l\'action.\n**-i** (génitif) : il vient après une préposition, ou il veut dire « de … ».',
+    ru: 'Exactement comme les cas russes : книга / книгу / книги. -u ≈ именительный, -a ≈ винительный, -i ≈ родительный (et le cas après une préposition).',
+    ex: [['ٱلْكِتَابُ', 'al-kitābu', 'le livre (sujet)'], ['ٱلْكِتَابَ', 'al-kitāba', 'le livre (complément)'], ['ٱلْكِتَابِ', 'al-kitābi', 'du livre / après préposition']],
+    terms: ['cas', 'trois cas', '3 cas'] },
+  { id: 'nominatif', g: 'nom', title: 'Le nominatif (-u)', ar: 'الرَّفْع',
+    one: 'Le nominatif (finale -u) marque le sujet ou l\'attribut.',
+    txt: 'Fin du mot : **ـُ** (-u), **ـٌ** (-un), ou **ـُونَ** pour un pluriel masculin.\nOn l\'utilise pour : le sujet d\'un verbe, le sujet d\'une phrase sans verbe, et ce qu\'on dit du sujet (l\'attribut).',
+    ru: 'именительный падеж : кто? что?',
+    ex: [['ٱلْحَمْدُ لِلَّهِ', 'al-ḥamdu lillāh', 'la louange (est) à Allah'], ['جَاءَ نَصْرُ ٱللَّهِ', 'jāʾa naṣru llāh', 'le secours d\'Allah vient']],
+    terms: ['nominatif', 'nominatifs', 'rafʿ'] },
+  { id: 'accusatif', g: 'nom', title: 'L\'accusatif (-a)', ar: 'النَّصْب',
+    one: 'L\'accusatif (finale -a) marque surtout le complément d\'objet.',
+    txt: 'Fin du mot : **ـَ** (-a), **ـً** (-an), ou **ـِينَ** au pluriel masculin.\nOn l\'utilise pour : le complément d\'objet (« qui ? quoi ? »), le nom après إِنَّ, l\'attribut après كَانَ, et pour dire quand, où, comment.',
+    ru: 'винительный падеж : кого? что? (вижу книгу).',
+    ex: [['ٱهْدِنَا ٱلصِّرَاطَ', 'ihdinā ṣ-ṣirāṭa', 'guide-nous (sur) le chemin'], ['إِنَّ ٱلْإِنْسَانَ', 'inna l-insāna', 'certes l\'homme']],
+    terms: ['accusatif', 'accusatifs', 'naṣb'] },
+  { id: 'genitif', g: 'nom', title: 'Le génitif (-i)', ar: 'الجَرّ',
+    one: 'Le génitif (finale -i) vient après une préposition ou veut dire « de … ».',
+    txt: 'Fin du mot : **ـِ** (-i), **ـٍ** (-in), ou **ـِينَ** au pluriel masculin.\nDeux cas seulement :\n1. après une **préposition** (فِي, مِنْ, بِ, لِ…) ;\n2. comme 2e mot de « le X **de** Y » (l\'annexion).',
+    ru: 'родительный падеж (кого? чего?) et le cas après une préposition (в доме → فِي ٱلْبَيْتِ).',
+    ex: [['بِسْمِ ٱللَّهِ', 'bismi llāh', 'au nom d\'Allah'], ['رَبِّ ٱلْعَالَمِينَ', 'rabbi l-ʿālamīn', 'Seigneur de l\'univers']],
+    terms: ['génitif', 'génitifs', 'jarr', 'majrūr'] },
+  { id: 'prep', g: 'nom', title: 'Les prépositions', ar: 'حُرُوف الجَرّ',
+    one: 'Après une préposition (dans, de, à, sur…), le nom finit toujours par -i.',
+    txt: 'Petits mots : **فِي** dans, **مِنْ** de, **إِلَى** vers, **عَلَى** sur, **عَنْ** loin de.\nUne seule lettre collée : **بِـ** par / avec, **لِـ** à / pour, **كَـ** comme.\nAprès elles : **-i** à la fin du nom. Toujours.',
+    ru: 'Comme en russe, où chaque préposition impose son cas (в + предложный). En arabe c\'est plus simple : toujours le même cas.',
+    ex: [['فِي ٱلْبَيْتِ', 'fi l-bayti', 'dans la maison'], ['لِلَّهِ', 'lillāhi', 'à Allah'], ['عَلَيْهِمْ', 'ʿalayhim', 'sur eux']],
+    terms: ['préposition', 'prépositions', 'préposition collée'] },
+  { id: 'idafa', g: 'nom', title: 'L\'annexion : « le X de Y »', ar: 'الإِضَافَة',
+    one: 'Pour dire « le X de Y », on colle deux noms : X sans ال ni tanwīn, puis Y au génitif (-i).',
+    txt: 'Il n\'y a pas de mot pour « de ». On met les deux noms côte à côte.\n**1er mot** : pas de ال, pas de tanwīn.\n**2e mot** : toujours **-i** (génitif).\nكِتَابُ ٱلْوَلَدِ = le livre **de** l\'enfant.',
+    ru: 'Exactement le родительный russe sans préposition : книга мальчика, Господь миров.',
+    ex: [['رَبِّ ٱلْعَالَمِينَ', 'rabbi l-ʿālamīn', 'le Seigneur de l\'univers'], ['يَوْمِ ٱلدِّينِ', 'yawmi d-dīn', 'le jour du Jugement'], ['نَصْرُ ٱللَّهِ', 'naṣru llāh', 'le secours d\'Allah']],
+    terms: ['annexion', 'annexions', 'iḍāfa', 'complément du nom', 'muḍāf ilayh'] },
+  { id: 'pronoms', g: 'nom', title: 'Les pronoms collés', ar: 'الضَّمَائِر المُتَّصِلَة',
+    one: 'Un pronom peut se coller à la fin d\'un mot : sur un nom il veut dire « mon, ton, son… ».',
+    txt: '**ـِي** mon · **ـكَ** ton · **ـهُ** son (à lui) · **ـهَا** son (à elle) · **ـنَا** notre · **ـكُمْ** votre · **ـهُمْ** leur.\nSur un **verbe**, ils veulent dire « me, te, le… » : ٱهْدِنَا = guide-**nous**.\nSur une **préposition** : لَهُ = à **lui**, عَلَيْهِمْ = sur **eux**.',
+    ru: 'Comme si « мой, твой, его » se collaient à la fin du mot : رَبُّكَ = « Господь-твой ».',
+    ex: [['رَبُّكَ', 'rabbuka', 'ton Seigneur'], ['مَالُهُ', 'māluhu', 'sa fortune'], ['ٱهْدِنَا', 'ihdinā', 'guide-nous']],
+    terms: ['pronom collé', 'pronoms collés', 'possessif', 'pronom'] },
+  { id: 'adjectif', g: 'nom', title: 'L\'adjectif', ar: 'النَّعْت',
+    one: 'L\'adjectif vient après le nom et copie tout : son cas, son ال ou son tanwīn, son genre, son nombre.',
+    txt: 'En arabe, l\'adjectif est **après** le nom, comme souvent en français.\nIl est le « jumeau » du nom : même fin, même ال.\nبَيْتٌ كَبِيرٌ = une grande maison. ٱلْبَيْتُ ٱلْكَبِيرُ = la grande maison.',
+    ru: 'Comme l\'accord russe (большой дом, большого дома), mais l\'adjectif est placé après le nom.',
+    ex: [['ٱلصِّرَاطَ ٱلْمُسْتَقِيمَ', 'aṣ-ṣirāṭa l-mustaqīm', 'le chemin droit'], ['عَذَابٌ عَظِيمٌ', 'ʿadhābun ʿaẓīm', 'un châtiment immense']],
+    terms: ['adjectif', 'adjectifs', 'naʿt'] },
+  { id: 'pluriel', g: 'nom', title: 'Pluriel en -ūna / -īna', ar: 'جَمْع المُذَكَّر السَّالِم',
+    one: 'Le pluriel masculin régulier finit par ـُونَ (sujet) ou ـِينَ (complément ou après préposition).',
+    txt: 'Ici, ce n\'est pas la dernière voyelle qui change, c\'est **la fin entière** :\n**ـُونَ** (-ūna) au nominatif,\n**ـِينَ** (-īna) à l\'accusatif et au génitif.\nLe ن final reste toujours.',
+    ru: 'Une seule terminaison pour 2 cas : comme si винительный et родительный se ressemblaient (у многих одушевлённых в русском, c\'est pareil !).',
+    ex: [['ٱلْمُؤْمِنُونَ', 'al-muʾminūna', 'les croyants (sujet)'], ['ٱلْعَالَمِينَ', 'al-ʿālamīna', 'les mondes (après « de »)']],
+    terms: ['pluriel masculin', 'ـُونَ', 'ـِينَ'] },
+  { id: 'diptote', g: 'nom', title: 'Les noms « diptotes »', ar: 'المَمْنُوع مِنَ الصَّرْف',
+    one: 'Certains noms (beaucoup de noms propres) refusent le tanwīn et le -i : ils mettent -a à la place.',
+    txt: 'Ces noms n\'ont que deux fins au lieu de trois : -u et -a.\nAprès une préposition, ils prennent **-a** au lieu de -i.\nC\'est le cas de beaucoup de noms propres étrangers (إِبْرَاهِيمَ, مُوسَى…) et de certains pluriels.',
+    ru: 'Comme les mots russes indéclinables (кофе, пальто), en moins extrême.',
+    ex: [['بِإِبْرَاهِيمَ', 'bi-ibrāhīma', 'avec Abraham (-a au lieu de -i)']],
+    terms: ['diptote', 'diptotes'] },
+  { id: 'nominale', g: 'phrase', title: 'La phrase nominale (sans verbe)', ar: 'الجُمْلَة الاِسْمِيَّة',
+    one: 'Une phrase sans verbe : « sujet + ce qu\'on dit de lui », et on sous-entend « est ».',
+    txt: 'En arabe, au présent, on ne dit pas « est ».\nOn met le **sujet**, puis ce qu\'on dit de lui (**l\'attribut**).\nLes deux finissent par **-u**.\nٱلْبَيْتُ كَبِيرٌ = la maison (est) grande.',
+    ru: 'Exactement comme en russe : « Дом — большой », « Бог — един ». Pas de verbe « быть » au présent !',
+    ex: [['ٱللَّهُ ٱلصَّمَدُ', 'allāhu ṣ-ṣamad', 'Allah (est) l\'Absolu'], ['ٱلْحَمْدُ لِلَّهِ', 'al-ḥamdu lillāh', 'la louange (est) à Allah']],
+    terms: ['phrase nominale', 'nominale'] },
+  { id: 'sujet', g: 'phrase', title: 'Le sujet (mubtadaʾ)', ar: 'المُبْتَدَأ',
+    one: 'Le mubtadaʾ est le mot dont on parle, au début d\'une phrase sans verbe.',
+    txt: 'C\'est la réponse à « de quoi on parle ? ».\nIl est en général **défini** (avec ال, ou un nom propre, ou un pronom).\nIl finit par **-u**.',
+    ru: 'подлежащее : « **Дом** — большой ».',
+    ex: [['ٱللَّهُ ٱلصَّمَدُ', 'allāhu ṣ-ṣamad', 'ٱللَّهُ est le sujet']],
+    terms: ['sujet de la phrase nominale', 'mubtadaʾ', 'sujet'] },
+  { id: 'attribut', g: 'phrase', title: 'L\'attribut (khabar)', ar: 'الخَبَر',
+    one: 'Le khabar est ce qu\'on dit du sujet : c\'est l\'information nouvelle.',
+    txt: 'Dans « la maison (est) grande », l\'attribut est « grande ».\nIl est souvent **indéfini** (avec tanwīn) : c\'est ce qui montre que c\'est une phrase, et pas « la grande maison ».\nL\'attribut peut aussi être un groupe avec une préposition : ٱلْحَمْدُ **لِلَّهِ**.',
+    ru: 'сказуемое : « Дом — **большой** ».',
+    ex: [['ٱلْبَيْتُ كَبِيرٌ', 'al-baytu kabīr', 'la maison est grande'], ['لَيْلَةُ ٱلْقَدْرِ خَيْرٌ', 'laylatu l-qadri khayr', 'la nuit du Destin est meilleure']],
+    terms: ['attribut', 'attributs', 'khabar'] },
+  { id: 'verbale', g: 'phrase', title: 'La phrase verbale', ar: 'الجُمْلَة الفِعْلِيَّة',
+    one: 'Une phrase qui commence par un verbe : verbe → sujet (-u) → complément (-a).',
+    txt: 'L\'arabe aime commencer par le verbe.\nكَتَبَ ٱلْوَلَدُ ٱلدَّرْسَ = a écrit l\'enfant la leçon = l\'enfant a écrit la leçon.\nC\'est la fin des mots (-u, -a) qui dit qui fait quoi, pas l\'ordre.',
+    ru: 'Comme en russe, l\'ordre est libre grâce aux terminaisons : « Мальчик написал урок » = « Урок написал мальчик ».',
+    ex: [['جَاءَ نَصْرُ ٱللَّهِ', 'jāʾa naṣru llāh', 'est venu le secours d\'Allah'], ['أَخْرَجَتِ ٱلْأَرْضُ أَثْقَالَهَا', 'akhrajati l-arḍu athqālahā', 'la terre a fait sortir ses fardeaux']],
+    terms: ['phrase verbale', 'verbale'] },
+  { id: 'fail', g: 'phrase', title: 'Le sujet du verbe (fāʿil)', ar: 'الفَاعِل',
+    one: 'Le fāʿil est celui qui fait l\'action ; il finit par -u.',
+    txt: 'Il vient en général **après** le verbe.\nSouvent, il n\'y a pas de mot séparé : le sujet est **dans la terminaison** du verbe (خَلَقْنَا = **nous** avons créé).',
+    ru: 'подлежащее при глаголе : кто делает?',
+    ex: [['فَعَلَ رَبُّكَ', 'faʿala rabbuka', 'ton Seigneur a agi'], ['خَلَقْنَا', 'khalaqnā', 'nous avons créé (sujet dans le verbe)']],
+    terms: ['sujet du verbe', 'fāʿil'] },
+  { id: 'maful', g: 'phrase', title: 'Le complément d\'objet (mafʿūl bihi)', ar: 'المَفْعُول بِهِ',
+    one: 'Le mafʿūl bihi est ce qui subit l\'action ; il finit par -a.',
+    txt: 'Il répond à « qui ? quoi ? » après le verbe.\nIl peut être un pronom collé au verbe : أَعْطَيْنَاكَ = nous **t\'**avons donné.\nPour insister, il peut passer devant : إِيَّاكَ نَعْبُدُ = c\'est **Toi** que nous adorons.',
+    ru: 'прямое дополнение, винительный : вижу (кого? что?).',
+    ex: [['خَلَقَ ٱلْإِنْسَانَ', 'khalaqa l-insāna', 'il a créé l\'homme'], ['إِيَّاكَ نَعْبُدُ', 'iyyāka naʿbudu', 'c\'est Toi que nous adorons']],
+    terms: ['complément d\'objet', 'complément', 'compléments', 'COD', 'mafʿūl bihi'] },
+  { id: 'inna', g: 'phrase', title: 'إِنَّ « certes » et ses sœurs', ar: 'إِنَّ وَأَخَوَاتُهَا',
+    one: 'إِنَّ (certes) se met devant une phrase sans verbe et met son sujet à l\'accusatif (-a).',
+    txt: 'Sans إِنَّ : ٱلْإِنْسَانُ فِي خُسْرٍ (l\'homme est en perdition).\nAvec إِنَّ : إِنَّ ٱلْإِنْسَانَ فِي خُسْرٍ — le sujet passe de **-u** à **-a**.\nL\'attribut, lui, reste à -u.\nMême effet avec أَنَّ (que), لَكِنَّ (mais), لَعَلَّ (peut-être), كَأَنَّ (comme si).',
+    ru: 'Un mot qui « change le cas » du sujet : comme si « вот » obligeait à dire « вот книгу ».',
+    ex: [['إِنَّ ٱللَّهَ غَفُورٌ', 'inna llāha ghafūr', 'certes Allah est pardonneur']],
+    terms: ['inna', 'إِنَّ', 'nom de inna', 'attribut de inna'] },
+  { id: 'kana', g: 'phrase', title: 'كَانَ « était » et ses sœurs', ar: 'كَانَ وَأَخَوَاتُهَا',
+    one: 'كَانَ (il était) garde le sujet à -u mais met l\'attribut à l\'accusatif (-a).',
+    txt: 'Sans كَانَ : ٱللَّهُ غَفُورٌ.\nAvec كَانَ : كَانَ ٱللَّهُ **غَفُورًا** — c\'est l\'**attribut** qui passe à -a.\nC\'est l\'inverse de إِنَّ !\nMême effet avec لَيْسَ (ne pas être), أَصْبَحَ et صَارَ (devenir).',
+    ru: 'Comme en russe « был **учителем** » : après « быть », l\'attribut change de cas (творительный) !',
+    ex: [['كَانَ تَوَّابًا', 'kāna tawwābā', 'Il est toujours Accueillant au repentir']],
+    terms: ['kāna', 'كَانَ', 'attribut de kāna', 'sujet de kāna'] },
+  { id: 'hal', g: 'phrase', title: 'Le complément d\'état (ḥāl)', ar: 'الحَال',
+    one: 'Le ḥāl dit comment est quelqu\'un pendant l\'action ; c\'est un nom indéfini en -an.',
+    txt: 'Il répond à « dans quel état ? comment ? ».\nيَدْخُلُونَ أَفْوَاجًا = ils entrent **en foule**.',
+    ru: 'Comme « пришёл **усталым** » : l\'état pendant l\'action.',
+    ex: [['ٱرْجِعِي رَاضِيَةً', 'irjiʿī rāḍiyatan', 'reviens, satisfaite']],
+    terms: ['ḥāl', 'complément d\'état'] },
+  { id: 'irab', g: 'phrase', title: 'L\'iʿrāb : analyser une phrase', ar: 'الإِعْرَاب',
+    one: 'Faire l\'iʿrāb, c\'est dire pour chaque mot : ce qu\'il est, son rôle, son cas et pourquoi.',
+    txt: 'Pour chaque mot, 4 questions :\n1. Nom, verbe ou particule ?\n2. Quel rôle ? (sujet, complément, après préposition…)\n3. Quelle fin ? (-u, -a, -i)\n4. Quel signe le montre ? (la voyelle, ou ـونَ / ـينَ…)\nLe bouton 🧩 **Analyse de la phrase** le fait pour toi.',
+    ru: 'C\'est le « разбор предложения » de l\'école russe.',
+    ex: [], terms: ['iʿrāb', 'invariable', 'mabnī'] },
+  { id: 'passe', g: 'verbe', title: 'Le verbe au passé', ar: 'المَاضِي',
+    one: 'Le passé se forme avec des terminaisons : ـْتُ je, ـْتَ tu, ـَ il, ـَتْ elle, ـْنَا nous, ـُوا ils.',
+    txt: 'Le dictionnaire donne le verbe à « il a fait » : كَتَبَ = il a écrit.\nPour les autres personnes, on ajoute une fin : كَتَبْتُ j\'ai écrit, كَتَبْنَا nous avons écrit.\nLa fin **est** le sujet : pas besoin de dire « je » ou « nous ».',
+    ru: 'Comme le passé russe qui change avec la personne (писал / писала), mais en arabe toutes les personnes ont leur fin.',
+    ex: [['خَلَقْنَا', 'khalaqnā', 'nous avons créé'], ['أَنْعَمْتَ', 'anʿamta', 'tu as comblé']],
+    terms: ['passé', 'verbe au passé'] },
+  { id: 'present', g: 'verbe', title: 'Le verbe au présent', ar: 'المُضَارِع',
+    one: 'Au présent, la personne se voit au début du verbe : أَ je, نَ nous, تَ tu, يَ il.',
+    txt: 'Retiens le mot **أنيت** : أَ (je), نَ (nous), يَ (il), تَ (tu / elle).\nنَعْبُدُ = nous adorons. يَعْلَمُ = il sait.\nLa fin du verbe peut changer (voir « les modes »).',
+    ru: 'Comme les terminaisons russes (пишу, пишешь), sauf qu\'en arabe la personne est surtout au début.',
+    ex: [['نَعْبُدُ', 'naʿbudu', 'nous adorons'], ['أَعُوذُ', 'aʿūdhu', 'je cherche refuge']],
+    terms: ['présent', 'verbe au présent'] },
+  { id: 'modes', g: 'verbe', title: 'Les 3 modes du présent', ar: 'الرَّفْع وَالنَّصْب وَالجَزْم',
+    one: 'La fin du verbe au présent change selon le petit mot devant : -u (normal), -a (après لَنْ, أَنْ), ـْ (après لَمْ, لَا « ne… pas ! »).',
+    txt: '**Indicatif -u** : la forme normale. يَعْلَمُ = il sait.\n**Subjonctif -a** : après **أَنْ** (que) et **لَنْ** (ne… jamais). لَنْ يَقْدِرَ = il ne pourra pas.\n**Apocopé ـْ** (soukoun) : après **لَمْ** (ne… pas, au passé !) et **لَا** d\'interdiction. لَمْ يَلِدْ = Il n\'a pas engendré.',
+    ru: 'Un peu comme le subjonctif français (« il faut qu\'il **vienne** ») : un petit mot devant change la forme du verbe.',
+    ex: [['لَمْ يَلِدْ', 'lam yalid', 'Il n\'a pas engendré'], ['لَنْ يَقْدِرَ', 'lan yaqdira', 'il ne pourra pas']],
+    terms: ['mode', 'modes', 'indicatif', 'subjonctif', 'apocopé', 'apocopés'] },
+  { id: 'imperatif', g: 'verbe', title: 'L\'impératif', ar: 'الأَمْر',
+    one: 'L\'impératif (« fais ! ») vient du présent : on enlève le تَـ du début et on met un soukoun à la fin.',
+    txt: 'تَقْرَأُ (tu lis) → قْرَأْ → on ajoute ٱ devant car on ne peut pas commencer par un soukoun → **ٱقْرَأْ** (lis !).\nتَقُولُ → **قُلْ** (dis !).\nPour interdire : **لَا** + présent avec soukoun : لَا تَقُلْ = ne dis pas !',
+    ru: 'читаешь → читай ! : on part aussi de la forme du présent.',
+    ex: [['ٱقْرَأْ', 'iqraʾ', 'lis !'], ['قُلْ', 'qul', 'dis !'], ['فَلَا تَقْهَرْ', 'fa-lā taqhar', 'n\'opprime pas !']],
+    terms: ['impératif', 'impératifs', 'interdiction'] },
+  { id: 'passif', g: 'verbe', title: 'Le passif', ar: 'المَبْنِيّ لِلْمَجْهُول',
+    one: 'Au passif (« a été fait »), le verbe change ses voyelles : u-i au passé, yu-a au présent.',
+    txt: 'كَتَبَ (il a écrit) → **كُتِبَ** (il a été écrit).\nيَكْتُبُ (il écrit) → **يُكْتَبُ** (il est écrit).\nCelui qui subit devient le sujet, avec -u.',
+    ru: 'написал → был написан.',
+    ex: [['وَلَمْ يُولَدْ', 'wa lam yūlad', 'et Il n\'a pas été engendré']],
+    terms: ['passif'] },
+  { id: 'wasla', g: 'lecture', title: 'L\'alif de liaison ٱ', ar: 'هَمْزَة الوَصْل',
+    one: 'ٱ (alif avec un petit ص) ne se prononce pas au milieu d\'une phrase : on enchaîne directement.',
+    txt: 'Au début d\'une lecture, on le dit (a- ou i-).\nAu milieu, il disparaît : بِسْمِ ٱللَّهِ se lit **bismi llāh**, pas « bismi allāh ».',
+    ru: 'Comme le « e » muet français qu\'on avale : « je l\'ai » au lieu de « je le ai ».',
+    ex: [['بِسْمِ ٱللَّهِ', 'bismi llāhi', 'le ٱ est muet'], ['وَٱلْعَصْرِ', 'wa-l-ʿaṣri', 'le ٱ est muet']],
+    terms: ['alif de liaison', 'waṣla'] },
+  { id: 'solaires', g: 'lecture', title: 'Lettres solaires et lunaires', ar: 'الحُرُوف الشَّمْسِيَّة وَالقَمَرِيَّة',
+    one: 'Devant 14 lettres « solaires », le l de ال ne se prononce pas et la lettre suivante est doublée.',
+    txt: 'ٱلشَّمْس se lit **ash-shams** (pas al-shams).\nٱلْقَمَر se lit **al-qamar** (on entend le l).\nAstuce : s\'il y a une chadda (ّ) sur la lettre après ال, le l est muet.\nLes 14 solaires : ت ث د ذ ر ز س ش ص ض ط ظ ل ن.',
+    ru: 'Une assimilation, comme en russe « сшить » qu\'on prononce « шшить ».',
+    ex: [['ٱلنَّاس', 'an-nās', 'les gens (n solaire)'], ['ٱلْكِتَاب', 'al-kitāb', 'le livre (k lunaire)']],
+    terms: ['lettre solaire', 'lettres solaires', 'solaire', 'solaires', 'lunaire'] },
+  { id: 'madd', g: 'lecture', title: 'Les voyelles longues (madd)', ar: 'المَدّ',
+    one: 'ا و ي après la bonne voyelle allongent le son : ā, ū, ī (2 temps) ; avec le signe ٓ on allonge encore plus (4 à 6 temps).',
+    txt: 'ـَا = ā, ـُو = ū, ـِي = ī : 2 temps (deux fois une voyelle courte).\nLe petit alif ٰ au-dessus d\'une lettre se lit aussi ā.\nLe signe **ٓ** (madda) demande un allongement long : 4 à 6 temps.',
+    ru: 'Comme une voyelle accentuée qu\'on fait durer : « мааама ».',
+    ex: [['ٱلضَّآلِّينَ', 'aḍ-ḍāāāllīn', 'madda : ā très long'], ['ٱلرَّحِيمِ', 'ar-raḥīm', 'ī long']],
+    terms: ['voyelle longue', 'voyelles longues', 'madd', 'allongement'] },
+  { id: 'ghunna', g: 'lecture', title: 'La nasalisation (ghunna)', ar: 'الغُنَّة',
+    one: 'Sur un ن ou un م avec chadda, et sur certains n cachés, le son passe par le nez pendant 2 temps.',
+    txt: 'إِنَّ : on tient le **nn** dans le nez.\nUn n sans voyelle (ou un tanwīn) devant certaines lettres est « caché » : on le dit à moitié, par le nez (ikhfāʾ).\nDevant ب, il devient m (iqlāb) : مِنۢ بَعْدِ se lit « mim baʿdi ».',
+    ru: 'Comme les voyelles nasales françaises (« on », « an »), en tenant le son.',
+    ex: [['إِنَّ', 'inna', 'nn nasal'], ['أَنْزَلْنَا', 'anzalnā', 'n caché devant ز']],
+    terms: ['ghunna', 'nasalisation', 'idghām', 'ikhfāʾ', 'iqlāb'] },
+  { id: 'qalqala', g: 'lecture', title: 'L\'écho (qalqala)', ar: 'القَلْقَلَة',
+    one: 'Les lettres ق ط ب ج د avec un soukoun « rebondissent » : on entend un petit écho.',
+    txt: 'Retiens le mot **قُطْبُ جَدٍّ** : ce sont ces 5 lettres.\nQuand elles ont un soukoun (ْ), ou à la fin d\'un verset, on les relâche avec un petit écho : أَحَدْ → « aḥad(e) ».',
+    ru: 'Comme un « д » final russe qu\'on ne laisse pas devenir « т », avec un petit rebond.',
+    ex: [['أَحَدٌ', 'aḥad', 'à l\'arrêt : d avec écho'], ['ٱلْفَلَقِ', 'al-falaq', 'à l\'arrêt : q avec écho']],
+    terms: ['qalqala', 'écho'] },
+  { id: 'waqf', g: 'lecture', title: 'L\'arrêt en fin de verset (waqf)', ar: 'الوَقْف',
+    one: 'Quand on s\'arrête (fin de verset), on ne prononce pas la dernière voyelle ni le tanwīn.',
+    txt: 'ٱلْعَالَمِينَ → on dit **al-ʿālamīn** (sans le -a final).\nأَحَدٌ → **aḥad** (sans -un).\nException : -an devient **ā** : أَفْوَاجًا → afwājā.\nة devient **h** : رَاضِيَةً → rāḍiyah.',
+    ru: 'Comme en russe où la fin du mot s\'affaiblit en fin de phrase.',
+    ex: [['ٱلرَّحِيمِ', 'ar-raḥīm', 'pas « ar-raḥīmi »']],
+    terms: ['arrêt', 'waqf', 'pause'] },
+  { id: 'muet', g: 'lecture', title: 'Les lettres muettes', ar: 'الحُرُوف الَّتِي لَا تُنْطَق',
+    one: 'Certaines lettres s\'écrivent mais ne se disent pas ; dans le Coran, un petit rond ۟ au-dessus les signale.',
+    txt: 'Le **petit rond ۟** au-dessus d\'une lettre = on ne la prononce pas : ءَامَنُوا۟ se lit **āmanū**.\nL\'**alif après le tanwīn -an** ne se dit pas (sauf à l\'arrêt) : كِتَابًا = kitāban.\nLe **ٱ** au milieu de la phrase, et le **l de ال** devant une lettre solaire.',
+    ru: 'Comme le « ь » ou les lettres muettes françaises (le -ent de « ils mangent »).',
+    ex: [['ءَامَنُوا۟', 'āmanū', 'le dernier alif est muet'], ['أُو۟لَٰٓئِكَ', 'ulāʾika', 'le و est muet']],
+    terms: ['muet', 'muette', 'muets', 'muettes', 'ne se prononce pas'] },
+];
+/* ====================================================================
+ * 06f - Onglet Règles + mots cliquables qui ouvrent la règle
+ * ==================================================================== */
+const LESSON_RULES = {
+  racine: ['racine', 'scheme'], defini: ['defini', 'tanwin', 'solaires'], cas: ['cas', 'nominatif', 'accusatif', 'genitif', 'pluriel'],
+  prep: ['prep', 'genitif'], idafa: ['idafa', 'genitif'], pronoms: ['pronoms'], nominale: ['nominale', 'sujet', 'attribut'], adjectif: ['adjectif'],
+  passe: ['passe'], verbale: ['verbale', 'fail', 'maful'], present: ['present', 'modes'], imperatif: ['imperatif', 'modes'], inna: ['inna', 'kana'], irab: ['irab', 'cas'],
+};
+const ruleById = id => RULES.find(r => r.id === id);
+let TERM_INDEX = null;
+function termIndex() {
+  if (TERM_INDEX) return TERM_INDEX;
+  TERM_INDEX = [];
+  RULES.forEach(r => r.terms.forEach(t => TERM_INDEX.push([stripLatTerm(t), r.id])));
+  TERM_INDEX.sort((a, b) => b[0].length - a[0].length);
+  return TERM_INDEX;
+}
+function stripLatTerm(s) { return String(s).toLowerCase().replace(/[’']/g, '\'').trim(); }
+function findRuleFor(text) {
+  const t = ' ' + stripLatTerm(text) + ' ';
+  for (const [term, id] of termIndex()) {
+    const i = t.indexOf(term);
+    if (i < 0) continue;
+    const before = t[i - 1], after = t[i + term.length];
+    const isW = c => c && /[a-zà-ÿʿʾḍḥṣṭẓāīūḫ0-9]/i.test(c);
+    if (!isW(before) && !isW(after)) return id;
+  }
+  return null;
+}
+
+/* Petite fiche (utilisée dans l'onglet et dans les leçons) */
+function renderRuleCard(ctx, parent, r, opts) {
+  opts = opts || {};
+  const box = h(parent, 'div', 'aa-rule-card' + (opts.inline ? ' aa-rule-inline' : ''));
+  const top = h(box, 'div', 'aa-rule-top');
+  h(top, 'b', 'aa-rule-title', r.title);
+  arSpan(top, r.ar, 'aa-rule-ar');
+  mdText(box, 'div', 'aa-rule-one', '💡 ' + r.one);
+  r.txt.split('\n').forEach(l => mdText(box, 'div', 'aa-rule-line', l));
+  if (r.ex && r.ex.length) {
+    const t = h(box, 'table', 'aa-table aa-rule-ex');
+    r.ex.forEach(([ar, tr, fr]) => {
+      const row = h(t, 'tr');
+      const c = h(row, 'td'); arSpan(c, ar, 'aa-mid');
+      h(row, 'td', 'aa-tr', tr);
+      const d = h(row, 'td'); addBidi(d, fr);
+      const s = h(row, 'td'); soundBtn(s, () => speak(ar), 'Écouter');
+    });
+  }
+  if (r.ru) { const ru = h(box, 'div', 'aa-rule-ru'); h(ru, 'span', null, '🇷🇺 '); addBidi(ru, r.ru); }
+  if (opts.inline) {
+    const a = h(box, 'div', 'aa-actions');
+    btn(a, 'Ouvrir dans l\'onglet Règles', () => ctx.openRule(r.id), 'aa-btn-quiet');
+    btn(a, 'Fermer', () => box.remove(), 'aa-btn-quiet');
+  } else {
+    const ls = LESSONS.filter(L => (LESSON_RULES[L.id] || []).includes(r.id));
+    if (ls.length) {
+      const p = h(box, 'div', 'aa-small'); h(p, 'span', 'aa-muted', 'Pour s\'entraîner : ');
+      ls.forEach((L, i) => { const lk = h(p, 'a', 'aa-link', 'Leçon ' + (LESSONS.indexOf(L) + 1) + ' : ' + L.title); lk.addEventListener('click', e => { e.preventDefault(); ctx.openLesson(L.id); }); if (i < ls.length - 1) p.appendChild(document.createTextNode(' · ')); });
+    }
+    const a = h(box, 'div', 'aa-actions');
+    btn(a, 'Insérer dans la note', () => ctx.insertText('> [!tip] ' + r.title + ' (' + r.ar + ')\n> ' + r.one.replace(/\*\*/g, '') + '\n' + r.txt.split('\n').map(l => '> ' + l).join('\n') + '\n' + (r.ex || []).map(e => '> - ' + e[0] + ' (' + e[1] + ') : ' + e[2]).join('\n') + '\n\n'), 'aa-btn-quiet');
+    btn(a, 'Créer une flashcard', () => ctx.addFlashcard(r.title + ' (' + r.ar + ')', r.one.replace(/\*\*/g, '')), 'aa-btn-quiet');
+  }
+  return box;
+}
+
+/* Rend cliquables les mots en gras qui correspondent à une règle */
+function linkTerms(ctx, root) {
+  if (!root || !root.querySelectorAll) return;
+  root.querySelectorAll('b').forEach(b => {
+    if (b.classList.contains('aa-term') || b.closest('.aa-rule-card') || b.closest('button')) return;
+    const id = findRuleFor(b.textContent); if (!id) return;
+    b.classList.add('aa-term'); b.title = 'Voir l\'explication : ' + ruleById(id).title;
+    b.addEventListener('click', ev => {
+      ev.preventDefault(); ev.stopPropagation();
+      const block = b.closest('li, .aa-lesson-p, .aa-rule-line, .aa-why, .aa-why-txt, .aa-lesson-note, p, div') || b.parentElement;
+      const nxt = block.nextSibling;
+      if (nxt && nxt.classList && nxt.classList.contains('aa-rule-inline') && nxt.dataset.rule === id) { nxt.remove(); return; }
+      const holder = document.createElement('div');
+      block.parentNode.insertBefore(holder, block.nextSibling);
+      const card = renderRuleCard(ctx, holder, ruleById(id), { inline: true });
+      card.dataset.rule = id;
+      holder.replaceWith(card);
+    });
+  });
+}
+
+function renderRulesTab(ctx, root, state) {
+  clear(root);
+  mdText(root, 'p', 'aa-help', 'Toutes les règles **expliquées simplement**, avec des exemples et une comparaison avec le russe. Dans les leçons et dans l\'analyse, les **mots soulignés** ouvrent directement la bonne règle.');
+  const inp = h(root, 'input', 'aa-input aa-search'); inp.type = 'search'; inp.placeholder = 'Chercher une règle : génitif, annexion, kāna, muet…';
+  inp.value = state.q || '';
+  const out = h(root, 'div');
+  const draw = () => {
+    clear(out);
+    const q = stripLatTerm(inp.value);
+    const list = RULES.filter(r => !q || stripLatTerm(r.title + ' ' + r.one + ' ' + r.terms.join(' ')).includes(q));
+    if (!list.length) { h(out, 'p', 'aa-muted', 'Aucune règle trouvée.'); return; }
+    RULE_GROUPS.forEach(([g, label]) => {
+      const rs = list.filter(r => r.g === g); if (!rs.length) return;
+      h(out, 'h3', null, label);
+      rs.forEach(r => {
+        const d = details(out, r.title + '  —  ' + r.one.replace(/\*\*/g, ''), state.open === r.id || (!!q && list.length <= 2), 'aa-rule-det');
+        d.dataset.rule = r.id;
+        const sm = d.querySelector('summary'); sm.textContent = ''; const st = h(sm, 'b'); addBidi(st, r.title); const so = h(sm, 'div', 'aa-muted aa-small aa-rule-sum'); addBidi(so, r.one.replace(/\*\*/g, ''));
+        let filled = false;
+        const fill = () => { if (filled) return; filled = true; renderRuleCard(ctx, d, r); };
+        if (d.open) fill();
+        d.addEventListener('toggle', () => { if (d.open) fill(); });
+      });
+    });
+    if (state.open) { const el = out.querySelector('[data-rule="' + state.open + '"]'); if (el && el.scrollIntoView) setTimeout(() => el.scrollIntoView({ block: 'start' }), 50); }
+  };
+  inp.addEventListener('input', () => { state.q = inp.value; state.open = null; draw(); });
+  draw();
+}
+/* ====================================================================
  * 07 - Le plugin Obsidian : vue, commandes, blocs de code, réglages
  * ==================================================================== */
 const VIEW_TYPE = 'atelier-arabe-view';
 const DEFAULT_SETTINGS = {
   style: 'sci', showTr: true, showFr: true, showRu: true, arSize: 30, openLetters: false,
   flashFile: '5 - Flashcards/Atelier - mes phrases.md', lastSurah: 1,
-  audio: true, ruExpl: false, vocabFile: '4 - Références/Vocabulaire.md', textsFolder: '3 - Textes',
+  audio: true, ruExpl: false, tajwid: false, vocabFile: '4 - Références/Vocabulaire.md', textsFolder: '3 - Textes',
   myWords: {}, progress: null, lessons: {},
 };
 function emptyProgress() { return { byType: { case: { ok: 0, n: 0 }, mood: { ok: 0, n: 0 }, sens: { ok: 0, n: 0 }, phrase: { ok: 0, n: 0 } }, lem: {} }; }
 const TABS = [
-  ['coran', 'Coran', 'Lire une sourate mot par mot'], ['lessons', 'Leçons', 'Parcours de grammaire guidé'], ['dict', 'Dictionnaire', 'Tous les mots du Coran'], ['analyse', 'Analyser', 'Analyser un texte arabe'],
+  ['coran', 'Coran', 'Lire une sourate mot par mot'], ['lessons', 'Leçons', 'Parcours de grammaire guidé'], ['rules', 'Règles', 'Les règles expliquées simplement'], ['dict', 'Dictionnaire', 'Tous les mots du Coran'], ['analyse', 'Analyser', 'Analyser un texte arabe'],
   ['build', 'Construire', 'Construire une phrase'], ['signs', 'Signes', 'Laboratoire des signes'], ['quiz', 'Entraînement', 'S\'entraîner'],
 ];
 
@@ -3340,7 +3829,7 @@ class AtelierView extends ItemView {
     super(leaf);
     this.plugin = plugin;
     this.tab = 'coran';
-    this.states = { coran: { surah: plugin.settings.lastSurah || 1, page: 0 }, dict: {}, lessons: {}, analyse: {}, build: {}, signs: {}, quiz: {} };
+    this.states = { coran: { surah: plugin.settings.lastSurah || 1, page: 0 }, dict: {}, lessons: {}, rules: {}, analyse: {}, build: {}, signs: {}, quiz: {} };
   }
   getViewType() { return VIEW_TYPE; }
   getDisplayText() { return 'Atelier arabe'; }
@@ -3376,6 +3865,7 @@ class AtelierView extends ItemView {
     if (this.tab === 'coran') renderQuranTab(ctx, this.body, st);
     else if (this.tab === 'dict') renderDictTab(ctx, this.body, st);
     else if (this.tab === 'lessons') renderLessonsTab(ctx, this.body, st);
+    else if (this.tab === 'rules') renderRulesTab(ctx, this.body, st);
     else if (this.tab === 'analyse') renderAnalyseTab(ctx, this.body, st);
     else if (this.tab === 'build') renderBuildTab(ctx, this.body, st);
     else if (this.tab === 'signs') renderSignsTab(ctx, this.body, st);
@@ -3399,6 +3889,8 @@ class AtelierSettingTab extends PluginSettingTab {
       .addSlider(sl => sl.setLimits(20, 48, 2).setValue(s.arSize).setDynamicTooltip().onChange(async v => { s.arSize = v; await p.saveSettings(); }));
     new Setting(el).setName('Explications aussi en russe').setDesc('Ajoute la version russe sous chaque explication de cas et de mode, et le sens russe des mots.')
       .addToggle(t => t.setValue(s.ruExpl).onChange(async v => { s.ruExpl = v; EXPL_RU = v; await p.saveSettings(); }));
+    new Setting(el).setName('Couleurs de prononciation').setDesc('Colore les lettres muettes, les voyelles longues, la nasalisation (ghunna) et l\'écho (qalqala) dans le Coran et dans les blocs ```coran```.')
+      .addToggle(t => t.setValue(!!s.tajwid).onChange(async v => { s.tajwid = v; await p.saveSettings(); }));
     new Setting(el).setName('Son en ligne').setDesc('Récitation (Mishary Alafasy) et prononciation des mots depuis internet, seulement quand tu appuies sur ▶ ou 🔊. Désactivé : voix de l\'appareil uniquement.')
       .addToggle(t => t.setValue(s.audio).onChange(async v => { s.audio = v; await p.saveSettings(); }));
     new Setting(el).setName('Note de vocabulaire').setDesc('Le bouton « Ajouter à mon vocabulaire » ajoute une ligne au tableau de cette note.')
@@ -3424,6 +3916,7 @@ class AtelierArabePlugin extends Plugin {
     this.addRibbonIcon('languages', 'Atelier arabe', () => this.openView());
     this.addCommand({ id: 'ouvrir', name: 'Ouvrir l\'atelier', callback: () => this.openView() });
     this.addCommand({ id: 'lecons', name: 'Leçons de grammaire', callback: () => this.openView('lessons') });
+    this.addCommand({ id: 'regles', name: 'Règles expliquées simplement', callback: () => this.openView('rules') });
     this.addCommand({ id: 'dictionnaire', name: 'Dictionnaire', callback: () => this.openView('dict') });
     this.addCommand({ id: 'construire', name: 'Construire une phrase', callback: () => this.openView('build') });
     this.addCommand({ id: 'signes', name: 'Laboratoire des signes', callback: () => this.openView('signs') });
@@ -3481,6 +3974,8 @@ class AtelierArabePlugin extends Plugin {
       insertText: (t) => this.insertText(t),
       addFlashcard: (q, a) => this.addFlashcard(q, a),
       openQuran: (s, v) => this.openView('coran', { surah: s, page: 0, focus: v }),
+      openRule: (id) => this.openView('rules', { open: id, q: '' }),
+      openLesson: (id) => this.openView('lessons', { open: id, run: null }),
       openDict: (id) => this.openView('dict', { entry: id, mode: 'search' }),
       openNote: (file) => this.app.workspace.getLeaf(false).openFile(file),
       openPath: (path) => { const f = this.app.vault.getAbstractFileByPath(path); if (f) this.app.workspace.getLeaf(false).openFile(f); else new Notice('Note introuvable : ' + path); },

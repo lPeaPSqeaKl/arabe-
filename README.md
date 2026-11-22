@@ -3,6 +3,8 @@
 Plugin Obsidian en français pour apprendre l'arabe avec le Coran :
 
 - **Coran** : les 114 sourates, chaque mot cliquable (morceaux, signes lettre par lettre, cas / mode et pourquoi, autres terminaisons, racine, autres versets), traductions française (Hamidullah) et russe (Kouliev), récitation, et **analyse grammaticale complète** de chaque verset (iʿrāb) avec un schéma des liens entre les mots.
+- **Couleurs de prononciation** : lettres muettes, voyelles longues, nasalisation, qalqala, arrêt.
+- **Règles** : toutes les règles expliquées simplement, ouvertes d'un clic depuis les leçons.
 - **Leçons** : un parcours de grammaire en 14 leçons à partir de vrais versets, avec exercices.
 - **Dictionnaire** : les 4 776 mots du Coran, recherche en arabe, français ou translittération, par racine, avec toutes les formes et tous les versets.
 - **Analyser** un texte arabe, même sans voyelles.

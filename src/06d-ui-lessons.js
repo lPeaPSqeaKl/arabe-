@@ -66,6 +66,14 @@ async function renderLesson(ctx, root, state, L) {
   h(head, 'div', 'aa-muted', 'Leçon ' + (k + 1) + ' sur ' + LESSONS.length + ' · ≈ ' + L.min + ' min');
   h(head, 'h2', null, L.title);
   arSpan(head, L.ar, 'aa-lesson-ar');
+  const ess = (LESSON_RULES[L.id] || []).map(ruleById).filter(Boolean);
+  if (ess.length) {
+    const box = h(root, 'div', 'aa-lesson-simple');
+    h(box, 'b', null, '🟢 L\'essentiel, en simple');
+    const ul0 = h(box, 'ul');
+    ess.forEach(r => { const li = h(ul0, 'li'); const a = h(li, 'a', 'aa-link aa-rule-link', r.title); mdText(li, 'span', null, ' : ' + r.one); a.addEventListener('click', e => { e.preventDefault(); const nx = li.nextSibling; if (nx && nx.classList && nx.classList.contains('aa-rule-inline')) { nx.remove(); return; } const hold = document.createElement('li'); hold.className = 'aa-rule-li'; li.parentNode.insertBefore(hold, li.nextSibling); const c = renderRuleCard(ctx, hold, r, { inline: true }); hold.classList.add('aa-rule-inline'); c.classList.remove('aa-rule-inline'); c.querySelector('.aa-actions button:last-child').onclick = () => hold.remove(); }); });
+    h(box, 'div', 'aa-muted aa-small', 'Clique sur un nom de règle pour l\'explication complète. Dans la suite de la leçon, les mots soulignés en pointillé ouvrent aussi leur règle.');
+  }
   const goal = h(root, 'div', 'aa-lesson-goal');
   h(goal, 'b', null, 'Objectifs');
   const ul = h(goal, 'ul'); L.goal.forEach(g => mdText(ul, 'li', null, g));
@@ -105,6 +113,7 @@ async function renderLesson(ctx, root, state, L) {
   btn(kb, 'Insérer le résumé dans la note', () => ctx.insertText('> [!abstract] ' + L.title + ' (' + L.ar + ')\n' + L.keep.map(x => '> - ' + x).join('\n') + '\n\n'), 'aa-btn-quiet');
   btn(kb, 'Créer des flashcards', () => { L.keep.forEach((x, i) => ctx.addFlashcard(L.title + ' — point ' + (i + 1), x.replace(/\*\*/g, ''))); }, 'aa-btn-quiet');
 
+  linkTerms(ctx, root);
   h(root, 'h3', null, '✍️ Vérifie que tu as compris');
   const qbox = h(root, 'div', 'aa-quiz aa-lesson-quiz');
   if (!state.run || state.run.id !== L.id) state.run = { id: L.id, i: 0, ok: 0 };
@@ -137,6 +146,7 @@ async function renderLessonQuestion(ctx, box, state, L, root) {
     mdText(fb, 'div', good ? 'aa-ok' : 'aa-warn', good ? '✓ Bravo !' : '✗ Pas tout à fait.');
     if (why) mdText(fb, 'div', 'aa-why', why);
     if (extra) extra(fb);
+    linkTerms(ctx, fb);
     const nb = btn(fb, run.i + 1 < n ? 'Question suivante →' : 'Voir mon résultat →', () => { run.i++; renderLessonQuestion(ctx, box, state, L, root); }, 'mod-cta');
     nb.focus && nb.focus();
   };

@@ -265,3 +265,42 @@
 .aa-find-good { background: rgba(31, 154, 85, .25); }
 .aa-find-bad { background: rgba(217, 60, 43, .25); }
 @media (max-width: 600px) { .aa-lesson-grid { grid-template-columns: 1fr; } .aa-why-row { flex-direction: column; gap: 2px; } .aa-why-ar { min-width: 0; text-align: right; } }
+
+/* ---- prononciation (tajwīd simplifié) ---- */
+.aa-tj-on .aa-w, .aa-tj-on .aa-w.aa-pos-n, .aa-tj-on .aa-w.aa-pos-v, .aa-tj-on .aa-w.aa-pos-p { color: var(--text-normal); }
+.aa-tj-silent { color: var(--text-faint) !important; opacity: .5; }
+.aa-tj-merge { color: #8e5bd0 !important; }
+.aa-tj-madd2 { color: #e07b00 !important; }
+.aa-tj-madd { color: #d0312d !important; }
+.aa-tj-ghunna { color: #1f9a55 !important; }
+.aa-tj-qalqala { color: #2b74d9 !important; }
+.aa-tj-pause { text-decoration: underline dotted; text-underline-offset: 7px; text-decoration-thickness: 2px; }
+.aa-tj-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 4px 0; font-size: .88em; }
+.aa-tj-chip { display: inline-flex; align-items: center; gap: 6px; }
+.aa-tj-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex: none; }
+.aa-tjbg-silent { background: var(--text-faint); opacity: .5; }
+.aa-tjbg-merge { background: #8e5bd0; } .aa-tjbg-madd2 { background: #e07b00; } .aa-tjbg-madd { background: #d0312d; }
+.aa-tjbg-ghunna { background: #1f9a55; } .aa-tjbg-qalqala { background: #2b74d9; }
+.aa-tj-pausedot { border-bottom: 2px dotted var(--text-normal); border-radius: 0; height: 8px; }
+.aa-tj-big { font-size: 2.2em; }
+
+/* ---- règles ---- */
+.aa-term { text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
+.aa-term:hover { color: var(--interactive-accent); }
+.aa-rule-card { border: 1px solid var(--background-modifier-border); border-radius: 10px; padding: 8px 14px; margin: 8px 0; background: var(--background-primary); }
+.aa-rule-inline { border-left: 4px solid var(--interactive-accent); background: var(--background-secondary); font-weight: normal; }
+li.aa-rule-inline { list-style: none; border: none; background: none; }
+.aa-rule-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.aa-rule-title { font-size: 1.05em; }
+.aa-rule-ar { font-size: 1.4em; color: var(--text-muted); }
+.aa-rule-one { font-weight: 600; margin: 4px 0 8px; }
+.aa-rule-line { margin: 3px 0; line-height: 1.55; }
+.aa-rule-ex { margin: 8px 0; }
+.aa-rule-ru { margin-top: 6px; color: var(--text-muted); font-style: italic; }
+.aa-rule-det { margin: 4px 0; }
+.aa-rule-det > summary { cursor: pointer; padding: 6px 4px; }
+.aa-lesson-simple { background: rgba(31, 154, 85, .10); border-left: 4px solid var(--aa-acc); border-radius: 10px; padding: 8px 14px; margin: 10px 0; }
+.aa-lesson-simple li { margin: 4px 0; }
+.aa-tj-big { font-size: 2em; line-height: 1.6; margin: 0; }
+.aa-why-list .aa-mid { line-height: 1.4; }
+.aa-rule-sum { margin: 2px 0 0 18px; font-weight: normal; }
