@@ -548,3 +548,7 @@ li.aa-rule-inline { list-style: none; border: none; background: none; }
 .theme-dark .aa-ad-lab { fill: #6a4034; }
 .aa-ad-lab.aa-ad-in { fill: rgba(255,255,255,.85); }
 .aa-ad-lab.aa-ad-out { fill: var(--text-muted); }
+/* cases des lettres : la lettre (avec ses jambages) et son nom ne se chevauchent jamais */
+.aa-al-cell { height: auto !important; min-height: 84px; line-height: normal !important; padding: 2px 2px 6px !important; justify-content: flex-start; overflow: visible; white-space: normal; }
+.aa-al-cell .aa-al-big { display: block; font-size: 1.75em; line-height: 2; height: 2em; overflow: visible; }
+.aa-al-cell .aa-al-cname { display: block; margin-top: 6px; line-height: 1.2; }
