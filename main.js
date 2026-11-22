@@ -4378,7 +4378,7 @@ class AtelierSettingTab extends PluginSettingTab {
   display() {
     const el = this.containerEl; clear(el);
     h(el, 'h2', null, 'Atelier arabe');
-    h(el, 'p', null, 'Toutes les données (Coran, traductions, analyse grammaticale) sont dans le dossier du plugin : rien n\'est envoyé sur internet.');
+    h(el, 'p', null, 'Toutes les données (Coran, traductions, analyse grammaticale) sont dans le dossier du plugin. Rien de ce que tu fais n\'est envoyé sur internet. Seul le son (si « Son en ligne » est activé) est téléchargé quand tu appuies sur ▶ ou 🔊.');
     const p = this.plugin; const s = p.settings;
     new Setting(el).setName('Translittération').setDesc('Savante (ā, ū, sh, j) ou « à la française » (ou, ch, dj).')
       .addDropdown(d => d.addOption('sci', 'savante : al-ḥamdu, shukr').addOption('fr', 'à la française : al-ḥamdou, choukr').setValue(s.style).onChange(async v => { s.style = v; await p.saveSettings(); }));
@@ -4406,6 +4406,16 @@ class AtelierSettingTab extends PluginSettingTab {
     new Setting(el).setName('Dossier des textes du cours').setDesc('Les sourates qui ont une note dans ce dossier apparaissent dans « Mon cours ».')
       .addText(t => t.setValue(s.textsFolder).onChange(async v => { s.textsFolder = v.trim() || DEFAULT_SETTINGS.textsFolder; await p.saveSettings(); }));
     new Setting(el).setName('Ouvrir « lettre par lettre » automatiquement').addToggle(t => t.setValue(s.openLetters).onChange(async v => { s.openLetters = v; await p.saveSettings(); }));
+    const src = h(el, 'div', 'aa-sources');
+    h(src, 'h3', null, 'Sources et droits');
+    [
+      ['Texte du Coran : projet Tanzil (texte vérifié, non modifié).', 'https://tanzil.net'],
+      ['Analyse des mots (racines, cas, formes) : Quranic Arabic Corpus, Kais Dukes, Université de Leeds, licence GNU GPL. Version corrigée par mustafa0x/quran-morphology.', 'https://corpus.quran.com'],
+      ['Traduction française : Muhammad Hamidullah. Traduction russe : Elmir Kuliev. Utilisées ici à des fins d\'étude, non commerciales ; les droits appartiennent à leurs auteurs et éditeurs.', ''],
+      ['Police arabe : Amiri Quran, Khaled Hosny, SIL Open Font License 1.1.', 'https://github.com/aliftype/amiri'],
+      ['Récitations : everyayah.com et quran.com, écoutées en ligne (rien n\'est copié dans le plugin).', 'https://everyayah.com'],
+    ].forEach(([t, u]) => { const d = h(src, 'p', 'aa-small'); d.appendChild(document.createTextNode(t + ' ')); if (u) { const a = h(d, 'a', null, u); a.href = u; } });
+    h(src, 'p', 'aa-small aa-muted', 'Les définitions, explications, leçons et analyses automatiques (iʿrāb, prononciation) sont un outil d\'apprentissage : elles peuvent contenir des erreurs. Pour le Coran, vérifie toujours auprès d\'un enseignant.');
     new Setting(el).setName('Fichier des flashcards').setDesc('Note où l\'atelier ajoute tes cartes (format Spaced Repetition « question :: réponse »).')
       .addText(t => t.setValue(s.flashFile).onChange(async v => { s.flashFile = v.trim() || DEFAULT_SETTINGS.flashFile; await p.saveSettings(); }));
   }
