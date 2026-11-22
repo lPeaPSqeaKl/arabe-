@@ -173,7 +173,7 @@ function explainQuranWord(words, wi, lemmas) {
     if (f.form && (sub === 'ACT_PCPL' || sub === 'PASS_PCPL' || sub === 'VN')) { const vf = VERB_FORMS[f.form]; if (vf) res.facts.push(['Tiré du verbe', 'forme ' + vf[0] + ' ' + vf[1]]); }
     if (f.cas) {
       const c = CASES[f.cas];
-      res.facts.push(['Cas', c.fr + ' — ' + c.tr + ' ' + c.ar + ' · ' + c.ru]);
+      res.facts.push(['Cas', c.fr + ' — ' + c.tr + ' ' + c.ar + (EXPL_RU ? ' · ' + c.ru : '')]);
       res.why.push(caseReason(f, word, st, prev, prev2, prepBefore, prepName));
       const lastU = units(st.seg[0]).filter(u => u.b).pop();
       if (f.cas === 'GEN' && lastU && lastU.m.includes(AR.FATHA) && !/(ين|ات)$/.test(skeleton(st.seg[0]))) res.why.push(R('Il finit par -a alors qu\'il est au génitif : c\'est un **diptote** (nom propre étranger, schème أَفْعَل, certains pluriels…). Les diptotes n\'ont jamais de tanwīn et font leur génitif en -a.', 'Окончание -a в джарре : это **двухпадежное** имя (иностранное имя, модель أَفْعَل, некоторые множественные…) — без танвина, джарр на -a.'));
@@ -205,10 +205,10 @@ function caseReason(f, word, st, prev, prev2, prepBefore, prepSeg) {
   const pf = prev ? stemOf(prev).f : null;
   const ps = prev ? stemOf(prev).seg[0] : '';
   if (f.cas === 'GEN') {
-    if (prepBefore) return R('Génitif **parce qu\'il suit une préposition** (' + (prepSeg ? prepSeg[0] : '') + ') : en arabe, toute préposition met le nom suivant au génitif, comme « в / о » + предложный en russe.', 'Родительный (джарр), **потому что стоит после предлога** (' + (prepSeg ? prepSeg[0] : '') + ') : любой предлог ставит следующее имя в джарр, как в русском «в / о» + предложный падеж.');
+    if (prepBefore) return R('Génitif **parce qu\'il suit une préposition** (' + (prepSeg ? prepSeg[0] : '') + ') : en arabe, toute préposition met le nom suivant au génitif.', 'Родительный (джарр), **потому что стоит после предлога** (' + (prepSeg ? prepSeg[0] : '') + ') : любой предлог ставит следующее имя в джарр, как в русском «в / о» + предложный падеж.');
     if (f.sub === 'ADJ') return R('C\'est un **adjectif** : il copie le cas du nom qu\'il qualifie (ici un génitif).', 'Это **прилагательное** : оно повторяет падеж определяемого имени (здесь джарр).');
     if (pf && pf.pos === 'N' && pf.cas === 'GEN' && (pf.sub === 'PN' || prev.some(s => parseFeats(s[1], s[2]).tags[0] === 'DET'))) return R('Génitif **parce qu\'il suit un mot défini au génitif** qu\'il précise ou explique (adjectif ou apposition, naʿt / badal) : il en copie le cas.', 'Джарр, **потому что поясняет предыдущее определённое слово в джарре** (приложение, бадал / наʿт) и повторяет его падеж.');
-    if (pf && pf.pos === 'N' && !pf.indef) return R('Génitif **parce qu\'il est le 2e terme d\'une annexion** (iḍāfa) : « le … **de** ce mot ». Comme le родительный russe : имя (кого?) Аллаха.', 'Джарр, **потому что это второй член идафы** (сопряжения) : «… **кого? чего?**», как русский родительный : «имя Аллаха».');
+    if (pf && pf.pos === 'N' && !pf.indef) return R('Génitif **parce qu\'il est le 2e terme d\'une annexion** (iḍāfa) : « le … **de** ce mot ».', 'Джарр, **потому что это второй член идафы** (сопряжения) : «… **кого? чего?**», как русский родительный : «имя Аллаха».');
     return R('Génitif : soit 2e terme d\'une annexion (« … de … »), soit adjectif ou mot coordonné à un génitif.', 'Джарр : второй член идафы, или прилагательное / однородный член при слове в джарре.');
   }
   if (f.cas === 'ACC') {

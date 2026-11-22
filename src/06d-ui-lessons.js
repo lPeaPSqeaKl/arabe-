@@ -71,20 +71,34 @@ async function renderLesson(ctx, root, state, L) {
     const box = h(root, 'div', 'aa-lesson-simple');
     h(box, 'b', null, '🟢 L\'essentiel, en simple');
     const ul0 = h(box, 'ul');
-    ess.forEach(r => { const li = h(ul0, 'li'); const a = h(li, 'a', 'aa-link aa-rule-link', r.title); mdText(li, 'span', null, ' : ' + r.one); a.addEventListener('click', e => { e.preventDefault(); const nx = li.nextSibling; if (nx && nx.classList && nx.classList.contains('aa-rule-inline')) { nx.remove(); return; } const hold = document.createElement('li'); hold.className = 'aa-rule-li'; li.parentNode.insertBefore(hold, li.nextSibling); const c = renderRuleCard(ctx, hold, r, { inline: true }); hold.classList.add('aa-rule-inline'); c.classList.remove('aa-rule-inline'); c.querySelector('.aa-actions button:last-child').onclick = () => hold.remove(); }); });
-    h(box, 'div', 'aa-muted aa-small', 'Clique sur un nom de règle pour l\'explication complète. Dans la suite de la leçon, les mots soulignés en pointillé ouvrent aussi leur règle.');
+    ess.forEach(r => { const li = h(ul0, 'li'); mdText(li, 'span', null, r.one + ' '); const a = h(li, 'a', 'aa-link aa-rule-link aa-more', 'en savoir plus'); a.title = r.title; a.addEventListener('click', e => { e.preventDefault(); const nx = li.nextSibling; if (nx && nx.classList && nx.classList.contains('aa-rule-inline')) { nx.remove(); return; } const hold = document.createElement('li'); hold.className = 'aa-rule-li'; li.parentNode.insertBefore(hold, li.nextSibling); const c = renderRuleCard(ctx, hold, r, { inline: true }); hold.classList.add('aa-rule-inline'); c.classList.remove('aa-rule-inline'); c.querySelector('.aa-actions button:last-child').onclick = () => hold.remove(); }); });
+    h(box, 'div', 'aa-muted aa-small', 'Les mots soulignés en pointillé ouvrent leur règle.');
   }
-  const goal = h(root, 'div', 'aa-lesson-goal');
-  h(goal, 'b', null, 'Objectifs');
+  const goal = details(root, '🎯 Ce que tu vas apprendre', false, 'aa-sec aa-lesson-goal');
   const ul = h(goal, 'ul'); L.goal.forEach(g => mdText(ul, 'li', null, g));
   if (L.rules && L.rules.length) {
     const r = h(goal, 'div', 'aa-small'); h(r, 'span', 'aa-muted', 'Fiches de ton coffre : ');
     L.rules.forEach((n, i) => { const a = h(r, 'a', 'aa-link', n); a.addEventListener('click', e => { e.preventDefault(); ctx.openPath('2 - Règles/' + n + '.md'); }); if (i < L.rules.length - 1) r.appendChild(document.createTextNode(' · ')); });
   }
-  for (let si = 0; si < L.sections.length; si++) {
+  const NS = L.sections.length;
+  const stepBar = h(root, 'div', 'aa-steps');
+  const steps = [];
+  const openStep = (i, scroll) => {
+    steps.forEach((d, j) => { d.open = j === i; });
+    stepBar.querySelectorAll('.aa-step-dot').forEach((b, j) => { b.classList.toggle('aa-on', j === i); b.classList.toggle('aa-seen', j < i); });
+    state.step = i;
+    if (scroll && steps[i] && steps[i].scrollIntoView) setTimeout(() => steps[i].scrollIntoView({ block: 'start', behavior: 'smooth' }), 30);
+  };
+  h(stepBar, 'span', 'aa-muted aa-small', 'Étapes :');
+  for (let si = 0; si < NS; si++) { const b = h(stepBar, 'button', 'aa-step-dot', String(si + 1)); b.title = L.sections[si].t; b.addEventListener('click', ev => { ev.preventDefault(); openStep(si, true); }); }
+  if (state.stepFor !== L.id) { state.step = 0; state.stepFor = L.id; }
+  for (let si = 0; si < NS; si++) {
     const S = L.sections[si];
-    const sec = h(root, 'div', 'aa-lesson-sec');
-    h(sec, 'h3', null, (si + 1) + '. ' + S.t);
+    const det = h(root, 'details', 'aa-step');
+    const sm = h(det, 'summary'); h(sm, 'span', 'aa-step-n', String(si + 1)); h(sm, 'span', 'aa-step-t', S.t);
+    det.addEventListener('toggle', () => { if (det.open && state.step !== si) openStep(si, false); });
+    steps.push(det);
+    const sec = h(det, 'div', 'aa-lesson-sec');
     if (S.md) S.md.split(/\n\n+/).forEach(par => {
       if (/^```/.test(par)) { const pre = h(sec, 'pre', 'aa-small'); pre.textContent = par.replace(/^```\w*\n?|```$/g, ''); return; }
       if (/^(- |\d\. )/m.test(par) && par.split('\n').every(l => /^(- |\d\. )/.test(l))) { const list = h(sec, /^\d/.test(par) ? 'ol' : 'ul'); par.split('\n').forEach(l => mdText(list, 'li', null, l.replace(/^(- |\d\. )/, ''))); return; }
@@ -105,8 +119,12 @@ async function renderLesson(ctx, root, state, L) {
       h(box, 'div', 'aa-verse-fr', s + ':' + v + ' ' + vv[0]);
       renderIrab(ctx, h(box, 'div', 'aa-struct'), vv[2], [s, v]);
     }
+    const nx = h(sec, 'div', 'aa-actions aa-step-next');
+    if (si < NS - 1) btn(nx, 'Étape suivante : ' + L.sections[si + 1].t + ' →', () => openStep(si + 1, true), 'mod-cta');
+    else btn(nx, 'Fini ! Voir le résumé et les questions ↓', () => { steps[si].open = false; keepBox.scrollIntoView && keepBox.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 'mod-cta');
   }
-  const keep = h(root, 'div', 'aa-lesson-keep');
+  openStep(Math.min(state.step || 0, NS - 1), false);
+  const keep = h(root, 'div', 'aa-lesson-keep'); const keepBox = keep;
   h(keep, 'b', null, '📌 À retenir');
   const kl = h(keep, 'ul'); L.keep.forEach(x => mdText(kl, 'li', null, x));
   const kb = h(keep, 'div', 'aa-actions');

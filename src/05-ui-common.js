@@ -179,17 +179,16 @@ function renderWordDetail(ctx, el, words, wi, ref, verse) {
   if (ctx.settings.tajwid && verse) {
     const segs = tajwidVerse(verse[2])[wi].filter(s => s.cls || s.pause);
     if (segs.length) {
-      h(el, 'h4', null, '🎨 Prononciation de ce mot');
-      const big = h(el, 'div', 'aa-verse-ar aa-tj-on aa-tj-big'); big.setAttribute('dir', 'rtl');
+      const tjd = details(el, '🎨 Prononciation de ce mot', true, 'aa-sec');
+      const big = h(tjd, 'div', 'aa-verse-ar aa-tj-on aa-tj-big'); big.setAttribute('dir', 'rtl');
       fillTajwid(arSpan(big, '', 'aa-w'), tajwidVerse(verse[2])[wi]);
-      const ul = h(el, 'ul', 'aa-why-list');
+      const ul = h(tjd, 'ul', 'aa-why-list');
       segs.forEach(s => { const li = h(ul, 'li'); arSpan(li, s.t.replace(/ٱ/, 'ٱ'), 'aa-tj-' + (s.cls || 'pausech') + ' aa-mid'); li.appendChild(document.createTextNode(' : ' + [s.tip, s.pause].filter(Boolean).join(' ; '))); });
     }
   }
   // morceaux
   if (word.length > 1) {
-    h(el, 'h4', null, 'Les morceaux du mot');
-    const row = h(el, 'div', 'aa-segs');
+    const row = h(details(el, 'Les morceaux du mot', true, 'aa-sec'), 'div', 'aa-segs');
     e.segs.forEach(s => {
       const c = h(row, 'div', 'aa-seg aa-seg-' + s.kind);
       arSpan(c, s.ar);
@@ -203,19 +202,18 @@ function renderWordDetail(ctx, el, words, wi, ref, verse) {
     e.facts.forEach(([k, v]) => { const r = h(t, 'tr'); h(r, 'th', null, k); h(r, 'td', null, v); });
   }
   if (e.why.length) {
-    h(el, 'h4', null, 'Pourquoi cette forme ?');
-    const ul = h(el, 'ul', 'aa-why-list');
+    const ul = h(details(el, 'Pourquoi cette forme ?', true, 'aa-sec aa-sec-key'), 'ul', 'aa-why-list');
     e.why.forEach(w => mdText(ul, 'li', null, w));
   }
   // lettres
-  const dl = details(el, 'Lettre par lettre : chaque signe et son son', ctx.settings.openLetters);
+  const dl = details(el, 'Lettre par lettre : chaque signe et son son', ctx.settings.openLetters, 'aa-sec');
   renderTiles(dl, txt);
   // alternatives
   const alts = endingAlternatives(st.seg[0], st.f);
   if (alts.length) {
-    h(el, 'h4', null, 'Et si on changeait le dernier signe ?');
+    const altd = details(el, 'Et si on changeait le dernier signe ?', false, 'aa-sec');
     const pre = word.slice(0, st.idx).map(s => s[0]).join(''); const post = word.slice(st.idx + 1).map(s => s[0]).join('');
-    const box = h(el, 'div', 'aa-alts');
+    const box = h(altd, 'div', 'aa-alts');
     alts.forEach(a => {
       const full = pre + a.ar + post;
       const cur = a.ar === st.seg[0] || (st.f.cas === a.cas) || (st.f.mood === a.cas);
@@ -228,13 +226,13 @@ function renderWordDetail(ctx, el, words, wi, ref, verse) {
       lab.appendChild(document.createTextNode(parts.slice(1).join(' : ')));
       if (cur) h(r, 'span', 'aa-tag', '← c\'est la forme du verset');
     });
-    mdText(el, 'p', 'aa-muted aa-small', 'Le sens du mot ne change pas : c\'est son **rôle dans la phrase** qui change. Seule la dernière voyelle le montre.');
+    mdText(altd, 'p', 'aa-muted aa-small', 'Le sens du mot ne change pas : c\'est son **rôle dans la phrase** qui change. Seule la dernière voyelle le montre.');
   }
   // famille de la racine
   if (e.root && data.byRoot) {
     const fam = data.rootFamily(e.root, st.seg[3]);
     if (fam.length) {
-      const d = details(el, 'La famille de la racine ' + e.root.split('').join(' ') + ' (' + fam.length + ' autres mots)', false);
+      const d = details(el, 'La famille de la racine ' + e.root.split('').join(' ') + ' (' + fam.length + ' autres mots)', false, 'aa-sec');
       const grid = h(d, 'div', 'aa-family');
       fam.slice(0, 24).forEach(x => {
         const c = h(grid, 'div', 'aa-fam');
@@ -248,7 +246,7 @@ function renderWordDetail(ctx, el, words, wi, ref, verse) {
   }
   // autres occurrences
   if (st.seg[3] >= 0) {
-    const d = details(el, 'Ce mot ailleurs dans le Coran', false);
+    const d = details(el, 'Ce mot ailleurs dans le Coran', false, 'aa-sec');
     const box = h(d, 'div', 'aa-occ-box');
     d.addEventListener('toggle', () => { if (d.open && !box.firstChild) renderOccurrences(ctx, box, st.seg[3], ref); });
   }

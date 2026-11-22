@@ -6,9 +6,10 @@ const DEFAULT_SETTINGS = {
   style: 'sci', showTr: true, showFr: true, showRu: false, arSize: 30, openLetters: false,
   flashFile: '5 - Flashcards/Atelier - mes phrases.md', lastSurah: 1,
   audio: true, ruExpl: false, tajwid: false, fixFolder: '4 - Références/Atelier - corrections', vocabFile: '4 - Références/Vocabulaire.md', textsFolder: '3 - Textes',
-  myWords: {}, progress: null, lessons: {}, surahOrder: 'mushaf',
+  myWords: {}, progress: null, lessons: {}, surahOrder: 'mushaf', wordColors: true, arFont: 'amiri',
 };
 function emptyProgress() { return { byType: { case: { ok: 0, n: 0 }, mood: { ok: 0, n: 0 }, sens: { ok: 0, n: 0 }, phrase: { ok: 0, n: 0 } }, lem: {} }; }
+const TAB_ICONS = { coran: 'book-open', alphabet: 'a-large-small', lessons: 'graduation-cap', rules: 'book-marked', dict: 'library', analyse: 'scan-search', build: 'blocks', signs: 'flask-conical', quiz: 'target' };
 const TABS = [
   ['coran', 'Coran', 'Lire une sourate mot par mot'], ['alphabet', 'Alphabet', 'Les lettres et leur prononciation'], ['lessons', 'Leçons', 'Parcours de grammaire guidé'], ['rules', 'Règles', 'Les règles expliquées simplement'], ['dict', 'Dictionnaire', 'Tous les mots du Coran'], ['analyse', 'Analyser', 'Analyser un texte arabe'],
   ['build', 'Construire', 'Construire une phrase'], ['signs', 'Signes', 'Laboratoire des signes'], ['quiz', 'Entraînement', 'S\'entraîner'],
@@ -44,8 +45,12 @@ class AtelierView extends ItemView {
   }
   render() {
     clear(this.nav);
+    this.contentEl.classList.toggle('aa-nocolor', this.plugin.settings.wordColors === false);
+    this.contentEl.classList.toggle('aa-font-device', this.plugin.settings.arFont === 'device');
     TABS.forEach(([id, label, title]) => {
-      const b = h(this.nav, 'button', 'aa-tab' + (this.tab === id ? ' aa-on' : ''), label);
+      const b = h(this.nav, 'button', 'aa-tab' + (this.tab === id ? ' aa-on' : ''));
+      if (TAB_ICONS[id] && typeof setIcon === 'function') { try { setIcon(h(b, 'span', 'aa-tab-ic'), TAB_ICONS[id]); } catch (e) { /* */ } }
+      h(b, 'span', 'aa-tab-lab', label);
       b.title = title;
       b.addEventListener('click', () => this.setTab(id));
     });
@@ -61,6 +66,15 @@ class AtelierView extends ItemView {
     else if (this.tab === 'build') renderBuildTab(ctx, this.body, st);
     else if (this.tab === 'signs') renderSignsTab(ctx, this.body, st);
     else renderQuizTab(ctx, this.body, st);
+    // l'aide du haut de l'onglet se replie : on l'ouvre seulement si on en a besoin
+    const help = this.body.querySelector(':scope > .aa-help');
+    if (help) {
+      const d = document.createElement('details'); d.className = 'aa-howto';
+      const sm = h(d, 'summary', null, 'ⓘ Comment utiliser cet onglet');
+      help.parentNode.insertBefore(d, help); d.appendChild(help);
+    }
+    if (this.body.scrollTo && this.tab !== this._lastTab) { try { this.contentEl.scrollTop = 0; } catch (e) { /* */ } }
+    this._lastTab = this.tab;
   }
 }
 
@@ -78,6 +92,10 @@ class AtelierSettingTab extends PluginSettingTab {
     new Setting(el).setName('Afficher la traduction russe').setDesc('Traduction d\'Elmir Kuliev (Кулиев).').addToggle(t => t.setValue(s.showRu).onChange(async v => { s.showRu = v; await p.saveSettings(); }));
     new Setting(el).setName('Ordre des sourates').setDesc('Ordre du Coran (1 à 114, comme dans le livre), ou ordre de la révélation (de la première sourate révélée, al-ʿAlaq, à la dernière).')
       .addDropdown(d => d.addOption('mushaf', 'ordre du Coran').addOption('nuzul', 'ordre de la révélation').setValue(s.surahOrder || 'mushaf').onChange(async v => { s.surahOrder = v; await p.saveSettings(); p.refreshViews && p.refreshViews(); }));
+    new Setting(el).setName('Police arabe').setDesc('« Amiri Quran » est incluse dans le plugin : elle affiche correctement tous les petits signes du Coran, sur PC comme sur iPad.')
+      .addDropdown(d => d.addOption('amiri', 'Amiri Quran (incluse)').addOption('device', 'police de l\'appareil').setValue(s.arFont || 'amiri').onChange(async v => { s.arFont = v; await p.saveSettings(); }));
+    new Setting(el).setName('Couleurs des mots').setDesc('Dans le Coran : bleu = nom, rouge = verbe, gris = particule. Désactivé : texte d\'une seule couleur, plus reposant.')
+      .addToggle(t => t.setValue(s.wordColors !== false).onChange(async v => { s.wordColors = v; await p.saveSettings(); }));
     new Setting(el).setName('Taille du texte arabe').setDesc('En pixels (30 par défaut).')
       .addSlider(sl => sl.setLimits(20, 48, 2).setValue(s.arSize).setDynamicTooltip().onChange(async v => { s.arSize = v; await p.saveSettings(); }));
     new Setting(el).setName('Explications aussi en russe').setDesc('Pour les russophones. Ajoute la version russe sous les explications de cas et de mode, le sens russe des mots, et les comparaisons avec la grammaire russe dans les règles. Désactivé : tout est en français.')

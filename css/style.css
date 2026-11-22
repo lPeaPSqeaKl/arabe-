@@ -1,0 +1,516 @@
+/* Atelier arabe — styles */
+.aa-root {
+  --aa-nom: #2f6fd6; --aa-acc: #1f9a55; --aa-gen: #d9822b; --aa-verb: #c8423b; --aa-part: #7a7f87; --aa-pron: #8a55c9;
+  --aa-nom-bg: rgba(47, 111, 214, .12); --aa-acc-bg: rgba(31, 154, 85, .12); --aa-gen-bg: rgba(217, 130, 43, .14); --aa-verb-bg: rgba(200, 66, 59, .12); --aa-part-bg: rgba(122, 127, 135, .13);
+  --aa-ar-font: "Amiri Quran", "Amiri", "Scheherazade New", "KFGQPC Uthmanic Script HAFS", "Sakkal Majalla", "Arabic Typesetting", "Traditional Arabic", "Geeza Pro", serif;
+  font-size: var(--font-text-size, 16px);
+}
+.theme-dark .aa-root { --aa-nom: #78a6ff; --aa-acc: #5fd08f; --aa-gen: #f2a65a; --aa-verb: #ff7b72; --aa-part: #a4abb5; --aa-pron: #c39bff; }
+.aa-root.view-content, .workspace-leaf-content[data-type="atelier-arabe-view"] .view-content { padding: 0; }
+.aa-tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 10px 14px 0; border-bottom: 1px solid var(--background-modifier-border); position: sticky; top: 0; background: var(--background-primary); z-index: 2; }
+.aa-tab { border-radius: 8px 8px 0 0 !important; box-shadow: none !important; background: transparent !important; border: 1px solid transparent !important; border-bottom: none !important; padding: 6px 14px !important; color: var(--text-muted); cursor: pointer; }
+.aa-tab.aa-on { background: var(--background-secondary) !important; border-color: var(--background-modifier-border) !important; color: var(--text-normal); font-weight: 600; }
+.aa-body { padding: 14px 18px 60px; max-width: 980px; margin: 0 auto; }
+.aa-embed { border: 1px solid var(--background-modifier-border); border-radius: 10px; padding: 10px 14px; background: var(--background-primary-alt); }
+
+.aa-ar { font-family: var(--aa-ar-font); direction: rtl; unicode-bidi: isolate; line-height: 1.9; }
+.aa-big { font-size: 2.6em; line-height: 1.6; }
+.aa-mid { font-size: 1.6em; }
+.aa-tr { font-style: italic; color: var(--text-muted); }
+.aa-muted { color: var(--text-muted); }
+.aa-small { font-size: .85em; }
+.aa-help { color: var(--text-muted); background: var(--background-secondary); padding: 8px 12px; border-radius: 8px; margin: 4px 0 12px; }
+.aa-warn { background: rgba(217, 130, 43, .15); border-left: 3px solid var(--aa-gen); padding: 8px 12px; border-radius: 6px; margin: 8px 0; }
+.aa-ok { background: rgba(31, 154, 85, .13); border-left: 3px solid var(--aa-acc); padding: 8px 12px; border-radius: 6px; margin: 8px 0; }
+.aa-why { margin: 6px 0; }
+.aa-link { cursor: pointer; }
+
+.aa-toolbar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; margin-bottom: 8px; }
+.aa-field { display: flex; flex-direction: column; gap: 3px; font-size: .9em; }
+.aa-field-label { color: var(--text-muted); font-size: .85em; }
+.aa-select { max-width: 100%; }
+.aa-toggles { display: flex; gap: 12px; flex-wrap: wrap; }
+.aa-check { display: inline-flex; gap: 6px; align-items: center; font-size: .9em; cursor: pointer; }
+.aa-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.aa-btn { cursor: pointer; }
+.aa-btn-quiet { background: transparent !important; box-shadow: none !important; border: 1px solid var(--background-modifier-border) !important; color: var(--text-muted); font-size: .85em; padding: 3px 10px !important; height: auto !important; }
+.aa-btn-quiet:hover { color: var(--text-normal); }
+.aa-pager { display: flex; gap: 10px; justify-content: center; margin: 20px 0; }
+
+/* versets */
+.aa-surah-title { text-align: center; margin: 6px 0 14px; color: var(--text-muted); }
+.aa-basmala { text-align: center; font-size: 1.7em; margin-bottom: 10px; }
+.aa-verse { padding: 10px 4px 8px; border-bottom: 1px solid var(--background-modifier-border); }
+.aa-verse-focus { background: var(--background-secondary); border-radius: 8px; }
+.aa-verse-ar { direction: rtl; text-align: right; line-height: 2.2; }
+.aa-w { cursor: pointer; border-radius: 6px; padding: 0 3px; transition: background .12s; }
+.aa-w:hover { background: var(--background-modifier-hover); }
+.aa-w.aa-pos-n { color: var(--aa-nom); }
+.aa-w.aa-pos-v { color: var(--aa-verb); }
+.aa-w.aa-pos-p { color: var(--aa-part); }
+.aa-w.aa-pos-inl { color: var(--aa-pron); }
+.aa-w-sel { background: var(--background-modifier-active-hover, rgba(120, 120, 255, .2)); outline: 1px solid var(--interactive-accent); }
+.aa-vnum { color: var(--text-faint); font-size: .8em; margin-right: 6px; }
+.aa-verse-tr { margin-top: 2px; }
+.aa-trw { cursor: pointer; }
+.aa-trw:hover { text-decoration: underline; }
+.aa-verse-fr { margin-top: 4px; }
+.aa-verse-ru { margin-top: 2px; color: var(--text-muted); font-size: .92em; }
+.aa-ref { color: var(--text-faint); font-size: .85em; }
+.aa-verse-tools { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.aa-hl { background: rgba(255, 200, 0, .28); border-radius: 5px; padding: 0 3px; }
+
+/* structure */
+.aa-struct-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.aa-struct-w { border-radius: 8px; padding: 2px 10px 6px; text-align: center; cursor: pointer; border: 1px solid transparent; }
+.aa-struct-w .aa-ar { font-size: 1.5em; }
+.aa-struct-lab { font-size: .78em; font-weight: 600; }
+.aa-struct-gloss { font-size: .78em; color: var(--text-muted); max-width: 140px; }
+.aa-role-nom { background: var(--aa-nom-bg); color: var(--aa-nom); }
+.aa-role-acc { background: var(--aa-acc-bg); color: var(--aa-acc); }
+.aa-role-gen { background: var(--aa-gen-bg); color: var(--aa-gen); }
+.aa-role-v { background: var(--aa-verb-bg); color: var(--aa-verb); }
+.aa-role-p, .aa-role-n { background: var(--aa-part-bg); color: var(--aa-part); }
+
+/* détail d'un mot */
+.aa-detail-open { margin: 10px 0 4px; padding: 12px 16px; border: 1px solid var(--interactive-accent); border-radius: 12px; background: var(--background-primary-alt); }
+.aa-detail h4 { margin: 14px 0 6px; font-size: 1em; }
+.aa-dhead { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+.aa-dhead-main { text-align: center; min-width: 120px; }
+.aa-dhead-info { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 4px; }
+.aa-badge { display: inline-block; padding: 1px 10px; border-radius: 20px; font-size: .8em; font-weight: 600; background: var(--background-secondary); width: fit-content; }
+.aa-badge.aa-pos-n { background: var(--aa-nom-bg); color: var(--aa-nom); }
+.aa-badge.aa-pos-v { background: var(--aa-verb-bg); color: var(--aa-verb); }
+.aa-badge.aa-pos-p { background: var(--aa-part-bg); color: var(--aa-part); }
+.aa-gloss { font-size: 1.1em; }
+.aa-lemma .aa-ar { font-size: 1.3em; }
+
+.aa-segs { display: flex; flex-wrap: wrap; gap: 8px; direction: rtl; }
+.aa-seg { direction: ltr; border: 1px solid var(--background-modifier-border); border-radius: 10px; padding: 4px 12px 8px; max-width: 280px; text-align: center; }
+.aa-seg .aa-ar { font-size: 1.7em; }
+.aa-seg-label { font-weight: 600; font-size: .85em; }
+.aa-seg-text { font-size: .82em; color: var(--text-muted); }
+.aa-seg-pref { border-color: var(--aa-part); }
+.aa-seg-stem { border-color: var(--interactive-accent); border-width: 2px; }
+.aa-seg-subj, .aa-seg-obj, .aa-seg-poss, .aa-seg-pron { border-color: var(--aa-pron); }
+.aa-facts { border-collapse: collapse; margin: 10px 0; width: 100%; }
+.aa-facts th { text-align: left; color: var(--text-muted); font-weight: 500; padding: 3px 12px 3px 0; white-space: nowrap; vertical-align: top; width: 1%; }
+.aa-facts td { padding: 3px 0; }
+.aa-why-list li { margin-bottom: 4px; }
+.aa-details { margin: 10px 0; border: 1px solid var(--background-modifier-border); border-radius: 8px; padding: 6px 12px; }
+.aa-details > summary { cursor: pointer; font-weight: 600; }
+.aa-tiles { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.aa-tile { border: 1px solid var(--background-modifier-border); border-radius: 10px; padding: 4px 10px 8px; width: 150px; text-align: center; }
+.aa-tile-last { border: 2px solid var(--aa-gen); }
+.aa-tile-ar { font-size: 2.4em; display: block; line-height: 1.7; }
+.aa-tile-name { font-weight: 600; font-size: .9em; }
+.aa-tile-mark { font-size: .8em; }
+.aa-tile-note { font-size: .78em; color: var(--aa-pron); }
+.aa-tile-flag { font-size: .75em; color: var(--aa-gen); margin-top: 3px; }
+.aa-alts { display: flex; flex-direction: column; gap: 4px; }
+.aa-alt { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; padding: 2px 10px; border-radius: 8px; }
+.aa-alt-cur { background: var(--background-secondary); }
+.aa-alt .aa-ar { min-width: 120px; text-align: right; }
+.aa-alt-why { font-size: .9em; }
+.aa-tag { font-size: .78em; color: var(--interactive-accent); font-weight: 600; }
+.aa-family { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 8px 0; }
+.aa-fam { border: 1px solid var(--background-modifier-border); border-radius: 8px; padding: 4px 8px; text-align: center; cursor: pointer; }
+.aa-fam:hover { background: var(--background-modifier-hover); }
+.aa-fam .aa-ar { font-size: 1.5em; }
+.aa-fam-g { font-size: .85em; }
+.aa-occ-head { margin: 8px 0; }
+.aa-occ-head .aa-ar { font-size: 1.4em; }
+.aa-occ { border-left: 3px solid var(--background-modifier-border); padding: 4px 10px; margin: 6px 0; }
+.aa-occ-ar { font-size: 1.35em; text-align: right; }
+.aa-occ-meta { font-size: .88em; }
+
+/* analyser */
+.aa-input { width: 100%; font-family: var(--aa-ar-font); font-size: 1.6em; line-height: 1.7; padding: 8px 12px; border-radius: 8px; }
+.aa-input-line { font-family: var(--aa-ar-font); font-size: 1.5em; min-width: 200px; padding: 4px 10px; height: auto !important; }
+.aa-analyse-sum { padding: 10px; border-radius: 10px; background: var(--background-secondary); margin: 10px 0; }
+.aa-card { margin: 10px 0 18px; }
+.aa-cands { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0; }
+.aa-chip { border: 1px solid var(--background-modifier-border); border-radius: 20px; padding: 0 10px; cursor: pointer; }
+.aa-chip .aa-ar { font-size: 1.3em; }
+.aa-chip-on { border-color: var(--interactive-accent); background: var(--background-secondary); }
+
+/* construire */
+.aa-seg-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.aa-seg-tabs .aa-on { background: var(--interactive-accent) !important; color: var(--text-on-accent) !important; }
+.aa-form { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: flex-end; padding: 10px 12px; border-radius: 10px; background: var(--background-secondary); }
+.aa-build-out { text-align: center; margin: 16px 0; padding: 12px; border: 1px solid var(--background-modifier-border); border-radius: 12px; }
+.aa-build-out .aa-actions { justify-content: center; }
+.aa-build-ar { line-height: 2.1; }
+.aa-bw { cursor: pointer; padding: 0 4px; border-radius: 6px; }
+.aa-build-fr { font-size: 1.15em; font-weight: 600; margin-top: 4px; }
+.aa-r-subj { color: var(--aa-nom); } .aa-r-pred, .aa-r-adj { color: var(--aa-nom); }
+.aa-r-obj { color: var(--aa-acc); } .aa-r-gen, .aa-r-pp, .aa-r-n2 { color: var(--aa-gen); }
+.aa-r-verb { color: var(--aa-verb); } .aa-r-kana, .aa-r-inna, .aa-r-q, .aa-r-neg, .aa-r-fut, .aa-r-qad, .aa-r-prep, .aa-r-emph { color: var(--aa-part); }
+.aa-r-n1 { color: var(--aa-pron); }
+.aa-why-table { display: flex; flex-direction: column; gap: 4px; }
+.aa-why-row { display: flex; gap: 14px; padding: 6px 8px; border-radius: 8px; align-items: flex-start; }
+.aa-row-hl { background: var(--background-secondary); outline: 1px solid var(--interactive-accent); }
+.aa-why-ar { min-width: 130px; text-align: center; }
+.aa-why-ar .aa-ar { font-size: 1.6em; }
+.aa-why-txt { flex: 1; }
+.aa-why-txt .aa-badge { margin-right: 6px; }
+.aa-variants { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.aa-variant { border: 1px solid var(--background-modifier-border); border-radius: 10px; padding: 8px 12px; }
+.aa-click { cursor: pointer; }
+.aa-click:hover { border-color: var(--interactive-accent); }
+.aa-variant-label { font-weight: 600; font-size: .9em; margin-bottom: 2px; }
+.aa-variant .aa-ar { display: block; text-align: right; }
+.aa-variant-fr { font-size: .95em; }
+.aa-table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+.aa-table th, .aa-table td { border: 1px solid var(--background-modifier-border); padding: 4px 8px; text-align: center; }
+.aa-table .aa-ar { font-size: 1.35em; }
+.aa-notes li { color: var(--text-muted); }
+
+/* signes */
+.aa-lab { border: 1px solid var(--background-modifier-border); border-radius: 12px; padding: 8px 14px; margin-bottom: 14px; }
+.aa-lab-res { text-align: center; }
+.aa-lab-tiles { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 8px 0; }
+.aa-lab-tile { border: 1px solid var(--background-modifier-border); border-radius: 10px; padding: 4px 8px 8px; text-align: center; width: 160px; }
+.aa-lab-ctl { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.aa-pairs { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin: 8px 0; }
+.aa-pair { border: 1px solid var(--background-modifier-border); border-radius: 10px; padding: 4px 8px 8px; text-align: center; cursor: pointer; }
+.aa-pair:hover { border-color: var(--interactive-accent); }
+.aa-pair-fr { font-weight: 600; }
+
+/* entraînement */
+.aa-score { margin-left: auto; font-weight: 600; }
+.aa-quiz { border: 1px solid var(--background-modifier-border); border-radius: 12px; padding: 12px 16px; }
+.aa-quiz-q { font-weight: 600; margin-bottom: 6px; }
+.aa-quiz-word { text-align: center; }
+.aa-quiz-fr { font-size: 1.3em; text-align: center; margin: 10px 0; }
+.aa-quiz-opts { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.aa-quiz-opt { height: auto !important; padding: 8px 14px !important; white-space: normal; text-align: center; }
+.aa-good { background: rgba(31, 154, 85, .25) !important; outline: 2px solid var(--aa-acc); }
+.aa-bad { background: rgba(200, 66, 59, .2) !important; outline: 2px solid var(--aa-verb); }
+
+/* v2 : dictionnaire, russe, vocabulaire, son */
+.aa-ru { color: var(--text-muted); font-size: .92em; margin-top: 2px; }
+.aa-why .aa-ru, .aa-why-list .aa-ru { border-left: 2px solid var(--background-modifier-border); padding-left: 8px; margin-top: 3px; }
+.aa-def { margin: 4px 0; line-height: 1.55; }
+.aa-w.aa-mine { text-decoration: underline dotted; text-underline-offset: 8px; }
+.aa-course { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 2px 0 8px; }
+.aa-sound { margin-top: 4px; }
+.aa-dict { display: grid; grid-template-columns: minmax(240px, 340px) 1fr; gap: 16px; align-items: start; }
+.aa-dict-list { max-height: 75vh; overflow-y: auto; padding-right: 4px; }
+.aa-dict-entry { position: sticky; top: 48px; max-height: 80vh; overflow-y: auto; border: 1px solid var(--background-modifier-border); border-radius: 12px; padding: 10px 14px; }
+.aa-dict-row { display: flex; gap: 10px; align-items: center; padding: 4px 8px; border-radius: 8px; cursor: pointer; border-bottom: 1px solid var(--background-modifier-border); }
+.aa-dict-row:hover { background: var(--background-modifier-hover); }
+.aa-dict-row.aa-on { background: var(--background-secondary); outline: 1px solid var(--interactive-accent); }
+.aa-dict-mine .aa-dict-g::after { content: " ★"; color: var(--aa-gen); }
+.aa-dict-ar { font-size: 1.5em; min-width: 80px; text-align: right; }
+.aa-dict-txt { flex: 1; min-width: 0; }
+.aa-dict-g { font-weight: 600; }
+.aa-dict-q { width: 100%; font-size: 1.2em; }
+.aa-alpha { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.aa-alpha-l { font-size: 1.4em; padding: 0 8px; border-radius: 6px; cursor: pointer; border: 1px solid var(--background-modifier-border); }
+.aa-alpha-l.aa-on { background: var(--interactive-accent); color: var(--text-on-accent); }
+.aa-root-item { border-bottom: 1px solid var(--background-modifier-border); padding: 2px 4px; }
+.aa-root-item > summary { cursor: pointer; }
+@media (max-width: 800px) {
+  .aa-dict { grid-template-columns: 1fr; }
+  .aa-dict-list { max-height: 45vh; }
+  .aa-dict-entry { position: static; max-height: none; }
+  .aa-body { padding: 10px 10px 60px; }
+  .aa-tile { width: 120px; }
+}
+.aa-ari { font-family: var(--aa-ar-font); font-size: 1.12em; }
+
+/* ---- analyse de la phrase (iʿrāb) ---- */
+.aa-irab-wrap { position: relative; overflow-x: auto; padding: 0 4px 6px; }
+.aa-irab-svg { position: absolute; top: 0; left: 0; pointer-events: none; color: var(--text-muted); overflow: visible; }
+.aa-irab-row { display: flex; flex-wrap: nowrap; gap: 10px; width: max-content; min-width: 100%; justify-content: flex-start; }
+.aa-irab-w { border-radius: 8px; padding: 2px 10px 6px; text-align: center; cursor: pointer; border: 1px solid transparent; min-width: 70px; max-width: 150px; }
+.aa-irab-w .aa-ar { font-size: 1.6em; }
+.aa-irab-sel { border-color: var(--interactive-accent); }
+.aa-irab-lab { font-size: .78em; font-weight: 600; line-height: 1.2; }
+.aa-irab-term { font-size: .74em; font-style: italic; opacity: .85; }
+.aa-irab-arc { fill: none; stroke: currentColor; stroke-width: 1.4; }
+.aa-irab-guess { stroke-dasharray: 4 3; }
+.aa-irab-grp { stroke: var(--interactive-accent); color: var(--interactive-accent); }
+.aa-irab-arc-lab { font-size: 10.5px; fill: var(--text-normal); paint-order: stroke; stroke: var(--background-primary); stroke-width: 3px; }
+.aa-irab-att { margin-top: 2px; }
+.aa-irab-att-ar { font-size: 1.25em; }
+.aa-irab-grp-txt { color: var(--interactive-accent); }
+.aa-irab-flash { background: var(--background-secondary); transition: background .3s; }
+
+/* ---- leçons ---- */
+.aa-lesson-progress { height: 8px; border-radius: 4px; background: var(--background-secondary); overflow: hidden; margin: 4px 0; }
+.aa-lesson-fill { height: 100%; background: var(--interactive-accent); }
+.aa-lesson-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-top: 8px; }
+.aa-lesson-card { border: 1px solid var(--background-modifier-border); border-radius: 12px; padding: 10px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.aa-lesson-card:hover { background: var(--background-modifier-hover); }
+.aa-lesson-done { border-color: var(--aa-acc); }
+.aa-lesson-next { border-color: var(--interactive-accent); border-width: 2px; }
+.aa-lesson-top { display: flex; justify-content: space-between; align-items: center; }
+.aa-lesson-num { font-weight: 700; font-size: 1.1em; width: 28px; height: 28px; border-radius: 50%; background: var(--background-secondary); display: inline-flex; align-items: center; justify-content: center; }
+.aa-lesson-title { font-weight: 600; }
+.aa-lesson-ar { font-size: 1.4em; color: var(--text-muted); }
+.aa-lesson-head h2 { margin: 2px 0; }
+.aa-lesson-goal, .aa-lesson-keep { background: var(--background-secondary); border-radius: 10px; padding: 8px 14px; margin: 10px 0; }
+.aa-lesson-keep { border-left: 4px solid var(--interactive-accent); }
+.aa-lesson-sec { margin: 18px 0; }
+.aa-lesson-sec h3 { margin-bottom: 6px; }
+.aa-lesson-p { margin: 6px 0; line-height: 1.6; }
+.aa-lesson-li { margin-left: 8px; }
+.aa-lesson-table { margin: 8px 0; }
+.aa-lesson-ex { border: 1px solid var(--background-modifier-border); border-radius: 10px; padding: 6px 12px; margin: 8px 0; }
+.aa-lesson-note { margin-top: 4px; }
+.aa-find-w { cursor: pointer; border-radius: 6px; padding: 0 3px; }
+.aa-find-w:hover { background: var(--background-modifier-hover); }
+.aa-find-good { background: rgba(31, 154, 85, .25); }
+.aa-find-bad { background: rgba(217, 60, 43, .25); }
+@media (max-width: 600px) { .aa-lesson-grid { grid-template-columns: 1fr; } .aa-why-row { flex-direction: column; gap: 2px; } .aa-why-ar { min-width: 0; text-align: right; } }
+
+/* ---- prononciation (tajwīd simplifié) ---- */
+.aa-tj-on .aa-w, .aa-tj-on .aa-w.aa-pos-n, .aa-tj-on .aa-w.aa-pos-v, .aa-tj-on .aa-w.aa-pos-p { color: var(--text-normal); }
+.aa-tj-silent { color: var(--text-faint) !important; opacity: .5; }
+.aa-tj-merge { color: #8e5bd0 !important; }
+.aa-tj-madd2 { color: #e07b00 !important; }
+.aa-tj-madd { color: #d0312d !important; }
+.aa-tj-ghunna { color: #1f9a55 !important; }
+.aa-tj-qalqala { color: #2b74d9 !important; }
+.aa-tj-pause { text-decoration: underline dotted; text-underline-offset: 7px; text-decoration-thickness: 2px; }
+.aa-tj-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 4px 0; font-size: .88em; }
+.aa-tj-chip { display: inline-flex; align-items: center; gap: 6px; }
+.aa-tj-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex: none; }
+.aa-tjbg-silent { background: var(--text-faint); opacity: .5; }
+.aa-tjbg-merge { background: #8e5bd0; } .aa-tjbg-madd2 { background: #e07b00; } .aa-tjbg-madd { background: #d0312d; }
+.aa-tjbg-ghunna { background: #1f9a55; } .aa-tjbg-qalqala { background: #2b74d9; }
+.aa-tj-pausedot { border-bottom: 2px dotted var(--text-normal); border-radius: 0; height: 8px; }
+.aa-tj-big { font-size: 2.2em; }
+
+/* ---- règles ---- */
+.aa-term { text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
+.aa-term:hover { color: var(--interactive-accent); }
+.aa-rule-card { border: 1px solid var(--background-modifier-border); border-radius: 10px; padding: 8px 14px; margin: 8px 0; background: var(--background-primary); }
+.aa-rule-inline { border-left: 4px solid var(--interactive-accent); background: var(--background-secondary); font-weight: normal; }
+li.aa-rule-inline { list-style: none; border: none; background: none; }
+.aa-rule-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.aa-rule-title { font-size: 1.05em; }
+.aa-rule-ar { font-size: 1.4em; color: var(--text-muted); }
+.aa-rule-one { font-weight: 600; margin: 4px 0 8px; }
+.aa-rule-line { margin: 3px 0; line-height: 1.55; }
+.aa-rule-ex { margin: 8px 0; }
+.aa-rule-ru { margin-top: 6px; color: var(--text-muted); font-style: italic; }
+.aa-rule-det { margin: 4px 0; }
+.aa-rule-det > summary { cursor: pointer; padding: 6px 4px; }
+.aa-lesson-simple { background: rgba(31, 154, 85, .10); border-left: 4px solid var(--aa-acc); border-radius: 10px; padding: 8px 14px; margin: 10px 0; }
+.aa-lesson-simple li { margin: 4px 0; }
+.aa-tj-big { font-size: 2em; line-height: 1.6; margin: 0; }
+.aa-why-list .aa-mid { line-height: 1.4; }
+.aa-rule-sum { margin: 2px 0 0 18px; font-weight: normal; }
+/* ---- explications détaillées ---- */
+.aa-doc { margin-top: 6px; }
+.aa-doc-bar { margin-bottom: 6px; }
+.aa-doc-body { line-height: 1.6; }
+.aa-doc-h { margin: 14px 0 4px; }
+.aa-doc-p { margin: 6px 0; }
+.aa-doc-list li { margin: 3px 0; }
+.aa-doc-quote { border-left: 4px solid var(--interactive-accent); background: var(--background-secondary); border-radius: 8px; padding: 6px 12px; margin: 8px 0; }
+.aa-doc-table { margin: 8px 0; }
+.aa-doc-det > summary { font-weight: 600; cursor: pointer; margin-top: 6px; }
+/* ---- alphabet ---- */
+.aa-al-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 760px) { .aa-al-layout { grid-template-columns: minmax(0, 1fr); } }
+.aa-al-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 6px; }
+.aa-al-cell { display: flex; flex-direction: column; align-items: center; justify-content: center; height: auto !important; padding: 4px 2px !important; border-radius: 10px; border: 1px solid var(--background-modifier-border); background: var(--background-primary); cursor: pointer; gap: 0; }
+.aa-al-cell:hover { background: var(--background-modifier-hover); }
+.aa-al-cell.aa-on { border-color: var(--interactive-accent); box-shadow: 0 0 0 2px var(--interactive-accent); }
+.aa-al-cell.aa-dim { opacity: .35; }
+.aa-al-heavy .aa-al-big { color: var(--aa-verb); }
+.aa-al-big { font-size: 1.9em; line-height: 1.5; }
+.aa-al-huge { font-size: 4em; line-height: 1.3; }
+.aa-al-cname { font-size: .72em; color: var(--text-muted); direction: ltr; }
+.aa-al-card { border: 1px solid var(--background-modifier-border); border-radius: 12px; padding: 10px 14px; background: var(--background-primary); margin-bottom: 10px; line-height: 1.55; }
+.aa-al-top { display: flex; gap: 16px; align-items: center; }
+.aa-al-name { font-weight: 700; font-size: 1.1em; }
+.aa-al-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.aa-al-tag { font-size: .78em; padding: 1px 9px; border-radius: 20px; background: var(--background-secondary); }
+.aa-al-tag-heavy { color: var(--aa-verb); font-weight: 600; }
+.aa-al-forms td, .aa-al-forms th { text-align: center; }
+.aa-al-ex { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+.aa-al-zletters { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; direction: rtl; }
+.aa-al-zletters .aa-al-cell { width: 58px; }
+.aa-al-diag { border: 1px solid var(--background-modifier-border); border-radius: 12px; padding: 8px; background: var(--background-secondary); }
+.aa-al-diag-title { font-weight: 600; font-size: .9em; margin-bottom: 4px; }
+.aa-al-svg { width: 100%; max-width: 420px; display: block; margin: 0 auto; }
+.aa-al-skin { fill: rgba(230, 170, 140, .22); stroke: var(--text-muted); stroke-width: 1.2; }
+.aa-al-nose { fill: rgba(120, 160, 220, .18); stroke: var(--text-faint); stroke-width: 1; }
+.aa-al-cavity { fill: var(--background-primary); stroke: var(--text-faint); stroke-width: 1; }
+.aa-al-tongue { fill: rgba(220, 90, 110, .45); stroke: rgba(180, 60, 80, .9); stroke-width: 1.2; }
+.aa-al-line { fill: none; stroke: var(--text-muted); stroke-width: 2; stroke-linecap: round; }
+.aa-al-folds { stroke-width: 2.5; }
+.aa-al-uvula { fill: rgba(220, 90, 110, .6); }
+.aa-al-teeth { fill: #fbfbf6; stroke: var(--text-muted); stroke-width: .8; }
+.aa-al-lip { fill: rgba(200, 80, 90, .55); stroke: rgba(160, 50, 60, .8); stroke-width: .8; }
+.aa-al-lab { font-size: 8px; fill: var(--text-muted); font-family: var(--font-interface, sans-serif); }
+.aa-al-zone { cursor: pointer; }
+.aa-al-zone circle { fill: var(--background-primary); stroke: var(--interactive-accent); stroke-width: 1.5; }
+.aa-al-zone text { font-size: 8px; font-weight: 700; fill: var(--interactive-accent); pointer-events: none; font-family: var(--font-interface, sans-serif); }
+.aa-al-zone:hover circle, .aa-al-zone:focus circle { fill: var(--background-modifier-hover); }
+.aa-al-zone.aa-on circle { fill: var(--interactive-accent); r: 9.5; }
+.aa-al-zone.aa-on text { fill: var(--text-on-accent, #fff); }
+.aa-al-zlist { font-size: .85em; margin: 6px 0 0; padding-left: 22px; columns: 2; column-gap: 18px; }
+@media (max-width: 500px) { .aa-al-zlist { columns: 1; } }
+.aa-al-zlist li { margin: 1px 0; break-inside: avoid; }
+.aa-al-zlist li.aa-on a { font-weight: 700; color: var(--interactive-accent); }
+.aa-al-opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin: 8px 0; }
+.aa-al-opts .aa-good { background: rgba(31, 154, 85, .25) !important; }
+.aa-al-opts .aa-bad { background: rgba(220, 60, 60, .25) !important; }
+.aa-al-pairs td { vertical-align: middle; }
+.aa-surah-nav { margin: 0; }
+.aa-surah-info { margin: 4px 0 6px; }
+.aa-al-qletter { text-align: center; margin: 4px 0 10px; }
+
+/* =====================================================================
+ * Thème 2.4 : plus calme, plus aéré, moins de texte à la fois.
+ * (Ce bloc vient en dernier : il adoucit les règles ci-dessus.)
+ * ===================================================================== */
+.aa-root {
+  --aa-ar-font: "Atelier Amiri Quran", "Amiri Quran", "Amiri", "Scheherazade New", "Geeza Pro", "Traditional Arabic", serif;
+  --aa-radius: 14px;
+  --aa-radius-s: 10px;
+  --aa-line: var(--background-modifier-border);
+  --aa-soft: var(--background-secondary);
+  --aa-shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 4px 14px rgba(0, 0, 0, .04);
+  /* couleurs adoucies (moins saturées) */
+  --aa-nom: #3d64a8; --aa-acc: #2e8358; --aa-gen: #b06a2c; --aa-verb: #ad4a43; --aa-part: #6f7782; --aa-pron: #7a59b0;
+  --aa-nom-bg: rgba(61, 100, 168, .09); --aa-acc-bg: rgba(46, 131, 88, .09); --aa-gen-bg: rgba(176, 106, 44, .10); --aa-verb-bg: rgba(173, 74, 67, .09); --aa-part-bg: rgba(111, 119, 130, .10);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+.theme-dark .aa-root {
+  --aa-nom: #8fa9db; --aa-acc: #7dbf98; --aa-gen: #d9a477; --aa-verb: #dc928b; --aa-part: #9ba2ac; --aa-pron: #b49bdc;
+  --aa-nom-bg: rgba(143, 169, 219, .12); --aa-acc-bg: rgba(125, 191, 152, .12); --aa-gen-bg: rgba(217, 164, 119, .12); --aa-verb-bg: rgba(220, 146, 139, .12); --aa-part-bg: rgba(155, 162, 172, .12);
+  --aa-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+}
+.aa-root.aa-font-device { --aa-ar-font: "Amiri Quran", "Amiri", "Scheherazade New", "Geeza Pro", "Traditional Arabic", serif; }
+.aa-root.aa-nocolor .aa-w.aa-pos-n, .aa-root.aa-nocolor .aa-w.aa-pos-v, .aa-root.aa-nocolor .aa-w.aa-pos-p, .aa-root.aa-nocolor .aa-w.aa-pos-inl { color: var(--text-normal); }
+
+/* --- barre d'onglets : une seule ligne, pastilles, icônes --- */
+.aa-tabs { flex-wrap: nowrap; overflow-x: auto; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--aa-line); scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.aa-tabs::-webkit-scrollbar { display: none; }
+.aa-tab { flex: none; display: inline-flex !important; align-items: center; gap: 6px; border-radius: 999px !important; border: none !important; padding: 5px 13px !important; height: auto !important; font-size: .9em; white-space: nowrap; color: var(--text-muted); transition: background .15s, color .15s; }
+.aa-tab:hover { background: var(--background-modifier-hover) !important; color: var(--text-normal); }
+.aa-tab.aa-on { background: var(--interactive-accent) !important; color: var(--text-on-accent) !important; font-weight: 600; }
+.aa-tab-ic { display: inline-flex; }
+.aa-tab-ic svg { width: 15px; height: 15px; }
+
+/* --- page --- */
+.aa-body { max-width: 860px; padding: 20px 22px 80px; }
+.aa-body h3 { font-size: 1.05em; margin: 22px 0 8px; }
+.aa-help { background: var(--aa-soft); color: var(--text-muted); border-radius: var(--aa-radius-s); padding: 10px 14px; font-size: .92em; line-height: 1.55; }
+.aa-howto { margin: 0 0 14px; }
+.aa-howto > summary { cursor: pointer; color: var(--text-muted); font-size: .85em; list-style: none; display: inline-block; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--aa-line); }
+.aa-howto > summary::-webkit-details-marker { display: none; }
+.aa-howto > summary:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
+.aa-howto[open] > summary { margin-bottom: 8px; }
+.aa-howto > .aa-help { margin: 0; }
+
+/* --- boutons discrets --- */
+.aa-btn-quiet { border-radius: 999px !important; border-color: var(--aa-line) !important; padding: 4px 12px !important; }
+.aa-btn-quiet:hover { background: var(--background-modifier-hover) !important; }
+.aa-actions { gap: 6px; }
+
+/* --- blocs repliables (sections) --- */
+.aa-details, .aa-sec { border: 1px solid var(--aa-line); border-radius: var(--aa-radius-s); padding: 0; margin: 10px 0; background: var(--background-primary); }
+.aa-details > summary, .aa-sec > summary { padding: 10px 14px; font-weight: 600; cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; border-radius: var(--aa-radius-s); }
+.aa-details > summary::-webkit-details-marker, .aa-sec > summary::-webkit-details-marker { display: none; }
+.aa-details > summary::before, .aa-sec > summary::before { content: '›'; display: inline-block; width: 1em; text-align: center; color: var(--text-faint); font-size: 1.2em; transition: transform .15s; }
+.aa-details[open] > summary::before, .aa-sec[open] > summary::before { transform: rotate(90deg); }
+.aa-details > summary:hover, .aa-sec > summary:hover { background: var(--background-modifier-hover); }
+.aa-details > :not(summary), .aa-sec > :not(summary) { margin-left: 14px; margin-right: 14px; }
+.aa-details[open], .aa-sec[open] { padding-bottom: 8px; }
+.aa-sec-key { border-left: 3px solid var(--interactive-accent); }
+
+/* --- tableaux plus légers --- */
+.aa-table { border-collapse: separate; border-spacing: 0; border: 1px solid var(--aa-line); border-radius: var(--aa-radius-s); overflow: hidden; }
+.aa-table th, .aa-table td { border: none; border-bottom: 1px solid var(--aa-line); padding: 7px 12px; }
+.aa-table tr:last-child td { border-bottom: none; }
+.aa-table th { background: var(--aa-soft); color: var(--text-muted); font-weight: 600; font-size: .86em; }
+
+/* --- Coran : en-tête de sourate et versets --- */
+.aa-toolbar { background: var(--aa-soft); border-radius: var(--aa-radius); padding: 10px 14px; gap: 10px 18px; }
+.aa-surah-title { background: var(--background-primary); border: 1px solid var(--aa-line); border-radius: var(--aa-radius); padding: 14px 16px 12px; margin: 12px 0 16px; box-shadow: var(--aa-shadow); }
+.aa-surah-title .aa-ar { color: var(--text-normal); }
+.aa-surah-info { text-align: center; }
+.aa-verse { padding: 16px 6px 14px; border-bottom: 1px solid var(--aa-line); }
+.aa-verse:last-child { border-bottom: none; }
+.aa-verse-ar { line-height: 2.35; }
+.aa-verse-fr { color: var(--text-normal); line-height: 1.55; }
+.aa-verse-tr { font-size: .92em; }
+.aa-vnum { font-size: .75em; }
+.aa-verse-tools .aa-btn { font-size: .8em; }
+@media (hover: hover) { .aa-verse-tools { opacity: .45; transition: opacity .15s; } .aa-verse:hover .aa-verse-tools, .aa-verse-focus .aa-verse-tools { opacity: 1; } }
+.aa-verse-focus { background: var(--aa-soft); border-radius: var(--aa-radius-s); }
+.aa-w { padding: 0 2px; }
+.aa-w-sel { background: var(--aa-soft); outline: 2px solid var(--interactive-accent); outline-offset: 1px; }
+
+/* --- fiche d'un mot --- */
+.aa-detail-open { border: 1px solid var(--aa-line); border-top: 3px solid var(--interactive-accent); border-radius: var(--aa-radius); background: var(--background-primary); box-shadow: var(--aa-shadow); padding: 14px 16px; }
+.aa-facts th { font-size: .9em; }
+.aa-facts td, .aa-facts th { padding-top: 4px; padding-bottom: 4px; }
+.aa-seg, .aa-tile, .aa-fam, .aa-variant, .aa-pair, .aa-lab-tile { border-radius: var(--aa-radius-s); }
+
+/* --- cartes en général --- */
+.aa-lesson-card, .aa-rule-card, .aa-quiz, .aa-build-out, .aa-dict-entry, .aa-al-card, .aa-lab, .aa-lesson-ex, .aa-variant { border-color: var(--aa-line); border-radius: var(--aa-radius); background: var(--background-primary); }
+.aa-lesson-card, .aa-quiz, .aa-build-out, .aa-dict-entry, .aa-al-card { box-shadow: var(--aa-shadow); }
+.aa-lesson-card { padding: 12px 14px; transition: transform .12s, box-shadow .12s; }
+.aa-lesson-card:hover { transform: translateY(-1px); background: var(--background-primary); border-color: var(--interactive-accent); }
+.aa-rule-det { border-bottom: 1px solid var(--aa-line); }
+.aa-rule-det > summary { padding: 10px 4px; }
+.aa-rule-sum { margin-left: 0; }
+.aa-dict-row { border-bottom-color: transparent; border-radius: var(--aa-radius-s); padding: 6px 10px; }
+.aa-dict-row + .aa-dict-row { margin-top: 2px; }
+.aa-form { border-radius: var(--aa-radius); padding: 12px 14px; }
+.aa-quiz { padding: 16px 18px; }
+.aa-quiz-opt { border-radius: var(--aa-radius-s) !important; }
+
+/* --- leçons : une étape à la fois --- */
+.aa-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 16px 0 8px; }
+.aa-step-dot { width: 30px; height: 30px !important; padding: 0 !important; border-radius: 50% !important; font-weight: 600; font-size: .85em; background: var(--aa-soft) !important; box-shadow: none !important; color: var(--text-muted); cursor: pointer; }
+.aa-step-dot.aa-seen { background: var(--aa-acc-bg) !important; color: var(--aa-acc); }
+.aa-step-dot.aa-on { background: var(--interactive-accent) !important; color: var(--text-on-accent) !important; }
+.aa-step { border: 1px solid var(--aa-line); border-radius: var(--aa-radius); margin: 8px 0; background: var(--background-primary); }
+.aa-step[open] { box-shadow: var(--aa-shadow); border-color: var(--interactive-accent); }
+.aa-step > summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 12px 16px; cursor: pointer; font-weight: 600; }
+.aa-step > summary::-webkit-details-marker { display: none; }
+.aa-step-n { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--aa-soft); color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; font-size: .85em; }
+.aa-step[open] .aa-step-n { background: var(--interactive-accent); color: var(--text-on-accent); }
+.aa-step > .aa-lesson-sec { margin: 0; padding: 0 18px 12px; }
+.aa-step-next { justify-content: flex-end; margin-top: 16px; }
+.aa-lesson-p { line-height: 1.65; margin: 8px 0; }
+.aa-lesson-simple { border-radius: var(--aa-radius); background: var(--aa-acc-bg); border-left-color: var(--aa-acc); padding: 12px 16px; }
+.aa-lesson-goal { background: var(--background-primary); border-left: 1px solid var(--aa-line); padding: 0; }
+.aa-lesson-keep { border-radius: var(--aa-radius); padding: 12px 16px; }
+
+/* --- explications détaillées --- */
+.aa-doc-body { line-height: 1.65; }
+.aa-doc-h { font-size: 1em; margin: 18px 0 6px; color: var(--interactive-accent); }
+.aa-doc-quote { border-radius: var(--aa-radius-s); }
+
+/* --- alphabet --- */
+.aa-al-cell { border-radius: var(--aa-radius-s); border-color: var(--aa-line); }
+.aa-al-heavy .aa-al-big { color: var(--aa-verb); }
+
+/* --- petits écrans --- */
+@media (max-width: 600px) {
+  .aa-body { padding: 14px 12px 70px; }
+  .aa-toolbar { padding: 8px 10px; }
+  .aa-tab { padding: 5px 11px !important; }
+  .aa-step > .aa-lesson-sec { padding: 0 12px 10px; }
+  .aa-detail-open { padding: 12px; }
+}
+.aa-rule-det { border-bottom: none; margin: 6px 0; }
+.aa-rule-det > summary { flex-wrap: wrap; row-gap: 0; }
+.aa-rule-det .aa-rule-sum { flex-basis: 100%; margin: 0 0 0 calc(1em + 8px); font-size: .88em; }
+.aa-search { font-family: inherit !important; font-size: 1em !important; line-height: 1.4 !important; padding: 8px 14px !important; border-radius: 999px !important; height: auto !important; margin-bottom: 8px; }
+.aa-big { line-height: 2.1; }
+.aa-dhead-main .aa-tr { display: block; margin-top: -4px; }
+.aa-more { font-size: .82em; white-space: nowrap; }
+.aa-rootl { white-space: nowrap; }

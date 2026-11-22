@@ -32,6 +32,7 @@ function renderQuranTab(ctx, root, state) {
   checkbox(tg, 'translittération', ctx.settings.showTr, v => { ctx.settings.showTr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'français', ctx.settings.showFr, v => { ctx.settings.showFr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'russe', ctx.settings.showRu, v => { ctx.settings.showRu = v; ctx.save(); renderQuranTab(ctx, root, state); });
+  checkbox(tg, 'couleurs des mots', ctx.settings.wordColors !== false, v => { ctx.settings.wordColors = v; ctx.save(); const r = root.closest && root.closest('.aa-root'); if (r) r.classList.toggle('aa-nocolor', !v); });
   checkbox(tg, '🎨 prononciation', !!ctx.settings.tajwid, v => { ctx.settings.tajwid = v; ctx.save(); renderQuranTab(ctx, root, state); });
   const course = ctx.courseSurahs();
   if (course.length) {

@@ -28,10 +28,11 @@ Le texte des explications est séparé du code :
 - `content/fr/regles/<règle>.md` : l'explication détaillée de chaque règle, en Markdown simple (`## titres`, listes, tableaux, `> encadrés`, et `@coran sourate:verset | n° des mots | note` pour un exemple tiré du Coran).
 - `content/fr/alphabet.json` : les lettres, leur prononciation et les zones du schéma de la bouche.
 - Pour une autre langue, créer `content/ru/` avec les mêmes noms de fichiers : ce qui manque est pris en français.
+- `css/style.css` : l'apparence (`css/fonts.css` contient la police arabe incluse).
 - `src/` : le code, en morceaux numérotés. `build.sh` assemble le tout dans `main.js` (avec `node tools/content.js` pour le contenu).
 
 Le plugin est entièrement en français. Le russe (traduction de Kouliev, explications et comparaisons) est une option, désactivée par défaut.
 
 ## Données
 
-Analyse morphologique : Quranic Arabic Corpus (Université de Leeds, GNU GPL). Traductions : Muhammad Hamidullah (français), Elmir Kuliev (russe).
+Analyse morphologique : Quranic Arabic Corpus (Université de Leeds, GNU GPL). Traductions : Muhammad Hamidullah (français), Elmir Kuliev (russe). Police arabe : Amiri Quran de Khaled Hosny (SIL Open Font License 1.1).

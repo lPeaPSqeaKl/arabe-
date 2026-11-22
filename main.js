@@ -1,6 +1,6 @@
 'use strict';
 /* Atelier arabe — plugin Obsidian (généré, ne pas modifier à la main) */
-const { Plugin, ItemView, Notice, PluginSettingTab, Setting, MarkdownView, requestUrl } = require('obsidian');
+const { Plugin, ItemView, Notice, PluginSettingTab, Setting, MarkdownView, requestUrl, setIcon } = require('obsidian');
 /* ====================================================================
  * 01 - Outils pour l'écriture arabe : signes, découpage, translittération
  * ==================================================================== */
@@ -420,7 +420,7 @@ function explainQuranWord(words, wi, lemmas) {
     if (f.form && (sub === 'ACT_PCPL' || sub === 'PASS_PCPL' || sub === 'VN')) { const vf = VERB_FORMS[f.form]; if (vf) res.facts.push(['Tiré du verbe', 'forme ' + vf[0] + ' ' + vf[1]]); }
     if (f.cas) {
       const c = CASES[f.cas];
-      res.facts.push(['Cas', c.fr + ' — ' + c.tr + ' ' + c.ar + ' · ' + c.ru]);
+      res.facts.push(['Cas', c.fr + ' — ' + c.tr + ' ' + c.ar + (EXPL_RU ? ' · ' + c.ru : '')]);
       res.why.push(caseReason(f, word, st, prev, prev2, prepBefore, prepName));
       const lastU = units(st.seg[0]).filter(u => u.b).pop();
       if (f.cas === 'GEN' && lastU && lastU.m.includes(AR.FATHA) && !/(ين|ات)$/.test(skeleton(st.seg[0]))) res.why.push(R('Il finit par -a alors qu\'il est au génitif : c\'est un **diptote** (nom propre étranger, schème أَفْعَل, certains pluriels…). Les diptotes n\'ont jamais de tanwīn et font leur génitif en -a.', 'Окончание -a в джарре : это **двухпадежное** имя (иностранное имя, модель أَفْعَل, некоторые множественные…) — без танвина, джарр на -a.'));
@@ -452,10 +452,10 @@ function caseReason(f, word, st, prev, prev2, prepBefore, prepSeg) {
   const pf = prev ? stemOf(prev).f : null;
   const ps = prev ? stemOf(prev).seg[0] : '';
   if (f.cas === 'GEN') {
-    if (prepBefore) return R('Génitif **parce qu\'il suit une préposition** (' + (prepSeg ? prepSeg[0] : '') + ') : en arabe, toute préposition met le nom suivant au génitif, comme « в / о » + предложный en russe.', 'Родительный (джарр), **потому что стоит после предлога** (' + (prepSeg ? prepSeg[0] : '') + ') : любой предлог ставит следующее имя в джарр, как в русском «в / о» + предложный падеж.');
+    if (prepBefore) return R('Génitif **parce qu\'il suit une préposition** (' + (prepSeg ? prepSeg[0] : '') + ') : en arabe, toute préposition met le nom suivant au génitif.', 'Родительный (джарр), **потому что стоит после предлога** (' + (prepSeg ? prepSeg[0] : '') + ') : любой предлог ставит следующее имя в джарр, как в русском «в / о» + предложный падеж.');
     if (f.sub === 'ADJ') return R('C\'est un **adjectif** : il copie le cas du nom qu\'il qualifie (ici un génitif).', 'Это **прилагательное** : оно повторяет падеж определяемого имени (здесь джарр).');
     if (pf && pf.pos === 'N' && pf.cas === 'GEN' && (pf.sub === 'PN' || prev.some(s => parseFeats(s[1], s[2]).tags[0] === 'DET'))) return R('Génitif **parce qu\'il suit un mot défini au génitif** qu\'il précise ou explique (adjectif ou apposition, naʿt / badal) : il en copie le cas.', 'Джарр, **потому что поясняет предыдущее определённое слово в джарре** (приложение, бадал / наʿт) и повторяет его падеж.');
-    if (pf && pf.pos === 'N' && !pf.indef) return R('Génitif **parce qu\'il est le 2e terme d\'une annexion** (iḍāfa) : « le … **de** ce mot ». Comme le родительный russe : имя (кого?) Аллаха.', 'Джарр, **потому что это второй член идафы** (сопряжения) : «… **кого? чего?**», как русский родительный : «имя Аллаха».');
+    if (pf && pf.pos === 'N' && !pf.indef) return R('Génitif **parce qu\'il est le 2e terme d\'une annexion** (iḍāfa) : « le … **de** ce mot ».', 'Джарр, **потому что это второй член идафы** (сопряжения) : «… **кого? чего?**», как русский родительный : «имя Аллаха».');
     return R('Génitif : soit 2e terme d\'une annexion (« … de … »), soit adjectif ou mot coordonné à un génitif.', 'Джарр : второй член идафы, или прилагательное / однородный член при слове в джарре.');
   }
   if (f.cas === 'ACC') {
@@ -1411,7 +1411,7 @@ function buildNominal(c) {
   if (mod === 'laysaBi') fr = frJoin([...subjFr, ...verb, ...predFr, 'du', 'tout']);
   if (mod === 'inna') fr = 'certes, ' + fr;
   if (c.q) fr = frJoin(['est-ce', 'que', ...subjFr, ...verb, ...predFr]) + ' ?';
-  if (!isPP && !c.q) notes.push('Il n\'y a pas de verbe « être » au présent : الْوَلَدُ كَبِيرٌ = « le garçon [est] grand », comme en russe « мальчик — большой ».');
+  if (!isPP && !c.q) notes.push('Il n\'y a pas de verbe « être » au présent : الْوَلَدُ كَبِيرٌ = « le garçon [est] grand ».');
   return { words: fixLiaison(words), fr: cap(fr), notes, warn };
 }
 function kanaPron(P) { return { anaM: 'كُنْتُ', anaF: 'كُنْتُ', anta: 'كُنْتَ', anti: 'كُنْتِ', huwa: 'كَانَ', hiya: 'كَانَتْ' }[P.id]; }
@@ -1943,17 +1943,16 @@ function renderWordDetail(ctx, el, words, wi, ref, verse) {
   if (ctx.settings.tajwid && verse) {
     const segs = tajwidVerse(verse[2])[wi].filter(s => s.cls || s.pause);
     if (segs.length) {
-      h(el, 'h4', null, '🎨 Prononciation de ce mot');
-      const big = h(el, 'div', 'aa-verse-ar aa-tj-on aa-tj-big'); big.setAttribute('dir', 'rtl');
+      const tjd = details(el, '🎨 Prononciation de ce mot', true, 'aa-sec');
+      const big = h(tjd, 'div', 'aa-verse-ar aa-tj-on aa-tj-big'); big.setAttribute('dir', 'rtl');
       fillTajwid(arSpan(big, '', 'aa-w'), tajwidVerse(verse[2])[wi]);
-      const ul = h(el, 'ul', 'aa-why-list');
+      const ul = h(tjd, 'ul', 'aa-why-list');
       segs.forEach(s => { const li = h(ul, 'li'); arSpan(li, s.t.replace(/ٱ/, 'ٱ'), 'aa-tj-' + (s.cls || 'pausech') + ' aa-mid'); li.appendChild(document.createTextNode(' : ' + [s.tip, s.pause].filter(Boolean).join(' ; '))); });
     }
   }
   // morceaux
   if (word.length > 1) {
-    h(el, 'h4', null, 'Les morceaux du mot');
-    const row = h(el, 'div', 'aa-segs');
+    const row = h(details(el, 'Les morceaux du mot', true, 'aa-sec'), 'div', 'aa-segs');
     e.segs.forEach(s => {
       const c = h(row, 'div', 'aa-seg aa-seg-' + s.kind);
       arSpan(c, s.ar);
@@ -1967,19 +1966,18 @@ function renderWordDetail(ctx, el, words, wi, ref, verse) {
     e.facts.forEach(([k, v]) => { const r = h(t, 'tr'); h(r, 'th', null, k); h(r, 'td', null, v); });
   }
   if (e.why.length) {
-    h(el, 'h4', null, 'Pourquoi cette forme ?');
-    const ul = h(el, 'ul', 'aa-why-list');
+    const ul = h(details(el, 'Pourquoi cette forme ?', true, 'aa-sec aa-sec-key'), 'ul', 'aa-why-list');
     e.why.forEach(w => mdText(ul, 'li', null, w));
   }
   // lettres
-  const dl = details(el, 'Lettre par lettre : chaque signe et son son', ctx.settings.openLetters);
+  const dl = details(el, 'Lettre par lettre : chaque signe et son son', ctx.settings.openLetters, 'aa-sec');
   renderTiles(dl, txt);
   // alternatives
   const alts = endingAlternatives(st.seg[0], st.f);
   if (alts.length) {
-    h(el, 'h4', null, 'Et si on changeait le dernier signe ?');
+    const altd = details(el, 'Et si on changeait le dernier signe ?', false, 'aa-sec');
     const pre = word.slice(0, st.idx).map(s => s[0]).join(''); const post = word.slice(st.idx + 1).map(s => s[0]).join('');
-    const box = h(el, 'div', 'aa-alts');
+    const box = h(altd, 'div', 'aa-alts');
     alts.forEach(a => {
       const full = pre + a.ar + post;
       const cur = a.ar === st.seg[0] || (st.f.cas === a.cas) || (st.f.mood === a.cas);
@@ -1992,13 +1990,13 @@ function renderWordDetail(ctx, el, words, wi, ref, verse) {
       lab.appendChild(document.createTextNode(parts.slice(1).join(' : ')));
       if (cur) h(r, 'span', 'aa-tag', '← c\'est la forme du verset');
     });
-    mdText(el, 'p', 'aa-muted aa-small', 'Le sens du mot ne change pas : c\'est son **rôle dans la phrase** qui change. Seule la dernière voyelle le montre.');
+    mdText(altd, 'p', 'aa-muted aa-small', 'Le sens du mot ne change pas : c\'est son **rôle dans la phrase** qui change. Seule la dernière voyelle le montre.');
   }
   // famille de la racine
   if (e.root && data.byRoot) {
     const fam = data.rootFamily(e.root, st.seg[3]);
     if (fam.length) {
-      const d = details(el, 'La famille de la racine ' + e.root.split('').join(' ') + ' (' + fam.length + ' autres mots)', false);
+      const d = details(el, 'La famille de la racine ' + e.root.split('').join(' ') + ' (' + fam.length + ' autres mots)', false, 'aa-sec');
       const grid = h(d, 'div', 'aa-family');
       fam.slice(0, 24).forEach(x => {
         const c = h(grid, 'div', 'aa-fam');
@@ -2012,7 +2010,7 @@ function renderWordDetail(ctx, el, words, wi, ref, verse) {
   }
   // autres occurrences
   if (st.seg[3] >= 0) {
-    const d = details(el, 'Ce mot ailleurs dans le Coran', false);
+    const d = details(el, 'Ce mot ailleurs dans le Coran', false, 'aa-sec');
     const box = h(d, 'div', 'aa-occ-box');
     d.addEventListener('toggle', () => { if (d.open && !box.firstChild) renderOccurrences(ctx, box, st.seg[3], ref); });
   }
@@ -2271,6 +2269,7 @@ function renderQuranTab(ctx, root, state) {
   checkbox(tg, 'translittération', ctx.settings.showTr, v => { ctx.settings.showTr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'français', ctx.settings.showFr, v => { ctx.settings.showFr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'russe', ctx.settings.showRu, v => { ctx.settings.showRu = v; ctx.save(); renderQuranTab(ctx, root, state); });
+  checkbox(tg, 'couleurs des mots', ctx.settings.wordColors !== false, v => { ctx.settings.wordColors = v; ctx.save(); const r = root.closest && root.closest('.aa-root'); if (r) r.classList.toggle('aa-nocolor', !v); });
   checkbox(tg, '🎨 prononciation', !!ctx.settings.tajwid, v => { ctx.settings.tajwid = v; ctx.save(); renderQuranTab(ctx, root, state); });
   const course = ctx.courseSurahs();
   if (course.length) {
@@ -3355,20 +3354,34 @@ async function renderLesson(ctx, root, state, L) {
     const box = h(root, 'div', 'aa-lesson-simple');
     h(box, 'b', null, '🟢 L\'essentiel, en simple');
     const ul0 = h(box, 'ul');
-    ess.forEach(r => { const li = h(ul0, 'li'); const a = h(li, 'a', 'aa-link aa-rule-link', r.title); mdText(li, 'span', null, ' : ' + r.one); a.addEventListener('click', e => { e.preventDefault(); const nx = li.nextSibling; if (nx && nx.classList && nx.classList.contains('aa-rule-inline')) { nx.remove(); return; } const hold = document.createElement('li'); hold.className = 'aa-rule-li'; li.parentNode.insertBefore(hold, li.nextSibling); const c = renderRuleCard(ctx, hold, r, { inline: true }); hold.classList.add('aa-rule-inline'); c.classList.remove('aa-rule-inline'); c.querySelector('.aa-actions button:last-child').onclick = () => hold.remove(); }); });
-    h(box, 'div', 'aa-muted aa-small', 'Clique sur un nom de règle pour l\'explication complète. Dans la suite de la leçon, les mots soulignés en pointillé ouvrent aussi leur règle.');
+    ess.forEach(r => { const li = h(ul0, 'li'); mdText(li, 'span', null, r.one + ' '); const a = h(li, 'a', 'aa-link aa-rule-link aa-more', 'en savoir plus'); a.title = r.title; a.addEventListener('click', e => { e.preventDefault(); const nx = li.nextSibling; if (nx && nx.classList && nx.classList.contains('aa-rule-inline')) { nx.remove(); return; } const hold = document.createElement('li'); hold.className = 'aa-rule-li'; li.parentNode.insertBefore(hold, li.nextSibling); const c = renderRuleCard(ctx, hold, r, { inline: true }); hold.classList.add('aa-rule-inline'); c.classList.remove('aa-rule-inline'); c.querySelector('.aa-actions button:last-child').onclick = () => hold.remove(); }); });
+    h(box, 'div', 'aa-muted aa-small', 'Les mots soulignés en pointillé ouvrent leur règle.');
   }
-  const goal = h(root, 'div', 'aa-lesson-goal');
-  h(goal, 'b', null, 'Objectifs');
+  const goal = details(root, '🎯 Ce que tu vas apprendre', false, 'aa-sec aa-lesson-goal');
   const ul = h(goal, 'ul'); L.goal.forEach(g => mdText(ul, 'li', null, g));
   if (L.rules && L.rules.length) {
     const r = h(goal, 'div', 'aa-small'); h(r, 'span', 'aa-muted', 'Fiches de ton coffre : ');
     L.rules.forEach((n, i) => { const a = h(r, 'a', 'aa-link', n); a.addEventListener('click', e => { e.preventDefault(); ctx.openPath('2 - Règles/' + n + '.md'); }); if (i < L.rules.length - 1) r.appendChild(document.createTextNode(' · ')); });
   }
-  for (let si = 0; si < L.sections.length; si++) {
+  const NS = L.sections.length;
+  const stepBar = h(root, 'div', 'aa-steps');
+  const steps = [];
+  const openStep = (i, scroll) => {
+    steps.forEach((d, j) => { d.open = j === i; });
+    stepBar.querySelectorAll('.aa-step-dot').forEach((b, j) => { b.classList.toggle('aa-on', j === i); b.classList.toggle('aa-seen', j < i); });
+    state.step = i;
+    if (scroll && steps[i] && steps[i].scrollIntoView) setTimeout(() => steps[i].scrollIntoView({ block: 'start', behavior: 'smooth' }), 30);
+  };
+  h(stepBar, 'span', 'aa-muted aa-small', 'Étapes :');
+  for (let si = 0; si < NS; si++) { const b = h(stepBar, 'button', 'aa-step-dot', String(si + 1)); b.title = L.sections[si].t; b.addEventListener('click', ev => { ev.preventDefault(); openStep(si, true); }); }
+  if (state.stepFor !== L.id) { state.step = 0; state.stepFor = L.id; }
+  for (let si = 0; si < NS; si++) {
     const S = L.sections[si];
-    const sec = h(root, 'div', 'aa-lesson-sec');
-    h(sec, 'h3', null, (si + 1) + '. ' + S.t);
+    const det = h(root, 'details', 'aa-step');
+    const sm = h(det, 'summary'); h(sm, 'span', 'aa-step-n', String(si + 1)); h(sm, 'span', 'aa-step-t', S.t);
+    det.addEventListener('toggle', () => { if (det.open && state.step !== si) openStep(si, false); });
+    steps.push(det);
+    const sec = h(det, 'div', 'aa-lesson-sec');
     if (S.md) S.md.split(/\n\n+/).forEach(par => {
       if (/^```/.test(par)) { const pre = h(sec, 'pre', 'aa-small'); pre.textContent = par.replace(/^```\w*\n?|```$/g, ''); return; }
       if (/^(- |\d\. )/m.test(par) && par.split('\n').every(l => /^(- |\d\. )/.test(l))) { const list = h(sec, /^\d/.test(par) ? 'ol' : 'ul'); par.split('\n').forEach(l => mdText(list, 'li', null, l.replace(/^(- |\d\. )/, ''))); return; }
@@ -3389,8 +3402,12 @@ async function renderLesson(ctx, root, state, L) {
       h(box, 'div', 'aa-verse-fr', s + ':' + v + ' ' + vv[0]);
       renderIrab(ctx, h(box, 'div', 'aa-struct'), vv[2], [s, v]);
     }
+    const nx = h(sec, 'div', 'aa-actions aa-step-next');
+    if (si < NS - 1) btn(nx, 'Étape suivante : ' + L.sections[si + 1].t + ' →', () => openStep(si + 1, true), 'mod-cta');
+    else btn(nx, 'Fini ! Voir le résumé et les questions ↓', () => { steps[si].open = false; keepBox.scrollIntoView && keepBox.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 'mod-cta');
   }
-  const keep = h(root, 'div', 'aa-lesson-keep');
+  openStep(Math.min(state.step || 0, NS - 1), false);
+  const keep = h(root, 'div', 'aa-lesson-keep'); const keepBox = keep;
   h(keep, 'b', null, '📌 À retenir');
   const kl = h(keep, 'ul'); L.keep.forEach(x => mdText(kl, 'li', null, x));
   const kb = h(keep, 'div', 'aa-actions');
@@ -4190,9 +4207,10 @@ const DEFAULT_SETTINGS = {
   style: 'sci', showTr: true, showFr: true, showRu: false, arSize: 30, openLetters: false,
   flashFile: '5 - Flashcards/Atelier - mes phrases.md', lastSurah: 1,
   audio: true, ruExpl: false, tajwid: false, fixFolder: '4 - Références/Atelier - corrections', vocabFile: '4 - Références/Vocabulaire.md', textsFolder: '3 - Textes',
-  myWords: {}, progress: null, lessons: {}, surahOrder: 'mushaf',
+  myWords: {}, progress: null, lessons: {}, surahOrder: 'mushaf', wordColors: true, arFont: 'amiri',
 };
 function emptyProgress() { return { byType: { case: { ok: 0, n: 0 }, mood: { ok: 0, n: 0 }, sens: { ok: 0, n: 0 }, phrase: { ok: 0, n: 0 } }, lem: {} }; }
+const TAB_ICONS = { coran: 'book-open', alphabet: 'a-large-small', lessons: 'graduation-cap', rules: 'book-marked', dict: 'library', analyse: 'scan-search', build: 'blocks', signs: 'flask-conical', quiz: 'target' };
 const TABS = [
   ['coran', 'Coran', 'Lire une sourate mot par mot'], ['alphabet', 'Alphabet', 'Les lettres et leur prononciation'], ['lessons', 'Leçons', 'Parcours de grammaire guidé'], ['rules', 'Règles', 'Les règles expliquées simplement'], ['dict', 'Dictionnaire', 'Tous les mots du Coran'], ['analyse', 'Analyser', 'Analyser un texte arabe'],
   ['build', 'Construire', 'Construire une phrase'], ['signs', 'Signes', 'Laboratoire des signes'], ['quiz', 'Entraînement', 'S\'entraîner'],
@@ -4228,8 +4246,12 @@ class AtelierView extends ItemView {
   }
   render() {
     clear(this.nav);
+    this.contentEl.classList.toggle('aa-nocolor', this.plugin.settings.wordColors === false);
+    this.contentEl.classList.toggle('aa-font-device', this.plugin.settings.arFont === 'device');
     TABS.forEach(([id, label, title]) => {
-      const b = h(this.nav, 'button', 'aa-tab' + (this.tab === id ? ' aa-on' : ''), label);
+      const b = h(this.nav, 'button', 'aa-tab' + (this.tab === id ? ' aa-on' : ''));
+      if (TAB_ICONS[id] && typeof setIcon === 'function') { try { setIcon(h(b, 'span', 'aa-tab-ic'), TAB_ICONS[id]); } catch (e) { /* */ } }
+      h(b, 'span', 'aa-tab-lab', label);
       b.title = title;
       b.addEventListener('click', () => this.setTab(id));
     });
@@ -4245,6 +4267,15 @@ class AtelierView extends ItemView {
     else if (this.tab === 'build') renderBuildTab(ctx, this.body, st);
     else if (this.tab === 'signs') renderSignsTab(ctx, this.body, st);
     else renderQuizTab(ctx, this.body, st);
+    // l'aide du haut de l'onglet se replie : on l'ouvre seulement si on en a besoin
+    const help = this.body.querySelector(':scope > .aa-help');
+    if (help) {
+      const d = document.createElement('details'); d.className = 'aa-howto';
+      const sm = h(d, 'summary', null, 'ⓘ Comment utiliser cet onglet');
+      help.parentNode.insertBefore(d, help); d.appendChild(help);
+    }
+    if (this.body.scrollTo && this.tab !== this._lastTab) { try { this.contentEl.scrollTop = 0; } catch (e) { /* */ } }
+    this._lastTab = this.tab;
   }
 }
 
@@ -4262,6 +4293,10 @@ class AtelierSettingTab extends PluginSettingTab {
     new Setting(el).setName('Afficher la traduction russe').setDesc('Traduction d\'Elmir Kuliev (Кулиев).').addToggle(t => t.setValue(s.showRu).onChange(async v => { s.showRu = v; await p.saveSettings(); }));
     new Setting(el).setName('Ordre des sourates').setDesc('Ordre du Coran (1 à 114, comme dans le livre), ou ordre de la révélation (de la première sourate révélée, al-ʿAlaq, à la dernière).')
       .addDropdown(d => d.addOption('mushaf', 'ordre du Coran').addOption('nuzul', 'ordre de la révélation').setValue(s.surahOrder || 'mushaf').onChange(async v => { s.surahOrder = v; await p.saveSettings(); p.refreshViews && p.refreshViews(); }));
+    new Setting(el).setName('Police arabe').setDesc('« Amiri Quran » est incluse dans le plugin : elle affiche correctement tous les petits signes du Coran, sur PC comme sur iPad.')
+      .addDropdown(d => d.addOption('amiri', 'Amiri Quran (incluse)').addOption('device', 'police de l\'appareil').setValue(s.arFont || 'amiri').onChange(async v => { s.arFont = v; await p.saveSettings(); }));
+    new Setting(el).setName('Couleurs des mots').setDesc('Dans le Coran : bleu = nom, rouge = verbe, gris = particule. Désactivé : texte d\'une seule couleur, plus reposant.')
+      .addToggle(t => t.setValue(s.wordColors !== false).onChange(async v => { s.wordColors = v; await p.saveSettings(); }));
     new Setting(el).setName('Taille du texte arabe').setDesc('En pixels (30 par défaut).')
       .addSlider(sl => sl.setLimits(20, 48, 2).setValue(s.arSize).setDynamicTooltip().onChange(async v => { s.arSize = v; await p.saveSettings(); }));
     new Setting(el).setName('Explications aussi en russe').setDesc('Pour les russophones. Ajoute la version russe sous les explications de cas et de mode, le sens russe des mots, et les comparaisons avec la grammaire russe dans les règles. Désactivé : tout est en français.')
