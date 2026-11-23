@@ -12,7 +12,7 @@ function renderReciteBar(ctx, root, bar, state, nV) {
   const f2 = field(box, 'Vitesse');
   selectEl(f2, [['0.5', '0,5× (très lent)'], ['0.6', '0,6×'], ['0.75', '0,75× (lent)'], ['0.85', '0,85×'], ['1', '1× (normal)']], String(S.audioRate || 1), v => { S.audioRate = +v; setAudioRate(+v); ctx.save(); });
   const f3 = field(box, 'Répéter');
-  selectEl(f3, [['1', '1 fois'], ['2', '2 fois'], ['3', '3 fois'], ['5', '5 fois']], String(S.audioRepeat || 1), v => { S.audioRepeat = +v; AUDIO.repeat = +v; ctx.save(); });
+  selectEl(f3, [['1', '1 fois'], ['2', '2 fois'], ['3', '3 fois'], ['5', '5 fois'], ['0', '∞ en boucle']], String(S.audioRepeat == null ? 1 : S.audioRepeat), v => { S.audioRepeat = +v; AUDIO.repeat = +v; ctx.save(); });
   const act = h(box, 'div', 'aa-recite-act');
   const PAGE = 20; const from = (state.page || 0) * PAGE + 1, to = Math.min(nV, from + PAGE - 1);
   const list = []; for (let v = from; v <= to; v++) list.push(v);
@@ -90,6 +90,7 @@ function renderQuranTab(ctx, root, state) {
   checkbox(tg, 'français', ctx.settings.showFr, v => { ctx.settings.showFr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'couleurs des mots', ctx.settings.wordColors !== false, v => { ctx.settings.wordColors = v; ctx.save(); const r = root.closest && root.closest('.aa-root'); if (r) r.classList.toggle('aa-nocolor', !v); });
   checkbox(tg, '🎨 prononciation', !!ctx.settings.tajwid, v => { ctx.settings.tajwid = v; ctx.save(); renderQuranTab(ctx, root, state); });
+  checkbox(tg, 'sans voyelles', !!ctx.settings.noVowels, v => { ctx.settings.noVowels = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, '👁 m\'entraîner à lire', !!ctx.settings.practice, v => { ctx.settings.practice = v; ctx.save(); const b = root.querySelector('.aa-verses'); if (b) b.classList.toggle('aa-practice', v); });
   renderBookmarks(ctx, root, state, n => goSurah(n));
   const course = ctx.courseSurahs();

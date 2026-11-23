@@ -69,6 +69,8 @@ function details(parent, title, open, cls) {
 function copyText(t) {
   try { navigator.clipboard.writeText(t).then(() => notify('Copié dans le presse-papiers'), () => notify('Impossible de copier')); } catch (e) { notify('Impossible de copier'); }
 }
+/* le texte sans voyelles (ni petits signes du Coran) : pour s'entraîner à lire comme dans un livre */
+function noVowels(t) { return String(t).replace(/[\u064B-\u0652\u0670\u0653-\u0655\u06D6-\u06ED]/g, '').replace(/\u0671/g, '\u0627'); }
 /* iPad / iPhone : menu de partage du système ; ordinateur : copie */
 function canShare() { try { return !!(navigator.share && window.matchMedia && window.matchMedia('(pointer: coarse)').matches); } catch (e) { return false; } }
 function shareText(text, title) {
@@ -140,7 +142,7 @@ function verseUrls(s, v) {
 }
 /* Joue un verset (répété AUDIO.repeat fois), puis appelle onEnd */
 function playVerse(s, v, onEnd, keepSeq) {
-  let left = Math.max(1, AUDIO.repeat || 1);
+  let left = AUDIO.repeat === 0 ? (keepSeq ? 1 : Infinity) : Math.max(1, AUDIO.repeat || 1); // 0 = en boucle
   if (!keepSeq) stopAudio();
   const my = audioSeq;
   const once = () => playUrl(verseUrls(s, v), null, () => { if (my !== audioSeq) return; left--; if (left > 0) setTimeout(once, 600); else if (onEnd) onEnd(); }, true);
@@ -152,7 +154,7 @@ function playVerses(s, list, onVerse, onDone) {
   const my = audioSeq; let i = 0;
   const next = () => {
     if (my !== audioSeq) return;
-    if (i >= list.length) { if (onDone) onDone(); return; }
+    if (i >= list.length) { if (AUDIO.repeat === 0 && list.length) { i = 0; setTimeout(next, 900); return; } if (onDone) onDone(); return; }
     const v = list[i++]; if (onVerse) onVerse(v);
     playVerse(s, v, () => setTimeout(next, 400), true);
   };
@@ -398,6 +400,7 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
       const sp = arSpan(line, wordText(w), 'aa-w ' + (POS_CLASS[st.f.pos] || '') + (isInitials(w) ? ' aa-pos-inl' : '') + (st.seg[3] >= 0 && ctx.isMine(st.seg[3]) ? ' aa-mine' : ''));
       sp.title = tokens[wi];
       if (tj) { sp.textContent = ''; fillTajwid(sp, tj[wi]); }
+      else if (S.noVowels) sp.textContent = noVowels(wordText(w));
       sp.addEventListener('click', () => {
         spans.forEach(x => x.classList.remove('aa-w-sel')); sp.classList.add('aa-w-sel');
         renderWordDetail(ctx, detail, words, wi, [surahN, vn, wi + 1], v);
@@ -428,6 +431,19 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
     const vText = () => words.map(wordText).join(' ') + '\n' + tokens.join(' ') + '\n« ' + v[0] + ' » (' + info[1] + ' ' + surahN + ':' + vn + ')';
     btn(tools, canShare() ? '↗ Partager' : 'Copier le verset', () => shareText(vText(), info[1] + ' ' + surahN + ':' + vn), 'aa-btn-quiet');
     btn(tools, 'Insérer dans la note', () => ctx.insertText('> [!quote] ' + info[1] + ' ' + surahN + ':' + vn + '\n> ' + words.map(wordText).join(' ') + '\n> *' + tokens.join(' ') + '*\n> ' + v[0] + '\n\n'), 'aa-btn-quiet');
+    const key = surahN + ':' + vn; const notes = S.verseNotes || {};
+    const noteBox = h(box, 'div', 'aa-vnote' + (notes[key] ? '' : ' aa-hidden'));
+    const paintNote = () => { clear(noteBox); noteBox.classList.toggle('aa-hidden', !(S.verseNotes || {})[key]); if ((S.verseNotes || {})[key]) { h(noteBox, 'span', 'aa-vnote-ic', '📝 '); noteBox.appendChild(document.createTextNode(S.verseNotes[key])); } };
+    paintNote();
+    btn(tools, notes[key] ? '📝 Ma remarque' : '📝 Remarque', ev => {
+      if (box.querySelector('.aa-vnote-edit')) return;
+      const ed = h(document.createElement('div'), 'div', 'aa-vnote-edit'); box.insertBefore(ed, noteBox.nextSibling);
+      const ta = h(ed, 'textarea', 'aa-vnote-ta'); ta.rows = 3; ta.placeholder = 'Ta remarque sur ce verset (un mot appris, une question, un souvenir…)'; ta.value = (S.verseNotes || {})[key] || '';
+      const row = h(ed, 'div', 'aa-actions');
+      const done = () => { const t = ta.value.trim(); S.verseNotes = S.verseNotes || {}; if (t) S.verseNotes[key] = t; else delete S.verseNotes[key]; ctx.save(); ed.remove(); paintNote(); ev.target.textContent = t ? '📝 Ma remarque' : '📝 Remarque'; };
+      btn(row, 'Enregistrer', done, 'mod-cta'); btn(row, 'Annuler', () => ed.remove(), 'aa-btn-quiet');
+      setTimeout(() => { try { ta.focus(); } catch (e) { /* */ } }, 20);
+    }, 'aa-btn-quiet').title = 'Écrire ta propre remarque sur ce verset';
     box.appendChild(structBox);
     box.appendChild(detail);
   }

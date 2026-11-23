@@ -60,6 +60,10 @@ function dictSearch(data, q, filter) {
   return out.sort((a, b) => b[1] - a[1]).map(x => x[0]);
 }
 
+function rememberWord(ctx, id) {
+  const L = (ctx.settings.recentWords || []).filter(x => x !== id); L.unshift(id);
+  ctx.settings.recentWords = L.slice(0, 12); ctx.save();
+}
 function renderDictTab(ctx, root, state) {
   clear(root);
   const data = ctx.data;
@@ -77,14 +81,21 @@ function renderDictTab(ctx, root, state) {
   const cols = h(root, 'div', 'aa-dict');
   const listEl = h(cols, 'div', 'aa-dict-list');
   const entryEl = h(cols, 'div', 'aa-dict-entry');
-  const showEntry = (id) => { state.entry = id; renderDictEntry(ctx, entryEl, id, showEntry); listEl.querySelectorAll('.aa-dict-row').forEach(r => r.classList.toggle('aa-on', +r.dataset.id === id)); entryEl.scrollIntoView && window.innerWidth < 800 && entryEl.scrollIntoView({ block: 'start' }); };
+  const showEntry = (id) => { state.entry = id; rememberWord(ctx, id); renderDictEntry(ctx, entryEl, id, showEntry); listEl.querySelectorAll('.aa-dict-row').forEach(r => r.classList.toggle('aa-on', +r.dataset.id === id)); entryEl.scrollIntoView && window.innerWidth < 800 && entryEl.scrollIntoView({ block: 'start' }); };
   if (state.mode === 'search') {
     const bar = h(listEl, 'div', 'aa-toolbar');
-    const inp = h(bar, 'input', 'aa-input-line aa-dict-q'); inp.type = 'search'; inp.placeholder = 'كتب · livre · kitāb'; inp.value = state.q || '';
+    const inp = h(bar, 'input', 'aa-input-line aa-dict-q'); inp.type = 'search'; inp.placeholder = 'كتب · livre · kitāb'; if (state.q == null) state.q = ctx.settings.dictQ || ''; inp.value = state.q;
     selectEl(bar, [['all', 'tous'], ['N', 'noms'], ['V', 'verbes'], ['P', 'particules']], state.filter || 'all', v => { state.filter = v; renderDictTab(ctx, root, state); });
     const res = h(listEl, 'div');
     const run = () => {
       state.q = inp.value; clear(res);
+      if (ctx.settings.dictQ !== state.q) { ctx.settings.dictQ = state.q; ctx.save(); }
+      const recent = (ctx.settings.recentWords || []).filter(i => data.lemmas[i]);
+      if (!state.q.trim() && recent.length) {
+        h(res, 'div', 'aa-muted aa-small', 'Récemment vus :');
+        const chips = h(res, 'div', 'aa-recent');
+        recent.forEach(i => { const c = h(chips, 'span', 'aa-chip aa-recent-chip'); arSpan(c, data.lemmas[i][0]); h(c, 'span', 'aa-small aa-muted', ' ' + data.lemmas[i][4]); c.addEventListener('click', () => showEntry(i)); });
+      }
       const ids = dictSearch(data, state.q, state.filter);
       h(res, 'div', 'aa-muted aa-small', state.q ? ids.length + ' résultat(s)' : 'Les mots les plus fréquents :');
       renderRows(ctx, h(res, 'div'), ids, 60, showEntry);

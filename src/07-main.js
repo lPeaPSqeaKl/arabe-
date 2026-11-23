@@ -50,6 +50,7 @@ class AtelierView extends ItemView {
     this.render();
     /* ordinateur : flèches ← → dans l'onglet Coran (sourate / versets suivants) */
     this.registerDomEvent(document, 'keydown', ev => {
+      if (ev.altKey && ev.key === 'ArrowLeft' && this.back && this.back.length) { const t = ev.target; if (!(t && t.closest && t.closest('input, textarea'))) { ev.preventDefault(); this.goBack(); return; } }
       if (ev.key === 'Escape' && this.contentEl.classList.contains('aa-reading')) { setReading(this.contentEl, false); return; }
       if (this.tab !== 'coran' || ev.altKey || ev.ctrlKey || ev.metaKey || (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight')) return;
       const ws = (this.app || this.plugin.app || {}).workspace; if (ws && ws.activeLeaf && ws.activeLeaf !== this.leaf) return;
@@ -59,6 +60,21 @@ class AtelierView extends ItemView {
     });
   }
   async onClose() { try { stopAudio(); } catch (e) { /* */ } clear(this.contentEl); }
+  /* « ← Retour » : on garde l'endroit d'où l'on vient quand on suit un lien */
+  pushBack() {
+    if (!this.body) return;
+    const st = Object.assign({}, this.states[this.tab]);
+    if (this.tab === 'coran') { st.focus = 0; st.resume = this.plugin.settings.lastSurah === st.surah ? this.plugin.settings.lastVerse : 0; }
+    (this.back = this.back || []).push({ tab: this.tab, st, top: this.contentEl.scrollTop || 0 });
+    if (this.back.length > 20) this.back.shift();
+  }
+  goBack() {
+    const b = (this.back || []).pop(); if (!b) return;
+    this.tab = b.tab; this.states[b.tab] = b.st;
+    if (this.plugin.settings.lastTab !== b.tab) { this.plugin.settings.lastTab = b.tab; this.plugin.saveData(this.plugin.settings); }
+    this._lastTab = b.tab; this.render();
+    if (b.tab !== 'coran') setTimeout(() => { try { this.contentEl.scrollTop = b.top; } catch (e) { /* */ } }, 60);
+  }
   setTab(tab, opts) {
     this.tab = tab;
     if (this.plugin.settings.lastTab !== tab) { this.plugin.settings.lastTab = tab; this.plugin.saveData(this.plugin.settings); }
@@ -79,7 +95,7 @@ class AtelierView extends ItemView {
       if (TAB_ICONS[id] && typeof setIcon === 'function') { try { setIcon(h(b, 'span', 'aa-tab-ic'), TAB_ICONS[id]); } catch (e) { /* */ } }
       h(b, 'span', 'aa-tab-lab', label);
       b.title = title;
-      b.addEventListener('click', () => this.setTab(id));
+      b.addEventListener('click', () => { this.back = []; this.setTab(id); });
     });
     const ctx = this.plugin.ctx(this);
     const st = this.states[this.tab];
@@ -96,6 +112,13 @@ class AtelierView extends ItemView {
     else if (this.tab === 'build') renderBuildTab(ctx, this.body, st);
     else if (this.tab === 'signs') renderSignsTab(ctx, this.body, st);
     else renderQuizTab(ctx, this.body, st);
+    if (this.back && this.back.length) {
+      const last = this.back[this.back.length - 1];
+      const lab = (TABS.find(t => t[0] === last.tab) || [, ''])[1];
+      const bb = document.createElement('button'); bb.className = 'aa-btn aa-btn-quiet aa-back'; bb.textContent = '← Retour' + (lab ? ' (' + lab + ')' : '');
+      bb.addEventListener('click', ev => { ev.preventDefault(); this.goBack(); });
+      this.body.insertBefore(bb, this.body.firstChild);
+    }
     // l'aide du haut de l'onglet se replie : on l'ouvre seulement si on en a besoin
     const help = this.body.querySelector(':scope > .aa-help');
     if (help) {
@@ -170,7 +193,7 @@ class AtelierArabePlugin extends Plugin {
     if (!this.settings.progress) this.settings.progress = emptyProgress();
     if (!this.settings.myWords) this.settings.myWords = {};
     if (!this.settings.lessons) this.settings.lessons = {};
-    AUDIO.reciter = this.settings.reciter || 'Alafasy_128kbps'; AUDIO.rate = this.settings.audioRate || 1; AUDIO.repeat = this.settings.audioRepeat || 1;
+    AUDIO.reciter = this.settings.reciter || 'Alafasy_128kbps'; AUDIO.rate = this.settings.audioRate || 1; AUDIO.repeat = this.settings.audioRepeat == null ? 1 : this.settings.audioRepeat;
     this.data = new QuranData(this.app, this.manifest.dir);
     this.scanAudio();
     notify = (m) => new Notice(m);
@@ -281,7 +304,7 @@ class AtelierArabePlugin extends Plugin {
     if (!leaf) { leaf = ws.getLeaf('tab'); await leaf.setViewState({ type: VIEW_TYPE, active: true }); }
     ws.revealLeaf(leaf);
     if (opts && opts.surah) { this.settings.lastSurah = opts.surah; this.saveData(this.settings); }
-    if (tab && leaf.view && leaf.view.setTab) leaf.view.setTab(tab, opts);
+    if (tab && leaf.view && leaf.view.setTab) { if (leaf.view.pushBack) leaf.view.pushBack(); leaf.view.setTab(tab, opts); }
   }
   courseSurahs() {
     if (!this.data.surahs) return [];

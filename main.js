@@ -1845,6 +1845,8 @@ function details(parent, title, open, cls) {
 function copyText(t) {
   try { navigator.clipboard.writeText(t).then(() => notify('Copié dans le presse-papiers'), () => notify('Impossible de copier')); } catch (e) { notify('Impossible de copier'); }
 }
+/* le texte sans voyelles (ni petits signes du Coran) : pour s'entraîner à lire comme dans un livre */
+function noVowels(t) { return String(t).replace(/[\u064B-\u0652\u0670\u0653-\u0655\u06D6-\u06ED]/g, '').replace(/\u0671/g, '\u0627'); }
 /* iPad / iPhone : menu de partage du système ; ordinateur : copie */
 function canShare() { try { return !!(navigator.share && window.matchMedia && window.matchMedia('(pointer: coarse)').matches); } catch (e) { return false; } }
 function shareText(text, title) {
@@ -1916,7 +1918,7 @@ function verseUrls(s, v) {
 }
 /* Joue un verset (répété AUDIO.repeat fois), puis appelle onEnd */
 function playVerse(s, v, onEnd, keepSeq) {
-  let left = Math.max(1, AUDIO.repeat || 1);
+  let left = AUDIO.repeat === 0 ? (keepSeq ? 1 : Infinity) : Math.max(1, AUDIO.repeat || 1); // 0 = en boucle
   if (!keepSeq) stopAudio();
   const my = audioSeq;
   const once = () => playUrl(verseUrls(s, v), null, () => { if (my !== audioSeq) return; left--; if (left > 0) setTimeout(once, 600); else if (onEnd) onEnd(); }, true);
@@ -1928,7 +1930,7 @@ function playVerses(s, list, onVerse, onDone) {
   const my = audioSeq; let i = 0;
   const next = () => {
     if (my !== audioSeq) return;
-    if (i >= list.length) { if (onDone) onDone(); return; }
+    if (i >= list.length) { if (AUDIO.repeat === 0 && list.length) { i = 0; setTimeout(next, 900); return; } if (onDone) onDone(); return; }
     const v = list[i++]; if (onVerse) onVerse(v);
     playVerse(s, v, () => setTimeout(next, 400), true);
   };
@@ -2174,6 +2176,7 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
       const sp = arSpan(line, wordText(w), 'aa-w ' + (POS_CLASS[st.f.pos] || '') + (isInitials(w) ? ' aa-pos-inl' : '') + (st.seg[3] >= 0 && ctx.isMine(st.seg[3]) ? ' aa-mine' : ''));
       sp.title = tokens[wi];
       if (tj) { sp.textContent = ''; fillTajwid(sp, tj[wi]); }
+      else if (S.noVowels) sp.textContent = noVowels(wordText(w));
       sp.addEventListener('click', () => {
         spans.forEach(x => x.classList.remove('aa-w-sel')); sp.classList.add('aa-w-sel');
         renderWordDetail(ctx, detail, words, wi, [surahN, vn, wi + 1], v);
@@ -2204,6 +2207,19 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
     const vText = () => words.map(wordText).join(' ') + '\n' + tokens.join(' ') + '\n« ' + v[0] + ' » (' + info[1] + ' ' + surahN + ':' + vn + ')';
     btn(tools, canShare() ? '↗ Partager' : 'Copier le verset', () => shareText(vText(), info[1] + ' ' + surahN + ':' + vn), 'aa-btn-quiet');
     btn(tools, 'Insérer dans la note', () => ctx.insertText('> [!quote] ' + info[1] + ' ' + surahN + ':' + vn + '\n> ' + words.map(wordText).join(' ') + '\n> *' + tokens.join(' ') + '*\n> ' + v[0] + '\n\n'), 'aa-btn-quiet');
+    const key = surahN + ':' + vn; const notes = S.verseNotes || {};
+    const noteBox = h(box, 'div', 'aa-vnote' + (notes[key] ? '' : ' aa-hidden'));
+    const paintNote = () => { clear(noteBox); noteBox.classList.toggle('aa-hidden', !(S.verseNotes || {})[key]); if ((S.verseNotes || {})[key]) { h(noteBox, 'span', 'aa-vnote-ic', '📝 '); noteBox.appendChild(document.createTextNode(S.verseNotes[key])); } };
+    paintNote();
+    btn(tools, notes[key] ? '📝 Ma remarque' : '📝 Remarque', ev => {
+      if (box.querySelector('.aa-vnote-edit')) return;
+      const ed = h(document.createElement('div'), 'div', 'aa-vnote-edit'); box.insertBefore(ed, noteBox.nextSibling);
+      const ta = h(ed, 'textarea', 'aa-vnote-ta'); ta.rows = 3; ta.placeholder = 'Ta remarque sur ce verset (un mot appris, une question, un souvenir…)'; ta.value = (S.verseNotes || {})[key] || '';
+      const row = h(ed, 'div', 'aa-actions');
+      const done = () => { const t = ta.value.trim(); S.verseNotes = S.verseNotes || {}; if (t) S.verseNotes[key] = t; else delete S.verseNotes[key]; ctx.save(); ed.remove(); paintNote(); ev.target.textContent = t ? '📝 Ma remarque' : '📝 Remarque'; };
+      btn(row, 'Enregistrer', done, 'mod-cta'); btn(row, 'Annuler', () => ed.remove(), 'aa-btn-quiet');
+      setTimeout(() => { try { ta.focus(); } catch (e) { /* */ } }, 20);
+    }, 'aa-btn-quiet').title = 'Écrire ta propre remarque sur ce verset';
     box.appendChild(structBox);
     box.appendChild(detail);
   }
@@ -2326,7 +2342,7 @@ function renderReciteBar(ctx, root, bar, state, nV) {
   const f2 = field(box, 'Vitesse');
   selectEl(f2, [['0.5', '0,5× (très lent)'], ['0.6', '0,6×'], ['0.75', '0,75× (lent)'], ['0.85', '0,85×'], ['1', '1× (normal)']], String(S.audioRate || 1), v => { S.audioRate = +v; setAudioRate(+v); ctx.save(); });
   const f3 = field(box, 'Répéter');
-  selectEl(f3, [['1', '1 fois'], ['2', '2 fois'], ['3', '3 fois'], ['5', '5 fois']], String(S.audioRepeat || 1), v => { S.audioRepeat = +v; AUDIO.repeat = +v; ctx.save(); });
+  selectEl(f3, [['1', '1 fois'], ['2', '2 fois'], ['3', '3 fois'], ['5', '5 fois'], ['0', '∞ en boucle']], String(S.audioRepeat == null ? 1 : S.audioRepeat), v => { S.audioRepeat = +v; AUDIO.repeat = +v; ctx.save(); });
   const act = h(box, 'div', 'aa-recite-act');
   const PAGE = 20; const from = (state.page || 0) * PAGE + 1, to = Math.min(nV, from + PAGE - 1);
   const list = []; for (let v = from; v <= to; v++) list.push(v);
@@ -2404,6 +2420,7 @@ function renderQuranTab(ctx, root, state) {
   checkbox(tg, 'français', ctx.settings.showFr, v => { ctx.settings.showFr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'couleurs des mots', ctx.settings.wordColors !== false, v => { ctx.settings.wordColors = v; ctx.save(); const r = root.closest && root.closest('.aa-root'); if (r) r.classList.toggle('aa-nocolor', !v); });
   checkbox(tg, '🎨 prononciation', !!ctx.settings.tajwid, v => { ctx.settings.tajwid = v; ctx.save(); renderQuranTab(ctx, root, state); });
+  checkbox(tg, 'sans voyelles', !!ctx.settings.noVowels, v => { ctx.settings.noVowels = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, '👁 m\'entraîner à lire', !!ctx.settings.practice, v => { ctx.settings.practice = v; ctx.save(); const b = root.querySelector('.aa-verses'); if (b) b.classList.toggle('aa-practice', v); });
   renderBookmarks(ctx, root, state, n => goSurah(n));
   const course = ctx.courseSurahs();
@@ -3128,6 +3145,10 @@ function dictSearch(data, q, filter) {
   return out.sort((a, b) => b[1] - a[1]).map(x => x[0]);
 }
 
+function rememberWord(ctx, id) {
+  const L = (ctx.settings.recentWords || []).filter(x => x !== id); L.unshift(id);
+  ctx.settings.recentWords = L.slice(0, 12); ctx.save();
+}
 function renderDictTab(ctx, root, state) {
   clear(root);
   const data = ctx.data;
@@ -3145,14 +3166,21 @@ function renderDictTab(ctx, root, state) {
   const cols = h(root, 'div', 'aa-dict');
   const listEl = h(cols, 'div', 'aa-dict-list');
   const entryEl = h(cols, 'div', 'aa-dict-entry');
-  const showEntry = (id) => { state.entry = id; renderDictEntry(ctx, entryEl, id, showEntry); listEl.querySelectorAll('.aa-dict-row').forEach(r => r.classList.toggle('aa-on', +r.dataset.id === id)); entryEl.scrollIntoView && window.innerWidth < 800 && entryEl.scrollIntoView({ block: 'start' }); };
+  const showEntry = (id) => { state.entry = id; rememberWord(ctx, id); renderDictEntry(ctx, entryEl, id, showEntry); listEl.querySelectorAll('.aa-dict-row').forEach(r => r.classList.toggle('aa-on', +r.dataset.id === id)); entryEl.scrollIntoView && window.innerWidth < 800 && entryEl.scrollIntoView({ block: 'start' }); };
   if (state.mode === 'search') {
     const bar = h(listEl, 'div', 'aa-toolbar');
-    const inp = h(bar, 'input', 'aa-input-line aa-dict-q'); inp.type = 'search'; inp.placeholder = 'كتب · livre · kitāb'; inp.value = state.q || '';
+    const inp = h(bar, 'input', 'aa-input-line aa-dict-q'); inp.type = 'search'; inp.placeholder = 'كتب · livre · kitāb'; if (state.q == null) state.q = ctx.settings.dictQ || ''; inp.value = state.q;
     selectEl(bar, [['all', 'tous'], ['N', 'noms'], ['V', 'verbes'], ['P', 'particules']], state.filter || 'all', v => { state.filter = v; renderDictTab(ctx, root, state); });
     const res = h(listEl, 'div');
     const run = () => {
       state.q = inp.value; clear(res);
+      if (ctx.settings.dictQ !== state.q) { ctx.settings.dictQ = state.q; ctx.save(); }
+      const recent = (ctx.settings.recentWords || []).filter(i => data.lemmas[i]);
+      if (!state.q.trim() && recent.length) {
+        h(res, 'div', 'aa-muted aa-small', 'Récemment vus :');
+        const chips = h(res, 'div', 'aa-recent');
+        recent.forEach(i => { const c = h(chips, 'span', 'aa-chip aa-recent-chip'); arSpan(c, data.lemmas[i][0]); h(c, 'span', 'aa-small aa-muted', ' ' + data.lemmas[i][4]); c.addEventListener('click', () => showEntry(i)); });
+      }
       const ids = dictSearch(data, state.q, state.filter);
       h(res, 'div', 'aa-muted aa-small', state.q ? ids.length + ' résultat(s)' : 'Les mots les plus fréquents :');
       renderRows(ctx, h(res, 'div'), ids, 60, showEntry);
@@ -5751,6 +5779,7 @@ class AtelierView extends ItemView {
     this.render();
     /* ordinateur : flèches ← → dans l'onglet Coran (sourate / versets suivants) */
     this.registerDomEvent(document, 'keydown', ev => {
+      if (ev.altKey && ev.key === 'ArrowLeft' && this.back && this.back.length) { const t = ev.target; if (!(t && t.closest && t.closest('input, textarea'))) { ev.preventDefault(); this.goBack(); return; } }
       if (ev.key === 'Escape' && this.contentEl.classList.contains('aa-reading')) { setReading(this.contentEl, false); return; }
       if (this.tab !== 'coran' || ev.altKey || ev.ctrlKey || ev.metaKey || (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight')) return;
       const ws = (this.app || this.plugin.app || {}).workspace; if (ws && ws.activeLeaf && ws.activeLeaf !== this.leaf) return;
@@ -5760,6 +5789,21 @@ class AtelierView extends ItemView {
     });
   }
   async onClose() { try { stopAudio(); } catch (e) { /* */ } clear(this.contentEl); }
+  /* « ← Retour » : on garde l'endroit d'où l'on vient quand on suit un lien */
+  pushBack() {
+    if (!this.body) return;
+    const st = Object.assign({}, this.states[this.tab]);
+    if (this.tab === 'coran') { st.focus = 0; st.resume = this.plugin.settings.lastSurah === st.surah ? this.plugin.settings.lastVerse : 0; }
+    (this.back = this.back || []).push({ tab: this.tab, st, top: this.contentEl.scrollTop || 0 });
+    if (this.back.length > 20) this.back.shift();
+  }
+  goBack() {
+    const b = (this.back || []).pop(); if (!b) return;
+    this.tab = b.tab; this.states[b.tab] = b.st;
+    if (this.plugin.settings.lastTab !== b.tab) { this.plugin.settings.lastTab = b.tab; this.plugin.saveData(this.plugin.settings); }
+    this._lastTab = b.tab; this.render();
+    if (b.tab !== 'coran') setTimeout(() => { try { this.contentEl.scrollTop = b.top; } catch (e) { /* */ } }, 60);
+  }
   setTab(tab, opts) {
     this.tab = tab;
     if (this.plugin.settings.lastTab !== tab) { this.plugin.settings.lastTab = tab; this.plugin.saveData(this.plugin.settings); }
@@ -5780,7 +5824,7 @@ class AtelierView extends ItemView {
       if (TAB_ICONS[id] && typeof setIcon === 'function') { try { setIcon(h(b, 'span', 'aa-tab-ic'), TAB_ICONS[id]); } catch (e) { /* */ } }
       h(b, 'span', 'aa-tab-lab', label);
       b.title = title;
-      b.addEventListener('click', () => this.setTab(id));
+      b.addEventListener('click', () => { this.back = []; this.setTab(id); });
     });
     const ctx = this.plugin.ctx(this);
     const st = this.states[this.tab];
@@ -5797,6 +5841,13 @@ class AtelierView extends ItemView {
     else if (this.tab === 'build') renderBuildTab(ctx, this.body, st);
     else if (this.tab === 'signs') renderSignsTab(ctx, this.body, st);
     else renderQuizTab(ctx, this.body, st);
+    if (this.back && this.back.length) {
+      const last = this.back[this.back.length - 1];
+      const lab = (TABS.find(t => t[0] === last.tab) || [, ''])[1];
+      const bb = document.createElement('button'); bb.className = 'aa-btn aa-btn-quiet aa-back'; bb.textContent = '← Retour' + (lab ? ' (' + lab + ')' : '');
+      bb.addEventListener('click', ev => { ev.preventDefault(); this.goBack(); });
+      this.body.insertBefore(bb, this.body.firstChild);
+    }
     // l'aide du haut de l'onglet se replie : on l'ouvre seulement si on en a besoin
     const help = this.body.querySelector(':scope > .aa-help');
     if (help) {
@@ -5871,7 +5922,7 @@ class AtelierArabePlugin extends Plugin {
     if (!this.settings.progress) this.settings.progress = emptyProgress();
     if (!this.settings.myWords) this.settings.myWords = {};
     if (!this.settings.lessons) this.settings.lessons = {};
-    AUDIO.reciter = this.settings.reciter || 'Alafasy_128kbps'; AUDIO.rate = this.settings.audioRate || 1; AUDIO.repeat = this.settings.audioRepeat || 1;
+    AUDIO.reciter = this.settings.reciter || 'Alafasy_128kbps'; AUDIO.rate = this.settings.audioRate || 1; AUDIO.repeat = this.settings.audioRepeat == null ? 1 : this.settings.audioRepeat;
     this.data = new QuranData(this.app, this.manifest.dir);
     this.scanAudio();
     notify = (m) => new Notice(m);
@@ -5982,7 +6033,7 @@ class AtelierArabePlugin extends Plugin {
     if (!leaf) { leaf = ws.getLeaf('tab'); await leaf.setViewState({ type: VIEW_TYPE, active: true }); }
     ws.revealLeaf(leaf);
     if (opts && opts.surah) { this.settings.lastSurah = opts.surah; this.saveData(this.settings); }
-    if (tab && leaf.view && leaf.view.setTab) leaf.view.setTab(tab, opts);
+    if (tab && leaf.view && leaf.view.setTab) { if (leaf.view.pushBack) leaf.view.pushBack(); leaf.view.setTab(tab, opts); }
   }
   courseSurahs() {
     if (!this.data.surahs) return [];
