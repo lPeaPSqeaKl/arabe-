@@ -823,3 +823,13 @@ li.aa-rule-inline { list-style: none; border: none; background: none; }
 .aa-recent-chip { cursor: pointer; }
 .aa-recent-chip .aa-ar { font-size: 1.2em; }
 .aa-root.aa-reading .aa-back, .aa-root.aa-reading .aa-vnote-edit { display: none; }
+
+/* ---- réglages dans l'atelier ---- */
+.aa-tab-gear { margin-left: auto; }
+.aa-settings-inview { max-width: 760px; }
+.aa-settings-inview .setting-item { padding: 12px 0; border-top: 1px solid var(--background-modifier-border); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.aa-settings-inview .setting-item-info { flex: 1 1 260px; }
+.aa-settings-inview .setting-item-description { color: var(--text-muted); font-size: .88em; }
+.aa-tabs .aa-tab-gear { position: sticky; right: 0; background: var(--background-primary); box-shadow: -8px 0 8px -6px rgba(0,0,0,.15); z-index: 2; }
+.aa-root.aa-paper .aa-tabs .aa-tab-gear { background: var(--aa-paper-bg); }
+.aa-tabs .aa-tab-gear.aa-on { background: var(--interactive-accent); }

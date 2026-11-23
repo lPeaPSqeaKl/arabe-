@@ -32,7 +32,7 @@ class AtelierView extends ItemView {
     super(leaf);
     this.plugin = plugin;
     this.tab = TABS.some(t => t[0] === plugin.settings.lastTab) ? plugin.settings.lastTab : 'home';
-    this.states = { coran: { surah: plugin.settings.lastSurah || 1, page: 0, resume: plugin.settings.lastVerse || 0 }, dict: {}, alphabet: {}, home: {}, write: {}, lessons: plugin.settings.lessonPlace && plugin.settings.lessonPlace.open ? { open: plugin.settings.lessonPlace.open, step: plugin.settings.lessonPlace.step || 0, stepFor: plugin.settings.lessonPlace.open } : {}, rules: {}, review: {}, analyse: {}, build: {}, signs: {}, quiz: {} };
+    this.states = { coran: { surah: plugin.settings.lastSurah || 1, page: 0, resume: plugin.settings.lastVerse || 0 }, dict: {}, alphabet: {}, home: {}, write: {}, lessons: plugin.settings.lessonPlace && plugin.settings.lessonPlace.open ? { open: plugin.settings.lessonPlace.open, step: plugin.settings.lessonPlace.step || 0, stepFor: plugin.settings.lessonPlace.open } : {}, rules: {}, review: {}, analyse: {}, build: {}, signs: {}, quiz: {}, settings: {} };
   }
   getViewType() { return VIEW_TYPE; }
   getDisplayText() { return 'Atelier arabe'; }
@@ -77,7 +77,7 @@ class AtelierView extends ItemView {
   }
   setTab(tab, opts) {
     this.tab = tab;
-    if (this.plugin.settings.lastTab !== tab) { this.plugin.settings.lastTab = tab; this.plugin.saveData(this.plugin.settings); }
+    if (tab !== 'settings' && this.plugin.settings.lastTab !== tab) { this.plugin.settings.lastTab = tab; this.plugin.saveData(this.plugin.settings); }
     if (tab === 'review' && !this.states.review.session) this.states.review.decks = null; // relit les notes du coffre
     if (opts) Object.assign(this.states[tab], opts);
     if (this.body && this.plugin.data.surahs) this.render();
@@ -97,6 +97,10 @@ class AtelierView extends ItemView {
       b.title = title;
       b.addEventListener('click', () => { this.back = []; this.setTab(id); });
     });
+    const gear = h(this.nav, 'button', 'aa-tab aa-tab-gear' + (this.tab === 'settings' ? ' aa-on' : ''));
+    if (typeof setIcon === 'function') { try { setIcon(h(gear, 'span', 'aa-tab-ic'), 'settings'); } catch (e) { /* */ } }
+    h(gear, 'span', 'aa-tab-lab', 'Réglages'); gear.title = 'Réglages de l\'atelier (police, taille, son, couleurs…)';
+    gear.addEventListener('click', () => { if (this.tab !== 'settings') { this.pushBack(); this.setTab('settings'); } else this.goBack(); });
     const ctx = this.plugin.ctx(this);
     const st = this.states[this.tab];
     clear(this.body);
@@ -111,6 +115,7 @@ class AtelierView extends ItemView {
     else if (this.tab === 'analyse') renderAnalyseTab(ctx, this.body, st);
     else if (this.tab === 'build') renderBuildTab(ctx, this.body, st);
     else if (this.tab === 'signs') renderSignsTab(ctx, this.body, st);
+    else if (this.tab === 'settings') { h(this.body, 'h2', 'aa-set-title', '⚙ Réglages'); const box = h(this.body, 'div', 'aa-settings-inview'); fillSettings(box, this.plugin, false); }
     else renderQuizTab(ctx, this.body, st);
     if (this.back && this.back.length) {
       const last = this.back[this.back.length - 1];
@@ -133,11 +138,15 @@ class AtelierView extends ItemView {
 
 class AtelierSettingTab extends PluginSettingTab {
   constructor(app, plugin) { super(app, plugin); this.plugin = plugin; }
-  display() {
-    const el = this.containerEl; clear(el);
-    h(el, 'h2', null, 'Atelier arabe');
+  display() { fillSettings(this.containerEl, this.plugin, true); }
+}
+/* les réglages : dans Obsidian (Réglages › Atelier arabe) et dans l'atelier (bouton ⚙) */
+function fillSettings(el, plugin, inObsidian) {
+  {
+    clear(el);
+    if (inObsidian) h(el, 'h2', null, 'Atelier arabe');
     h(el, 'p', null, 'Toutes les données (Coran, traductions, analyse grammaticale) sont dans le dossier du plugin. Rien de ce que tu fais n\'est envoyé sur internet. Seul le son (si « Son en ligne » est activé) est téléchargé quand tu appuies sur ▶ ou 🔊.');
-    const p = this.plugin; const s = p.settings;
+    const p = plugin; const s = p.settings;
     new Setting(el).setName('Translittération').setDesc('Savante (ā, ū, sh, j) ou « à la française » (ou, ch, dj).')
       .addDropdown(d => d.addOption('sci', 'savante : al-ḥamdu, shukr').addOption('fr', 'à la française : al-ḥamdou, choukr').setValue(s.style).onChange(async v => { s.style = v; await p.saveSettings(); }));
     new Setting(el).setName('Afficher la translittération').addToggle(t => t.setValue(s.showTr).onChange(async v => { s.showTr = v; await p.saveSettings(); }));
