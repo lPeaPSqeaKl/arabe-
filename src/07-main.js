@@ -6,12 +6,12 @@ const DEFAULT_SETTINGS = {
   style: 'sci', showTr: true, showFr: true, showRu: false, arSize: 30, openLetters: false,
   flashFile: '5 - Flashcards/Atelier - mes phrases.md', lastSurah: 1,
   audio: true, ruExpl: false, tajwid: false, fixFolder: '4 - Références/Atelier - corrections', vocabFile: '4 - Références/Vocabulaire.md', textsFolder: '3 - Textes',
-  myWords: {}, progress: null, lessons: {}, surahOrder: 'mushaf', wordColors: true, arFont: 'amiri', reciter: 'Alafasy_128kbps', audioRate: 1, audioRepeat: 1,
+  myWords: {}, progress: null, lessons: {}, surahOrder: 'mushaf', wordColors: true, arFont: 'amiri', cardsFolder: '5 - Flashcards/Règles', srs: null, reciter: 'Alafasy_128kbps', audioRate: 1, audioRepeat: 1,
 };
 function emptyProgress() { return { byType: { case: { ok: 0, n: 0 }, mood: { ok: 0, n: 0 }, sens: { ok: 0, n: 0 }, phrase: { ok: 0, n: 0 } }, lem: {} }; }
-const TAB_ICONS = { coran: 'book-open', alphabet: 'a-large-small', lessons: 'graduation-cap', rules: 'book-marked', dict: 'library', analyse: 'scan-search', build: 'blocks', signs: 'flask-conical', quiz: 'target' };
+const TAB_ICONS = { coran: 'book-open', alphabet: 'a-large-small', lessons: 'graduation-cap', rules: 'book-marked', review: 'layers', dict: 'library', analyse: 'scan-search', build: 'blocks', signs: 'flask-conical', quiz: 'target' };
 const TABS = [
-  ['coran', 'Coran', 'Lire une sourate mot par mot'], ['alphabet', 'Alphabet', 'Les lettres et leur prononciation'], ['lessons', 'Leçons', 'Parcours de grammaire guidé'], ['rules', 'Règles', 'Les règles expliquées simplement'], ['dict', 'Dictionnaire', 'Tous les mots du Coran'], ['analyse', 'Analyser', 'Analyser un texte arabe'],
+  ['coran', 'Coran', 'Lire une sourate mot par mot'], ['alphabet', 'Alphabet', 'Les lettres et leur prononciation'], ['lessons', 'Leçons', 'Parcours de grammaire guidé'], ['rules', 'Règles', 'Les règles expliquées simplement'], ['review', 'Révision', 'Réviser les cartes de chaque règle'], ['dict', 'Dictionnaire', 'Tous les mots du Coran'], ['analyse', 'Analyser', 'Analyser un texte arabe'],
   ['build', 'Construire', 'Construire une phrase'], ['signs', 'Signes', 'Laboratoire des signes'], ['quiz', 'Entraînement', 'S\'entraîner'],
 ];
 
@@ -20,7 +20,7 @@ class AtelierView extends ItemView {
     super(leaf);
     this.plugin = plugin;
     this.tab = 'coran';
-    this.states = { coran: { surah: plugin.settings.lastSurah || 1, page: 0 }, dict: {}, alphabet: {}, lessons: {}, rules: {}, analyse: {}, build: {}, signs: {}, quiz: {} };
+    this.states = { coran: { surah: plugin.settings.lastSurah || 1, page: 0 }, dict: {}, alphabet: {}, lessons: {}, rules: {}, review: {}, analyse: {}, build: {}, signs: {}, quiz: {} };
   }
   getViewType() { return VIEW_TYPE; }
   getDisplayText() { return 'Atelier arabe'; }
@@ -40,6 +40,7 @@ class AtelierView extends ItemView {
   async onClose() { try { stopAudio(); } catch (e) { /* */ } clear(this.contentEl); }
   setTab(tab, opts) {
     this.tab = tab;
+    if (tab === 'review' && !this.states.review.session) this.states.review.decks = null; // relit les notes du coffre
     if (opts) Object.assign(this.states[tab], opts);
     if (this.body && this.plugin.data.surahs) this.render();
   }
@@ -62,6 +63,7 @@ class AtelierView extends ItemView {
     else if (this.tab === 'alphabet') renderAlphabetTab(ctx, this.body, st);
     else if (this.tab === 'lessons') renderLessonsTab(ctx, this.body, st);
     else if (this.tab === 'rules') renderRulesTab(ctx, this.body, st);
+    else if (this.tab === 'review') renderReviewTab(ctx, this.body, st);
     else if (this.tab === 'analyse') renderAnalyseTab(ctx, this.body, st);
     else if (this.tab === 'build') renderBuildTab(ctx, this.body, st);
     else if (this.tab === 'signs') renderSignsTab(ctx, this.body, st);
@@ -121,6 +123,8 @@ class AtelierSettingTab extends PluginSettingTab {
       ['Récitations : everyayah.com et quran.com, écoutées en ligne (rien n\'est copié dans le plugin).', 'https://everyayah.com'],
     ].forEach(([t, u]) => { const d = h(src, 'p', 'aa-small'); d.appendChild(document.createTextNode(t + ' ')); if (u) { const a = h(d, 'a', null, u); a.href = u; } });
     h(src, 'p', 'aa-small aa-muted', 'Les définitions, explications, leçons et analyses automatiques (iʿrāb, prononciation) sont un outil d\'apprentissage : elles peuvent contenir des erreurs. Pour le Coran, vérifie toujours auprès d\'un enseignant.');
+    new Setting(el).setName('Dossier des cartes de révision').setDesc('Les notes « Cartes - … » de ce dossier remplacent les paquets inclus dans le plugin (tes corrections gagnent). Sans ce dossier, l\'onglet Révision utilise les paquets inclus : c\'est le cas sur iPad et iPhone.')
+      .addText(t => t.setValue(s.cardsFolder || DEFAULT_SETTINGS.cardsFolder).onChange(async v => { s.cardsFolder = v.trim() || DEFAULT_SETTINGS.cardsFolder; await p.saveSettings(); }));
     new Setting(el).setName('Fichier des flashcards').setDesc('Note où l\'atelier ajoute tes cartes (format Spaced Repetition « question :: réponse »).')
       .addText(t => t.setValue(s.flashFile).onChange(async v => { s.flashFile = v.trim() || DEFAULT_SETTINGS.flashFile; await p.saveSettings(); }));
   }
@@ -142,6 +146,7 @@ class AtelierArabePlugin extends Plugin {
     this.addCommand({ id: 'alphabet', name: 'Alphabet et prononciation', callback: () => this.openView('alphabet') });
     this.addCommand({ id: 'lecons', name: 'Leçons de grammaire', callback: () => this.openView('lessons') });
     this.addCommand({ id: 'regles', name: 'Règles expliquées simplement', callback: () => this.openView('rules') });
+    this.addCommand({ id: 'revision', name: 'Réviser mes cartes', callback: () => this.openView('review') });
     this.addCommand({ id: 'dictionnaire', name: 'Dictionnaire', callback: () => this.openView('dict') });
     this.addCommand({ id: 'construire', name: 'Construire une phrase', callback: () => this.openView('build') });
     this.addCommand({ id: 'signes', name: 'Laboratoire des signes', callback: () => this.openView('signs') });
@@ -203,6 +208,7 @@ class AtelierArabePlugin extends Plugin {
       editNote: (path, initial) => this.editNote(path, initial),
       openRule: (id) => this.openView('rules', { open: id, q: '' }),
       openTab: (tab, opts) => this.openView(tab, opts),
+      vaultCardNotes: () => this.vaultCardNotes(),
       openLesson: (id) => this.openView('lessons', { open: id, run: null }),
       openDict: (id) => this.openView('dict', { entry: id, mode: 'search' }),
       openNote: (file) => this.app.workspace.getLeaf(false).openFile(file),
@@ -243,6 +249,17 @@ class AtelierArabePlugin extends Plugin {
       if (i >= 0 && !seen.has(i)) { seen.add(i); out.push({ n: i + 1, label: this.data.surahs[i][1], file: f }); }
     }
     return out.sort((a, b) => a.n - b.n);
+  }
+  /* notes de cartes du coffre (« Cartes - … » dans le dossier des cartes) + la note de tes phrases */
+  async vaultCardNotes() {
+    const out = [];
+    const folder = (this.settings.cardsFolder || DEFAULT_SETTINGS.cardsFolder).replace(/\/$/, '') + '/';
+    for (const f of this.app.vault.getMarkdownFiles()) {
+      if (f.path.startsWith(folder) && f.basename.startsWith('Cartes - ')) out.push({ path: f.path, text: await this.app.vault.cachedRead(f) });
+    }
+    const mine = this.app.vault.getAbstractFileByPath(this.settings.flashFile);
+    if (mine && mine.extension === 'md') out.push({ path: mine.path, text: await this.app.vault.cachedRead(mine), mine: true });
+    return out;
   }
   async addVocab(id, ar, tr, gloss, where) {
     const path = this.settings.vocabFile;

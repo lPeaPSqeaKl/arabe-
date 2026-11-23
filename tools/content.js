@@ -16,6 +16,12 @@ for (const lang of fs.readdirSync(base).filter(d => fs.statSync(path.join(base, 
     for (const f of fs.readdirSync(rd).filter(f => f.endsWith('.md')).sort())
       docs[lang][f.replace(/\.md$/, '')] = fs.readFileSync(path.join(rd, f), 'utf8').replace(/\r\n/g, '\n').trim();
   }
+  const cd = path.join(ld, 'cartes'); // content/<langue>/cartes/**/Cartes - *.md → CONTENT[langue].cartes
+  if (fs.existsSync(cd)) {
+    content[lang] = content[lang] || {}; const decks = [];
+    const walk = (d, rel) => { for (const f of fs.readdirSync(d).sort()) { const p = path.join(d, f), r = rel ? rel + '/' + f : f; if (fs.statSync(p).isDirectory()) walk(p, r); else if (f.startsWith('Cartes - ') && f.endsWith('.md')) decks.push({ path: '5 - Flashcards/Règles/' + r, text: fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n') }); } };
+    walk(cd, ''); content[lang].cartes = decks;
+  }
   for (const f of fs.readdirSync(ld).filter(f => f.endsWith('.json')).sort()) {
     content[lang] = content[lang] || {};
     try { content[lang][f.replace(/\.json$/, '')] = JSON.parse(fs.readFileSync(path.join(ld, f), 'utf8')); }
@@ -24,4 +30,4 @@ for (const lang of fs.readdirSync(base).filter(d => fs.statSync(path.join(base, 
 }
 fs.writeFileSync(path.join(root, 'src', '09-content.gen.js'),
   '/* Généré par tools/content.js depuis content/ : ne pas modifier ici */\nconst RULE_DOCS = ' + JSON.stringify(docs) + ';\nconst CONTENT = ' + JSON.stringify(content) + ';\n');
-for (const l of Object.keys(docs)) console.log(l + ' : ' + Object.keys(docs[l]).length + ' règles détaillées, contenus : ' + Object.keys(content[l] || {}).join(', '));
+for (const l of Object.keys(docs)) console.log(l + ' : ' + Object.keys(docs[l]).length + ' règles détaillées, ' + ((content[l] || {}).cartes || []).length + ' paquets de cartes, contenus : ' + Object.keys(content[l] || {}).join(', '));

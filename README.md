@@ -7,6 +7,7 @@ Plugin Obsidian en français pour apprendre l'arabe avec le Coran :
 - **Ordre des sourates** : ordre du Coran ou ordre de la révélation.
 - **Couleurs de prononciation** : lettres muettes, voyelles longues, nasalisation, qalqala, arrêt.
 - **Règles** : 36 règles expliquées simplement, chacune avec une explication détaillée (pas à pas, exemples du Coran, pièges, exercice), ouvertes d'un clic depuis les leçons. Chaque explication peut être corrigée dans une note, sans toucher à l'original.
+- **Révision** : un paquet de cartes pour chaque règle (50 paquets, plus de 450 cartes : nominatif, prépositions, génitif, accusatif, phrase, verbe, lecture, tajwid), avec répétition espacée : chaque jour les cartes à revoir et quelques nouvelles. Les paquets sont inclus dans le plugin (donc aussi sur iPad et iPhone) ; si le coffre contient sa propre version d'un paquet (`5 - Flashcards/Règles/Cartes - …`), c'est elle qui est utilisée.
 - **Leçons** : un parcours de grammaire en 14 leçons à partir de vrais versets, avec exercices.
 - **Dictionnaire** : les 4 776 mots du Coran, recherche en arabe, français ou translittération, par racine, avec toutes les formes et tous les versets.
 - **Analyser** un texte arabe, même sans voyelles.
@@ -26,6 +27,7 @@ Plugin Obsidian en français pour apprendre l'arabe avec le Coran :
 Le texte des explications est séparé du code :
 
 - `content/fr/regles/<règle>.md` : l'explication détaillée de chaque règle, en Markdown simple (`## titres`, listes, tableaux, `> encadrés`, et `@coran sourate:verset | n° des mots | note` pour un exemple tiré du Coran).
+- `content/fr/cartes/<groupe>/Cartes - <règle>.md` : les cartes de révision, au format du plugin Spaced Repetition (`question` / ligne `?` / `réponse`, ou `question :: réponse`).
 - `content/fr/alphabet.json` : les lettres, leur prononciation et les zones du schéma de la bouche.
 - Pour une autre langue, créer `content/ru/` avec les mêmes noms de fichiers : ce qui manque est pris en français.
 - `css/style.css` : l'apparence (`css/fonts.css` contient la police arabe incluse).
