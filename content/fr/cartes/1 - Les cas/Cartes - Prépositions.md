@@ -10,7 +10,6 @@ règle: Les prépositions (ḥurūf al-jarr)
 
 > [!tip] Le fil rouge de ce paquet
 > **Une seule règle à retenir** : après **toute** préposition, le nom est au **génitif** (-i, -in ou ـِينَ).
-> C'est plus simple que le russe, où chaque préposition choisit son cas (в + предложный, к + дательный, из + родительный). En arabe : **toujours le génitif**.
 > La préposition n'agit que sur **le nom collé à elle**, pas sur le reste de la phrase.
 
 ## 1. La règle
@@ -26,14 +25,6 @@ Comment s'appelle une préposition en arabe, et que veut dire ce nom ?
 ?
 **ḥarf jarr** (حَرْفُ جَرٍّ), « la lettre qui **tire** ».
 Elle « tire » le nom suivant vers le bas, vers le **-i** (la kasra se met **sous** la lettre). Le génitif s'appelle d'ailleurs **jarr**.
-
-En russe, chaque préposition a son cas. Et en arabe ?
-?
-En arabe, **toutes** les prépositions donnent le **même** cas : le génitif.
-- в доме (предложный) = فِي الْبَيْتِ
-- к дому (дательный) = إِلَى الْبَيْتِ
-- из дома (родительный) = مِنَ الْبَيْتِ
-Trois cas en russe, un seul en arabe : **-i**.
 
 Quelles prépositions **se collent** au mot ? Lesquelles s'écrivent **séparées** ?
 ?
@@ -150,7 +141,6 @@ Même mot, rôle différent, fin différente.
 ?
 - رَأَيْتُ **الْبَيْتَ** (-a) : « j'ai vu **la maison** ». Complément direct du verbe : accusatif.
 - نَظَرْتُ إِلَى **الْبَيْتِ** (-i) : « j'ai regardé **vers** la maison ». Le verbe se construit avec إِلَى : le nom est au génitif.
-Comme en russe : вижу дом (винительный) / смотрю на дом.
 
 آمَنَ بِاللَّهِ (il a cru en Allah) : pourquoi اللَّهِ et pas اللَّهَ ?
 ?

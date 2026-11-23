@@ -9,8 +9,7 @@ Le plugin Atelier arabe est un outil personnel d'apprentissage, gratuit et non c
 | Texte arabe du Coran (écriture uthmani) | [Projet Tanzil](https://tanzil.net), repris par le Quranic Arabic Corpus | Copie autorisée à condition de ne pas modifier le texte et de citer Tanzil avec un lien. Le texte n'est pas modifié ; il est seulement découpé en mots. |
 | Analyse des mots : racines, lemmes, cas, modes, formes | [Quranic Arabic Corpus](https://corpus.quran.com), version 0.4, © Kais Dukes, Université de Leeds, licence GNU GPL ; avec les corrections de [mustafa0x/quran-morphology](https://github.com/mustafa0x/quran-morphology) | Utilisable dans une application en citant clairement le Quranic Arabic Corpus avec un lien vers corpus.quran.com. Les données sont réorganisées (format JSON) pour le plugin. |
 | Traduction française | Muhammad Hamidullah, via [fawazahmed0/quran-api](https://github.com/fawazahmed0/quran-api) | Les droits appartiennent à l'auteur et à ses éditeurs. Utilisation ici non commerciale, à des fins d'étude. |
-| Traduction russe | Elmir Kuliev, via [fawazahmed0/quran-api](https://github.com/fawazahmed0/quran-api) | Idem. Désactivée par défaut. |
-| Définitions françaises et russes des 650 mots les plus fréquents | Écrites pour ce plugin | — |
+| Définitions françaises des 650 mots les plus fréquents | Écrites pour ce plugin | — |
 
 ## Police
 

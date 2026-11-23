@@ -42,7 +42,7 @@ Elle montre s'il y a un « est » caché :
 ?
 **Non.** أَلَمْ = أَ (question) + لَمْ (ne… pas). Ce ا ل ne sont pas l'article.
 
-Le russe n'a pas d'article. Comment s'en souvenir ?
+Comment traduire ال et le tanwīn en français ?
 ?
-**ال ≈ « этот, тот »** (une chose précise, connue).
-**Tanwīn ≈ « какой-то, один »** (une chose quelconque).
+**ال ≈ « le, la, les »** (une chose précise, connue).
+**Tanwīn ≈ « un, une »** (une chose quelconque).

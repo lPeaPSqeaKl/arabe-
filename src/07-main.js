@@ -3,9 +3,9 @@
  * ==================================================================== */
 const VIEW_TYPE = 'atelier-arabe-view';
 const DEFAULT_SETTINGS = {
-  style: 'sci', showTr: true, showFr: true, showRu: false, arSize: 30, openLetters: false,
+  style: 'sci', showTr: true, showFr: true, arSize: 30, openLetters: false,
   flashFile: '5 - Flashcards/Atelier - mes phrases.md', lastSurah: 1,
-  audio: true, ruExpl: false, tajwid: false, fixFolder: '4 - Références/Atelier - corrections', vocabFile: '4 - Références/Vocabulaire.md', textsFolder: '3 - Textes',
+  audio: true, tajwid: false, fixFolder: '4 - Références/Atelier - corrections', vocabFile: '4 - Références/Vocabulaire.md', textsFolder: '3 - Textes',
   myWords: {}, progress: null, lessons: {}, surahOrder: 'mushaf', wordColors: true, arFont: 'amiri', cardsFolder: '5 - Flashcards/Règles', srs: null, reciter: 'Alafasy_128kbps', audioRate: 1, audioRepeat: 1,
 };
 function emptyProgress() { return { byType: { case: { ok: 0, n: 0 }, mood: { ok: 0, n: 0 }, sens: { ok: 0, n: 0 }, phrase: { ok: 0, n: 0 } }, lem: {} }; }
@@ -91,7 +91,6 @@ class AtelierSettingTab extends PluginSettingTab {
       .addDropdown(d => d.addOption('sci', 'savante : al-ḥamdu, shukr').addOption('fr', 'à la française : al-ḥamdou, choukr').setValue(s.style).onChange(async v => { s.style = v; await p.saveSettings(); }));
     new Setting(el).setName('Afficher la translittération').addToggle(t => t.setValue(s.showTr).onChange(async v => { s.showTr = v; await p.saveSettings(); }));
     new Setting(el).setName('Afficher la traduction française').setDesc('Traduction de Muhammad Hamidullah.').addToggle(t => t.setValue(s.showFr).onChange(async v => { s.showFr = v; await p.saveSettings(); }));
-    new Setting(el).setName('Afficher la traduction russe').setDesc('Traduction d\'Elmir Kuliev (Кулиев).').addToggle(t => t.setValue(s.showRu).onChange(async v => { s.showRu = v; await p.saveSettings(); }));
     new Setting(el).setName('Ordre des sourates').setDesc('Ordre du Coran (1 à 114, comme dans le livre), ou ordre de la révélation (de la première sourate révélée, al-ʿAlaq, à la dernière).')
       .addDropdown(d => d.addOption('mushaf', 'ordre du Coran').addOption('nuzul', 'ordre de la révélation').setValue(s.surahOrder || 'mushaf').onChange(async v => { s.surahOrder = v; await p.saveSettings(); p.refreshViews && p.refreshViews(); }));
     new Setting(el).setName('Police arabe').setDesc('« Amiri Quran » est incluse dans le plugin : elle affiche correctement tous les petits signes du Coran, sur PC comme sur iPad.')
@@ -100,8 +99,6 @@ class AtelierSettingTab extends PluginSettingTab {
       .addToggle(t => t.setValue(s.wordColors !== false).onChange(async v => { s.wordColors = v; await p.saveSettings(); }));
     new Setting(el).setName('Taille du texte arabe').setDesc('En pixels (30 par défaut).')
       .addSlider(sl => sl.setLimits(20, 48, 2).setValue(s.arSize).setDynamicTooltip().onChange(async v => { s.arSize = v; await p.saveSettings(); }));
-    new Setting(el).setName('Explications aussi en russe').setDesc('Pour les russophones. Ajoute la version russe sous les explications de cas et de mode, le sens russe des mots, et les comparaisons avec la grammaire russe dans les règles. Désactivé : tout est en français.')
-      .addToggle(t => t.setValue(s.ruExpl).onChange(async v => { s.ruExpl = v; EXPL_RU = v; await p.saveSettings(); }));
     new Setting(el).setName('Couleurs de prononciation').setDesc('Colore les lettres muettes, les voyelles longues, la nasalisation (ghunna) et l\'écho (qalqala) dans le Coran et dans les blocs ```coran```.')
       .addToggle(t => t.setValue(!!s.tajwid).onChange(async v => { s.tajwid = v; await p.saveSettings(); }));
     new Setting(el).setName('Son en ligne').setDesc('Récitation (Mishary Alafasy) et prononciation des mots depuis internet, seulement quand tu appuies sur ▶ ou 🔊. Désactivé : voix de l\'appareil uniquement.')
@@ -118,7 +115,7 @@ class AtelierSettingTab extends PluginSettingTab {
     [
       ['Texte du Coran : projet Tanzil (texte vérifié, non modifié).', 'https://tanzil.net'],
       ['Analyse des mots (racines, cas, formes) : Quranic Arabic Corpus, Kais Dukes, Université de Leeds, licence GNU GPL. Version corrigée par mustafa0x/quran-morphology.', 'https://corpus.quran.com'],
-      ['Traduction française : Muhammad Hamidullah. Traduction russe : Elmir Kuliev. Utilisées ici à des fins d\'étude, non commerciales ; les droits appartiennent à leurs auteurs et éditeurs.', ''],
+      ['Traduction française : Muhammad Hamidullah. Utilisée ici à des fins d\'étude, non commerciales ; les droits appartiennent à son auteur et à ses éditeurs.', ''],
       ['Police arabe : Amiri Quran, Khaled Hosny, SIL Open Font License 1.1.', 'https://github.com/aliftype/amiri'],
       ['Récitations : everyayah.com et quran.com, écoutées en ligne (rien n\'est copié dans le plugin).', 'https://everyayah.com'],
     ].forEach(([t, u]) => { const d = h(src, 'p', 'aa-small'); d.appendChild(document.createTextNode(t + ' ')); if (u) { const a = h(d, 'a', null, u); a.href = u; } });
@@ -136,7 +133,6 @@ class AtelierArabePlugin extends Plugin {
     if (!this.settings.progress) this.settings.progress = emptyProgress();
     if (!this.settings.myWords) this.settings.myWords = {};
     if (!this.settings.lessons) this.settings.lessons = {};
-    EXPL_RU = !!this.settings.ruExpl;
     AUDIO.reciter = this.settings.reciter || 'Alafasy_128kbps'; AUDIO.rate = this.settings.audioRate || 1; AUDIO.repeat = this.settings.audioRepeat || 1;
     this.data = new QuranData(this.app, this.manifest.dir);
     notify = (m) => new Notice(m);

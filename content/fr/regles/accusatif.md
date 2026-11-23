@@ -30,9 +30,6 @@ L'**accusatif** (naṣb, « le fait de dresser ») a la marque **-a** (ou -an, o
 - Le pluriel féminin en ـَات ne prend **jamais** -a : à l'accusatif il prend -i. وَعَمِلُوا ٱلصَّالِحَاتِ = « et ont fait les bonnes œuvres ».
 - Un verbe peut avoir **deux** compléments à l'accusatif : أَعْطَيْنَاكَ ٱلْكَوْثَرَ, « nous **t'**avons donné **l'Abondance** ».
 
-## Comparaison avec le russe
-**винительный** (вижу кого? что?) pour le complément. Mais l'accusatif arabe couvre aussi des usages que le russe fait avec le **творительный** (был **учителем** → كَانَ مُعَلِّمًا) ou avec des adverbes (днём, толпами → أَفْوَاجًا).
-
 ## Pour vérifier
 > Pourquoi ٱلنَّاسَ est-il à l'accusatif dans وَرَأَيْتَ ٱلنَّاسَ ?
 > Réponse : c'est le **complément** du verbe رَأَيْتَ (tu as vu) : tu as vu qui ? les gens.

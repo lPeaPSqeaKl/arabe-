@@ -30,9 +30,6 @@ C'est souvent le seul indice qui montre qu'il y a un « est » sous-entendu.
 - Ne confonds pas ال (article) avec un ا ل qui fait partie de la racine : أَلَمْ (n'est-ce pas ?) n'a pas d'article.
 - Après لِـ (pour), l'alif de ال tombe à l'écrit : لِ + ٱلْمُتَّقِينَ → **لِلْمُتَّقِينَ**.
 
-## Comparaison avec le russe
-Le russe n'a pas d'article : « дом » veut dire « une maison » ou « la maison ». L'arabe, lui, le montre toujours : ال pour « la », tanwīn pour « une ». Pense à « этот дом » (cette maison précise) contre « какой-то дом » (une maison quelconque).
-
 ## Pour vérifier
 > كِتَابُهُ (son livre) : défini ou indéfini ?
 > Réponse : **défini**, grâce au pronom collé ـهُ. C'est pour ça qu'il n'a ni ال ni tanwīn.

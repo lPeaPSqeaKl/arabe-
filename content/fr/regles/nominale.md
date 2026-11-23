@@ -34,9 +34,6 @@ Pour dire « était », on ajoute **كَانَ** (voir la règle kāna) : كَا
 ## Les pièges
 - Défini + défini peut être un groupe (« la grande maison ») et non une phrase. Pour lever le doute, l'arabe ajoute parfois un pronom : ٱللَّهُ هُوَ ٱلْغَنِيُّ = « Allah, **c'est Lui** le Riche ».
 
-## Comparaison avec le russe
-**Exactement** comme en russe : « Дом — большой », « Бог — един », « У них — наказание ». Pas de verbe au présent.
-
 ## Pour vérifier
 > Traduis : ٱلْكِتَابُ جَدِيدٌ (jadīd = nouveau).
 > Réponse : « **Le livre est nouveau.** » Sujet défini + attribut indéfini.

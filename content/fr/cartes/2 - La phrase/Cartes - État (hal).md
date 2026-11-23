@@ -29,7 +29,6 @@ Deux ḥāl : l'état de l'âme pendant le retour. Indéfinis, accusatif (-an, �
 يَدْخُلُونَ فِي دِينِ اللَّهِ أَفْوَاجًا : rôle de أَفْوَاجًا ?
 ?
 Un **ḥāl** : « ils entrent **en foule** » (comment entrent-ils ?). Accusatif -an.
-En russe : « **толпами** ».
 
 الرَّجُلُ الْمُسْرِعُ / الرَّجُلُ مُسْرِعًا : quelle différence ?
 ?

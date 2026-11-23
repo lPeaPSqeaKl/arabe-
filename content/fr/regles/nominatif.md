@@ -30,9 +30,6 @@ Et un adjectif ou un mot relié par « et » à un nominatif est aussi au nomina
 - Le nominatif n'est **pas** forcément au début : dans la phrase verbale, le sujet vient **après** le verbe.
 - Un nom au début de la phrase n'est pas toujours au nominatif : après إِنَّ il passe à l'accusatif.
 
-## Comparaison avec le russe
-**именительный падеж** : кто? что? — « **Бог** един », « **Мальчик** пишет ». Même logique.
-
 ## Pour vérifier
 > Dans ذَهَبَ ٱلرَّجُلُ (l'homme est parti), quel mot est au nominatif et pourquoi ?
 > Réponse : **ٱلرَّجُلُ**, car c'est le sujet du verbe ذَهَبَ.

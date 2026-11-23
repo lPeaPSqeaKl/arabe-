@@ -28,9 +28,6 @@ Si le sujet est un pronom (je, tu, nous…), il n'y a pas de mot séparé : il e
 - Le verbe ne s'accorde pas en nombre avec un sujet placé après : ne pas écrire جَاءُوا ٱلرِّجَالُ.
 - Un nom placé avant le verbe transforme la phrase en phrase nominale (le nom devient sujet, la phrase verbale devient son attribut).
 
-## Comparaison avec le russe
-L'ordre libre est le même qu'en russe : « Мальчик написал урок » = « Урок написал мальчик ». Ce sont les terminaisons qui décident.
-
 ## Pour vérifier
 > Dans أَكَلَ ٱلتُّفَّاحَةَ ٱلْوَلَدُ, qui a mangé quoi ?
 > Réponse : **l'enfant** (ٱلْوَلَدُ, -u) a mangé **la pomme** (ٱلتُّفَّاحَةَ, -a).

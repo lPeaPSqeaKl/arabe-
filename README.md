@@ -2,7 +2,7 @@
 
 Plugin Obsidian en français pour apprendre l'arabe avec le Coran :
 
-- **Coran** : les 114 sourates, chaque mot cliquable (morceaux, signes lettre par lettre, cas / mode et pourquoi, autres terminaisons, racine, autres versets), traductions française (Hamidullah) et russe (Kouliev), récitation, et **analyse grammaticale complète** de chaque verset (iʿrāb) avec un schéma des liens entre les mots.
+- **Coran** : les 114 sourates, chaque mot cliquable (morceaux, signes lettre par lettre, cas / mode et pourquoi, autres terminaisons, racine, autres versets), traduction française (Hamidullah), récitation, et **analyse grammaticale complète** de chaque verset (iʿrāb) avec un schéma des liens entre les mots.
 - **Alphabet** : chaque lettre, sa prononciation, ses formes, et un schéma de la bouche et de la gorge qui montre d'où sort chaque son.
 - **Ordre des sourates** : ordre du Coran ou ordre de la révélation.
 - **Couleurs de prononciation** : lettres muettes, voyelles longues, nasalisation, qalqala, arrêt.
@@ -29,14 +29,13 @@ Le texte des explications est séparé du code :
 - `content/fr/regles/<règle>.md` : l'explication détaillée de chaque règle, en Markdown simple (`## titres`, listes, tableaux, `> encadrés`, et `@coran sourate:verset | n° des mots | note` pour un exemple tiré du Coran).
 - `content/fr/cartes/<groupe>/Cartes - <règle>.md` : les cartes de révision, au format du plugin Spaced Repetition (`question` / ligne `?` / `réponse`, ou `question :: réponse`).
 - `content/fr/alphabet.json` : les lettres, leur prononciation et les zones du schéma de la bouche.
-- Pour une autre langue, créer `content/ru/` avec les mêmes noms de fichiers : ce qui manque est pris en français.
 - `css/style.css` : l'apparence (`css/fonts.css` contient la police arabe incluse).
 - `src/` : le code, en morceaux numérotés. `build.sh` assemble le tout dans `main.js` (avec `node tools/content.js` pour le contenu).
 
-Le plugin est entièrement en français. Le russe (traduction de Kouliev, explications et comparaisons) est une option, désactivée par défaut.
+Le plugin est entièrement en français et en arabe.
 
 ## Données et droits
 
-Texte du Coran : projet [Tanzil](https://tanzil.net). Analyse morphologique : [Quranic Arabic Corpus](https://corpus.quran.com) (Kais Dukes, Université de Leeds, GNU GPL). Traductions : Muhammad Hamidullah (français), Elmir Kuliev (russe), utilisées à des fins d'étude non commerciales. Police arabe : Amiri Quran de Khaled Hosny (SIL Open Font License 1.1). Détails et conditions : [SOURCES.md](SOURCES.md).
+Texte du Coran : projet [Tanzil](https://tanzil.net). Analyse morphologique : [Quranic Arabic Corpus](https://corpus.quran.com) (Kais Dukes, Université de Leeds, GNU GPL). Traduction française : Muhammad Hamidullah, utilisée à des fins d'étude non commerciales. Police arabe : Amiri Quran de Khaled Hosny (SIL Open Font License 1.1). Détails et conditions : [SOURCES.md](SOURCES.md).
 
 Outil d'apprentissage : les analyses automatiques peuvent contenir des erreurs.

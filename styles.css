@@ -194,8 +194,6 @@
 .aa-bad { background: rgba(200, 66, 59, .2) !important; outline: 2px solid var(--aa-verb); }
 
 /* v2 : dictionnaire, russe, vocabulaire, son */
-.aa-ru { color: var(--text-muted); font-size: .92em; margin-top: 2px; }
-.aa-why .aa-ru, .aa-why-list .aa-ru { border-left: 2px solid var(--background-modifier-border); padding-left: 8px; margin-top: 3px; }
 .aa-def { margin: 4px 0; line-height: 1.55; }
 .aa-w.aa-mine { text-decoration: underline dotted; text-underline-offset: 8px; }
 .aa-course { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 2px 0 8px; }

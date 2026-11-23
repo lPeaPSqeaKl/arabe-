@@ -35,9 +35,6 @@ Attention : sur un verbe au passé, ـتَ, ـتُ, ـنَا, ـوا sont des **
 - Un nom avec un pronom possessif est **défini** : jamais de ال ni de tanwīn.
 - ـكَ et ـكِ s'écrivent pareil sans voyelles : seule la voyelle dit si on parle à un homme ou à une femme (89:28 رَبِّكِ s'adresse à l'âme, féminin).
 
-## Comparaison avec le russe
-Imagine que « мой, твой, его » se collent à la fin du mot : رَبُّكَ ≈ « Господь-твой ». Le russe a les mêmes distinctions (меня / мой / мне) ; l'arabe les fait avec **une seule forme** selon le mot porteur.
-
 ## Pour vérifier
 > Que veut dire رَبَّنَا ?
 > Réponse : « **notre** Seigneur » (souvent « ô notre Seigneur ! » dans les invocations).

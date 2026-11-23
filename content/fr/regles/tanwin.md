@@ -31,9 +31,6 @@ Comme le tanwīn est un vrai son « n », il suit les règles de prononciation d
 - Certains noms n'acceptent **jamais** le tanwīn : les noms diptotes (voir « Les noms diptotes »), par exemple إِبْرَاهِيمُ.
 - ـً + ى : عَلَى هُدًى. Ici le ى est un support, on lit **hudan**.
 
-## Comparaison avec le russe
-Le russe n'a pas d'équivalent. Retiens : **tanwīn ≈ « какой-то, один »**, ال ≈ « этот, тот ».
-
 ## Pour vérifier
 > Comment lire رَسُولًا ?
 > Réponse : **rasūlan** (« un messager », accusatif). L'alif final ne se lit pas, sauf à l'arrêt : rasūlā.

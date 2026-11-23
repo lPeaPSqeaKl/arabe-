@@ -53,7 +53,6 @@ function renderQuranTab(ctx, root, state) {
   const tg = h(bar, 'div', 'aa-toggles');
   checkbox(tg, 'translittération', ctx.settings.showTr, v => { ctx.settings.showTr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'français', ctx.settings.showFr, v => { ctx.settings.showFr = v; ctx.save(); renderQuranTab(ctx, root, state); });
-  checkbox(tg, 'russe', ctx.settings.showRu, v => { ctx.settings.showRu = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'couleurs des mots', ctx.settings.wordColors !== false, v => { ctx.settings.wordColors = v; ctx.save(); const r = root.closest && root.closest('.aa-root'); if (r) r.classList.toggle('aa-nocolor', !v); });
   checkbox(tg, '🎨 prononciation', !!ctx.settings.tajwid, v => { ctx.settings.tajwid = v; ctx.save(); renderQuranTab(ctx, root, state); });
   const course = ctx.courseSurahs();
@@ -295,9 +294,9 @@ function renderBuildTab(ctx, root, state) {
   else if (c.type !== 'np') {
     const d = details(root, 'Rappel : les 3 cas', false);
     const t = h(d, 'table', 'aa-table');
-    const hr = h(t, 'tr'); const ruCol = !!ctx.settings.ruExpl; ['Cas', 'Signe', 'Rôle'].concat(ruCol ? ['En russe'] : []).forEach(x => h(hr, 'th', null, x));
+    const hr = h(t, 'tr'); ['Cas', 'Signe', 'Rôle'].forEach(x => h(hr, 'th', null, x));
     [['NOM', 'sujet, attribut, après كَانَ (son nom)'], ['ACC', 'complément d\'objet, après إِنَّ, attribut de كَانَ / لَيْسَ'], ['GEN', 'après une préposition, 2e nom d\'une annexion']].forEach(([k, role]) => {
-      const rr = h(t, 'tr'); h(rr, 'td', null, CASES[k].fr + ' (' + CASES[k].tr + ')'); arSpan(h(rr, 'td'), CASES[k].sign); h(rr, 'td', null, role); if (ruCol) h(rr, 'td', null, CASES[k].ru);
+      const rr = h(t, 'tr'); h(rr, 'td', null, CASES[k].fr + ' (' + CASES[k].tr + ')'); arSpan(h(rr, 'td'), CASES[k].sign); h(rr, 'td', null, role);
     });
   }
 }

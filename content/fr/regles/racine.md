@@ -34,9 +34,6 @@ La première révélation (sourate 96) joue avec deux racines : **ق ر أ** (li
 - Certaines racines contiennent **و** ou **ي** : ces lettres faibles peuvent disparaître ou se transformer. قَالَ (il a dit) vient de **ق و ل** : le و est devenu ا. قُلْ (dis !) n'a plus que deux lettres visibles.
 - Quelques mots très courts ou étrangers n'ont pas de racine claire (des noms propres, des particules comme فِي ou مِنْ).
 
-## Comparaison avec le russe
-En russe aussi, une partie du mot porte le sens : **пис**-ать, **пис**-атель, **пис**-ьмо, пере**пис**-ка. La différence : en arabe, la racine est faite de **consonnes séparées**, et les voyelles se glissent **entre** elles (k**a**t**a**b**a**, k**i**t**ā**b).
-
 ## Pour vérifier
 > Quelle est la racine de **مَسْجِد** (mosquée, « le lieu où l'on se prosterne ») ?
 > Réponse : on enlève مَـ (lieu) → **س ج د** (se prosterner). On la retrouve dans سَجَدَ (il s'est prosterné) et سُجُود (la prosternation).

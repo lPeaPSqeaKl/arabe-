@@ -37,13 +37,13 @@ function dictSearch(data, q, filter) {
       else if (qa.length >= 2 && sk.includes(qa)) score = 5000;
       if (score) score += l[5];
     } else {
-      const g = stripLat(l[4]); const d = stripLat(l[7]); const r = stripLat(l[8]);
+      const g = stripLat(l[4]); const d = stripLat(l[7]);
       const words = g.split(/[\s,;()…/]+/);
       const re = new RegExp('(^|[^a-z])' + ql.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
       if (words.includes(ql)) score = 60000;
       else if (g.startsWith(ql)) score = 40000;
       else if (re.test(g)) score = 20000;
-      else if (q.length >= 3 && (re.test(d) || r.includes(ql))) score = 5000;
+      else if (q.length >= 3 && re.test(d)) score = 5000;
       else if (q.length >= 2 && stripLat(lemmaTranslit(i, L)).startsWith(ql)) score = 15000;
       if (score) score += l[5];
     }
@@ -147,7 +147,6 @@ function renderDictEntry(ctx, el, id, onPick) {
   h(right, 'div', 'aa-muted', l[5] + ' fois dans le Coran');
   h(el, 'h4', null, 'Définition');
   mdText(el, 'div', 'aa-def', l[7] || (l[4] ? cap(l[4]) + '.' : '—'));
-  if (l[8]) h(el, 'div', 'aa-ru', '🇷🇺 ' + l[8]);
   if (!l[7]) h(el, 'p', 'aa-muted aa-small', 'Mot plus rare : le sens détaillé vient surtout de ses exemples ci-dessous (traduction de chaque verset).');
   if (l[1] === 'V') {
     const f = ((l[2] || '').split('/').find(x => x.startsWith('VF:')) || 'VF:1').slice(3);
@@ -177,7 +176,7 @@ function renderDictEntry(ctx, el, id, onPick) {
   // actions
   const act = h(el, 'div', 'aa-actions');
   btn(act, ctx.isMine(id) ? '✓ Dans mon vocabulaire' : 'Ajouter à mon vocabulaire', (ev) => { ctx.addVocab(id, l[0], tr, l[4], ''); ev.target.textContent = '✓ Dans mon vocabulaire'; });
-  btn(act, 'Créer une flashcard', () => ctx.addFlashcard(l[0], l[4] + ' — ' + tr + (l[8] ? ' — ' + l[8] : '')));
+  btn(act, 'Créer une flashcard', () => ctx.addFlashcard(l[0], l[4] + ' — ' + tr));
   btn(act, 'Insérer dans la note', () => ctx.insertText('- ' + l[0] + ' (' + tr + ') — ' + l[4] + (l[3] ? ' · racine ' + l[3] : '') + '\n'));
   // occurrences
   const refs = data.allRefsOf(id);
@@ -194,7 +193,6 @@ function renderDictEntry(ctx, el, id, onPick) {
       const link = h(m, 'a', 'aa-link', data.surahInfo(r[0])[1] + ' ' + r[0] + ':' + r[1]);
       link.addEventListener('click', ev => { ev.preventDefault(); ctx.openQuran(r[0], r[1]); });
       h(m, 'span', 'aa-muted', ' — ' + v[0]);
-      if (ctx.settings.showRu && v[1]) h(m, 'div', 'aa-verse-ru', v[1]);
     }
     shown += 8; mb.style.display = shown < refs.length ? '' : 'none';
   };

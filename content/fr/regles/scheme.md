@@ -32,9 +32,6 @@ Les verbes ont dix moules principaux, appelés **formes** (I à X). La forme II 
 - Le même moule peut avoir plusieurs usages : فِعَال donne des noms (كِتَاب) mais aussi des pluriels (رِجَال, des hommes).
 - Avec une racine qui contient و ou ي, le moule semble « abîmé » : قَائِل (celui qui dit) est bien fāʿil de ق و ل, mais le و est devenu ئ.
 
-## Comparaison avec le russe
-Les suffixes russes jouent un rôle proche : -тель (учи**тель**, celui qui enseigne), -ние (уче**ние**, l'action). En arabe, le « suffixe » est en partie **à l'intérieur** du mot, sous forme de voyelles.
-
 ## Pour vérifier
 > Sur le moule fāʿil, que donne la racine ص ب ر (patienter) ?
 > Réponse : **صَابِر** (ṣābir), « celui qui patiente ». Au pluriel : ٱلصَّابِرُونَ / ٱلصَّابِرِينَ.

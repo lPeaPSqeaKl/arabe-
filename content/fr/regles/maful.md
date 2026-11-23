@@ -23,9 +23,6 @@ Certains verbes (donner, faire voir, enseigner…) ont **deux** compléments : �
 - Les verbes qui se construisent avec une préposition n'ont pas de mafʿūl bihi direct : آمَنَ **بِـ** (croire **en**), le nom après بِـ est au génitif.
 - Le pluriel féminin à l'accusatif prend **-i** : عَمِلُوا ٱلصَّالِحَاتِ.
 
-## Comparaison avec le russe
-**винительный** : вижу (кого? что?) → رَأَيْتُ ٱلنَّاسَ (j'ai vu les gens).
-
 ## Pour vérifier
 > Dans يُحِبُّ ٱللَّهُ ٱلْمُحْسِنِينَ (Allah aime les bienfaisants), quel est le complément ?
 > Réponse : **ٱلْمُحْسِنِينَ**, à l'accusatif (ـِينَ). ٱللَّهُ est le sujet.

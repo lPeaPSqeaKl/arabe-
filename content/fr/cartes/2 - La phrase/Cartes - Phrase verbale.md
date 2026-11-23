@@ -19,7 +19,7 @@ Quel est l'ordre habituel d'une **phrase verbale** ?
 كَتَبَ الدَّرْسَ الْوَلَدُ : le sens change-t-il ?
 ?
 **Non.** الْوَلَدُ a toujours -u (sujet), الدَّرْسَ a toujours -a (complément).
-C'est la terminaison qui décide, pas la place. Comme en russe : « Урок написал мальчик ».
+C'est la terminaison qui décide, pas la place.
 
 Pourquoi met-on parfois le complément **avant** le verbe : إِيَّاكَ نَعْبُدُ ?
 ?

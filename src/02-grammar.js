@@ -3,16 +3,16 @@
  * ==================================================================== */
 
 const PERSONS = {
-  '1S': ['je', 'я'], '1P': ['nous', 'мы'], '2MS': ['tu (homme)', 'ты (м.)'], '2FS': ['tu (femme)', 'ты (ж.)'],
-  '2MP': ['vous (hommes)', 'вы (м.)'], '2FP': ['vous (femmes)', 'вы (ж.)'], '2D': ['vous deux', 'вы двое'], '2MD': ['vous deux', 'вы двое'], '2FD': ['vous deux (f.)', 'вы двое (ж.)'],
-  '3MS': ['il', 'он'], '3FS': ['elle', 'она'], '3MP': ['ils', 'они (м.)'], '3FP': ['elles', 'они (ж.)'], '3D': ['eux deux', 'они двое'], '3MD': ['eux deux', 'они двое'], '3FD': ['elles deux', 'они двое (ж.)'],
+  '1S': ['je', ''], '1P': ['nous', ''], '2MS': ['tu (homme)', ''], '2FS': ['tu (femme)', ''],
+  '2MP': ['vous (hommes)', ''], '2FP': ['vous (femmes)', ''], '2D': ['vous deux', ''], '2MD': ['vous deux', ''], '2FD': ['vous deux (f.)', ''],
+  '3MS': ['il', ''], '3FS': ['elle', ''], '3MP': ['ils', ''], '3FP': ['elles', ''], '3D': ['eux deux', ''], '3MD': ['eux deux', ''], '3FD': ['elles deux', ''],
 };
 const PRON_SUFFIX_FR = { '1S': 'moi / mon, ma', '1P': 'nous / notre', '2MS': 'toi / ton, ta', '2FS': 'toi (f.) / ton, ta', '2MP': 'vous / votre', '2FP': 'vous (f.) / votre', '2D': 'vous deux', '3MS': 'lui, le / son, sa', '3FS': 'elle, la / son, sa', '3MP': 'eux, les / leur', '3FP': 'elles, les / leur', '3D': 'eux deux / leur', '3MD': 'eux deux', '3FD': 'elles deux' };
 const GN = { M: 'masculin', F: 'féminin', MS: 'masculin singulier', FS: 'féminin singulier', MP: 'masculin pluriel', FP: 'féminin pluriel', MD: 'masculin duel', FD: 'féminin duel', P: 'pluriel', D: 'duel', S: 'singulier' };
 const CASES = {
-  NOM: { ar: 'مَرْفُوع', tr: 'marfūʿ (rafʿ)', fr: 'nominatif', ru: 'именительный', sign: 'ـُ / ـٌ (-u / -un)', color: 'nom' },
-  ACC: { ar: 'مَنْصُوب', tr: 'manṣūb (naṣb)', fr: 'accusatif', ru: 'винительный', sign: 'ـَ / ـً (-a / -an)', color: 'acc' },
-  GEN: { ar: 'مَجْرُور', tr: 'majrūr (jarr)', fr: 'génitif', ru: 'родительный / предложный', sign: 'ـِ / ـٍ (-i / -in)', color: 'gen' },
+  NOM: { ar: 'مَرْفُوع', tr: 'marfūʿ (rafʿ)', fr: 'nominatif', sign: 'ـُ / ـٌ (-u / -un)', color: 'nom' },
+  ACC: { ar: 'مَنْصُوب', tr: 'manṣūb (naṣb)', fr: 'accusatif', sign: 'ـَ / ـً (-a / -an)', color: 'acc' },
+  GEN: { ar: 'مَجْرُور', tr: 'majrūr (jarr)', fr: 'génitif', sign: 'ـِ / ـٍ (-i / -in)', color: 'gen' },
 };
 const MOODS = {
   IND: { ar: 'مَرْفُوع', fr: 'indicatif', sign: 'ـُ (-u) ou ـونَ / ـينَ', why: 'c\'est le mode normal du présent : aucun petit mot ne le change.' },
@@ -152,9 +152,9 @@ function explainQuranWord(words, wi, lemmas) {
       res.facts.push(['Mode', md.fr + ' (' + md.ar + ')']);
       res.why.push(moodReason(f.mood, word, prev, prev2));
     } else if (f.aspect === 'PERF') {
-      res.why.push(R('Le passé arabe ne change pas selon les cas : sa fin indique la personne (ـَ il, ـَتْ elle, ـْتُ je, ـْتَ tu, ـْنَا nous, ـُوا ils…).', 'Прошедшее время не меняется по наклонениям : окончание показывает лицо (ـَ он, ـَتْ она, ـْتُ я, ـْتَ ты, ـْنَا мы, ـُوا они…).'));
+      res.why.push(R('Le passé arabe ne change pas selon les cas : sa fin indique la personne (ـَ il, ـَتْ elle, ـْتُ je, ـْتَ tu, ـْنَا nous, ـُوا ils…).'));
     } else if (f.aspect === 'IMPV') {
-      res.why.push(R('L\'impératif se forme sur l\'apocopé : il finit par un soukoun (ou perd sa dernière voyelle longue) — « fais ! ».', 'Повелительное наклонение образуется от усечённого : на конце сукӯн (или выпадает долгая гласная) — «делай!».'));
+      res.why.push(R('L\'impératif se forme sur l\'apocopé : il finit par un soukoun (ou perd sa dernière voyelle longue) — « fais ! ».'));
     }
     res.tags.push('verbe');
   } else if (f.pos === 'N') {
@@ -173,16 +173,16 @@ function explainQuranWord(words, wi, lemmas) {
     if (f.form && (sub === 'ACT_PCPL' || sub === 'PASS_PCPL' || sub === 'VN')) { const vf = VERB_FORMS[f.form]; if (vf) res.facts.push(['Tiré du verbe', 'forme ' + vf[0] + ' ' + vf[1]]); }
     if (f.cas) {
       const c = CASES[f.cas];
-      res.facts.push(['Cas', c.fr + ' — ' + c.tr + ' ' + c.ar + (EXPL_RU ? ' · ' + c.ru : '')]);
+      res.facts.push(['Cas', c.fr + ' — ' + c.tr + ' ' + c.ar]);
       res.why.push(caseReason(f, word, st, prev, prev2, prepBefore, prepName));
       const lastU = units(st.seg[0]).filter(u => u.b).pop();
-      if (f.cas === 'GEN' && lastU && lastU.m.includes(AR.FATHA) && !/(ين|ات)$/.test(skeleton(st.seg[0]))) res.why.push(R('Il finit par -a alors qu\'il est au génitif : c\'est un **diptote** (nom propre étranger, schème أَفْعَل, certains pluriels…). Les diptotes n\'ont jamais de tanwīn et font leur génitif en -a.', 'Окончание -a в джарре : это **двухпадежное** имя (иностранное имя, модель أَفْعَل, некоторые множественные…) — без танвина, джарр на -a.'));
+      if (f.cas === 'GEN' && lastU && lastU.m.includes(AR.FATHA) && !/(ين|ات)$/.test(skeleton(st.seg[0]))) res.why.push(R('Il finit par -a alors qu\'il est au génitif : c\'est un **diptote** (nom propre étranger, schème أَفْعَل, certains pluriels…). Les diptotes n\'ont jamais de tanwīn et font leur génitif en -a.'));
       if (/^(MP)$/.test(f.gn) && /ونَ?$|ونَ$/.test(st.seg[0])) res.why.push('Pluriel masculin « sain » : au nominatif il finit par ـُونَ (-ūna) au lieu de -u.');
       if (/^(MP)$/.test(f.gn) && /ينَ?$/.test(st.seg[0])) res.why.push('Pluriel masculin « sain » : à l\'accusatif et au génitif il finit par ـِينَ (-īna) au lieu de -a / -i.');
       if (/^(FP)$/.test(f.gn) && /ٰتِ|اتِ|ٰتٍ|اتٍ/.test(st.seg[0]) && f.cas === 'ACC') res.why.push('Pluriel féminin « sain » (ـَات) : son accusatif se fait en -i, comme le génitif !');
       res.tags.push(f.cas);
     } else if (['PRON', 'DEM', 'REL'].includes(sub)) {
-      res.why.push(R('Ce mot est **invariable** (mabnī) : sa fin ne change jamais, quelle que soit sa fonction.', 'Это слово **несклоняемое** (мабнӣ) : его окончание никогда не меняется.'));
+      res.why.push(R('Ce mot est **invariable** (mabnī) : sa fin ne change jamais, quelle que soit sa fonction.'));
     }
   } else {
     res.title = 'Particule';
@@ -190,45 +190,44 @@ function explainQuranWord(words, wi, lemmas) {
     if (f.fam === 'إِنّ' && /^لَا$/.test(st.seg[0])) res.why.push('لَا de **négation absolue** (« il n\'y a aucun … ») : elle fonctionne comme إِنَّ, le nom qui suit passe à l\'**accusatif sans tanwīn** (لَا رَيْبَ = aucun doute).');
     else if (f.fam === 'إِنّ') res.why.push('« إِنَّ et ses sœurs » (إِنَّ، أَنَّ، كَأَنَّ، لَكِنَّ، لَيْتَ، لَعَلَّ) : le nom qui suit passe à l\'**accusatif** (-a).');
     if (f.fam === 'كَان') res.why.push('Cette négation fonctionne comme لَيْسَ : l\'attribut passe à l\'accusatif.');
-    res.why.push(R('Les particules sont **invariables** : leur dernière voyelle ne change pas avec la fonction (sauf liaison, comme مِنْ → مِنَ devant ال).', 'Частицы **не изменяются** : их последняя гласная не зависит от роли (кроме слияния, например مِنْ → مِنَ перед ال).'));
+    res.why.push(R('Les particules sont **invariables** : leur dernière voyelle ne change pas avec la fonction (sauf liaison, comme مِنْ → مِنَ devant ال).'));
   }
   return res;
 }
 function lastSegF(word) { const s = stemOf(word); return s.f; }
 function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
 
-let EXPL_RU = false;
-/* texte bilingue : le russe est ajouté après « ‖ » quand le réglage est activé */
-function R(fr, ru) { return EXPL_RU && ru ? fr + ' ‖ ' + ru : fr; }
+/* texte d'explication (le plugin est en français uniquement) */
+function R(fr) { return fr; }
 
 function caseReason(f, word, st, prev, prev2, prepBefore, prepSeg) {
   const pf = prev ? stemOf(prev).f : null;
   const ps = prev ? stemOf(prev).seg[0] : '';
   if (f.cas === 'GEN') {
-    if (prepBefore) return R('Génitif **parce qu\'il suit une préposition** (' + (prepSeg ? prepSeg[0] : '') + ') : en arabe, toute préposition met le nom suivant au génitif.', 'Родительный (джарр), **потому что стоит после предлога** (' + (prepSeg ? prepSeg[0] : '') + ') : любой предлог ставит следующее имя в джарр, как в русском «в / о» + предложный падеж.');
-    if (f.sub === 'ADJ') return R('C\'est un **adjectif** : il copie le cas du nom qu\'il qualifie (ici un génitif).', 'Это **прилагательное** : оно повторяет падеж определяемого имени (здесь джарр).');
-    if (pf && pf.pos === 'N' && pf.cas === 'GEN' && (pf.sub === 'PN' || prev.some(s => parseFeats(s[1], s[2]).tags[0] === 'DET'))) return R('Génitif **parce qu\'il suit un mot défini au génitif** qu\'il précise ou explique (adjectif ou apposition, naʿt / badal) : il en copie le cas.', 'Джарр, **потому что поясняет предыдущее определённое слово в джарре** (приложение, бадал / наʿт) и повторяет его падеж.');
-    if (pf && pf.pos === 'N' && !pf.indef) return R('Génitif **parce qu\'il est le 2e terme d\'une annexion** (iḍāfa) : « le … **de** ce mot ».', 'Джарр, **потому что это второй член идафы** (сопряжения) : «… **кого? чего?**», как русский родительный : «имя Аллаха».');
-    return R('Génitif : soit 2e terme d\'une annexion (« … de … »), soit adjectif ou mot coordonné à un génitif.', 'Джарр : второй член идафы, или прилагательное / однородный член при слове в джарре.');
+    if (prepBefore) return R('Génitif **parce qu\'il suit une préposition** (' + (prepSeg ? prepSeg[0] : '') + ') : en arabe, toute préposition met le nom suivant au génitif.');
+    if (f.sub === 'ADJ') return R('C\'est un **adjectif** : il copie le cas du nom qu\'il qualifie (ici un génitif).');
+    if (pf && pf.pos === 'N' && pf.cas === 'GEN' && (pf.sub === 'PN' || prev.some(s => parseFeats(s[1], s[2]).tags[0] === 'DET'))) return R('Génitif **parce qu\'il suit un mot défini au génitif** qu\'il précise ou explique (adjectif ou apposition, naʿt / badal) : il en copie le cas.');
+    if (pf && pf.pos === 'N' && !pf.indef) return R('Génitif **parce qu\'il est le 2e terme d\'une annexion** (iḍāfa) : « le … **de** ce mot ».');
+    return R('Génitif : soit 2e terme d\'une annexion (« … de … »), soit adjectif ou mot coordonné à un génitif.');
   }
   if (f.cas === 'ACC') {
-    if (pf && pf.fam === 'إِنّ' && /^لَا$/.test(ps)) return R('Accusatif **parce qu\'il suit لَا de négation absolue** (lā nāfiya li-l-jins, « il n\'y a aucun … ») : elle agit comme إِنَّ, et le nom reste sans tanwīn.', 'Насб, **потому что стоит после لَا полного отрицания** («нет никакого …») : она действует как إِنَّ, имя без танвина.');
-    if (pf && pf.fam === 'إِنّ') return R('Accusatif **parce qu\'il vient après ' + ps + '** (« إِنَّ et ses sœurs ») : c\'est le nom de inna, il passe à -a.', 'Насб, **потому что стоит после ' + ps + '** («инна и её сёстры») : это подлежащее инны, окончание -a.');
-    if (pf && (pf.fam === 'كَان' || (pf.pos === 'V' && /^(كَان|لَيْس|أَصْبَح|ظَلّ)/.test(pf.lem || '')))) return R('Accusatif : probablement l\'**attribut de كَانَ / لَيْسَ** (ou d\'une de leurs « sœurs »).', 'Насб : вероятно, **сказуемое при كَانَ / لَيْسَ** (или их «сёстрах»).');
-    if (f.sub === 'T' || f.sub === 'LOC') return R('Accusatif car c\'est un **complément de temps ou de lieu** (ẓarf) : « le jour où…, devant… ».', 'Насб, так как это **обстоятельство времени или места** (зарф) : «в день, когда…, перед…».');
-    if (f.sub === 'ADJ') return R('C\'est un **adjectif** : il copie le cas du nom qu\'il qualifie (ici un accusatif).', 'Это **прилагательное** : оно повторяет падеж определяемого имени (здесь насб).');
-    if (pf && pf.pos === 'P' && pf.sub === 'RES') return R('Accusatif après إِلَّا : c\'est ce qui est **excepté** (« sauf … »).', 'Насб после إِلَّا : это **исключаемое** («кроме …»).');
-    if (pf && pf.pos === 'V') return R('Accusatif : très probablement le **complément d\'objet direct** du verbe (« qui ? quoi ? » → винительный).', 'Насб : скорее всего **прямое дополнение** глагола («кого? что?» → винительный).');
-    if (prev2 && stemOf(prev2).f.pos === 'V') return R('Accusatif : probablement le **complément d\'objet** du verbe un peu avant (« qui ? quoi ? »).', 'Насб : вероятно, **дополнение** стоящего чуть раньше глагола («кого? что?»).');
-    return R('Accusatif (naṣb) : complément d\'objet, de temps, de manière ou d\'état, ou nom de إِنَّ… La terminaison -a / -an le signale.', 'Насб : дополнение, обстоятельство времени, образа действия или состояния (хāль), подлежащее инны… Окончание -a / -an.');
+    if (pf && pf.fam === 'إِنّ' && /^لَا$/.test(ps)) return R('Accusatif **parce qu\'il suit لَا de négation absolue** (lā nāfiya li-l-jins, « il n\'y a aucun … ») : elle agit comme إِنَّ, et le nom reste sans tanwīn.');
+    if (pf && pf.fam === 'إِنّ') return R('Accusatif **parce qu\'il vient après ' + ps + '** (« إِنَّ et ses sœurs ») : c\'est le nom de inna, il passe à -a.');
+    if (pf && (pf.fam === 'كَان' || (pf.pos === 'V' && /^(كَان|لَيْس|أَصْبَح|ظَلّ)/.test(pf.lem || '')))) return R('Accusatif : probablement l\'**attribut de كَانَ / لَيْسَ** (ou d\'une de leurs « sœurs »).');
+    if (f.sub === 'T' || f.sub === 'LOC') return R('Accusatif car c\'est un **complément de temps ou de lieu** (ẓarf) : « le jour où…, devant… ».');
+    if (f.sub === 'ADJ') return R('C\'est un **adjectif** : il copie le cas du nom qu\'il qualifie (ici un accusatif).');
+    if (pf && pf.pos === 'P' && pf.sub === 'RES') return R('Accusatif après إِلَّا : c\'est ce qui est **excepté** (« sauf … »).');
+    if (pf && pf.pos === 'V') return R('');
+    if (prev2 && stemOf(prev2).f.pos === 'V') return R('Accusatif : probablement le **complément d\'objet** du verbe un peu avant (« qui ? quoi ? »).');
+    return R('Accusatif (naṣb) : complément d\'objet, de temps, de manière ou d\'état, ou nom de إِنَّ… La terminaison -a / -an le signale.');
   }
   if (f.cas === 'NOM') {
-    if (f.sub === 'ADJ') return R('C\'est un **adjectif** : il copie le cas du nom qu\'il qualifie (ici un nominatif).', 'Это **прилагательное** : оно повторяет падеж определяемого имени (здесь рафʿ).');
-    if (pf && pf.pos === 'V' && pf.pass) return R('Nominatif : c\'est le **sujet du verbe passif** (ce qui subit l\'action).', 'Рафʿ : это **подлежащее страдательного глагола** (то, над чем совершается действие).');
-    if (pf && pf.pos === 'V') return R('Nominatif : très probablement le **sujet du verbe** (fāʿil), « qui ? » → именительный.', 'Рафʿ : скорее всего **подлежащее глагола** (фāʿиль), «кто?» → именительный.');
-    if (pf && pf.fam === 'إِنّ') return R('Nominatif après إِنَّ… : c\'est l\'**attribut** (khabar) de inna, qui reste au nominatif.', 'Рафʿ после إِنَّ… : это **сказуемое** (хабар) инны, оно остаётся в рафʿе.');
-    if (!prev) return R('Nominatif : il ouvre la phrase, c\'est probablement le **sujet d\'une phrase nominale** (mubtadaʾ) — une phrase sans verbe « être ».', 'Рафʿ : слово открывает фразу, это, вероятно, **подлежащее именного предложения** (мубтадаʾ) — предложения без глагола «быть», как «мальчик — большой».');
-    return R('Nominatif (rafʿ) : sujet ou attribut d\'une phrase nominale, ou sujet d\'un verbe.', 'Рафʿ : подлежащее или сказуемое именного предложения, или подлежащее глагола.');
+    if (f.sub === 'ADJ') return R('C\'est un **adjectif** : il copie le cas du nom qu\'il qualifie (ici un nominatif).');
+    if (pf && pf.pos === 'V' && pf.pass) return R('Nominatif : c\'est le **sujet du verbe passif** (ce qui subit l\'action).');
+    if (pf && pf.pos === 'V') return R('');
+    if (pf && pf.fam === 'إِنّ') return R('Nominatif après إِنَّ… : c\'est l\'**attribut** (khabar) de inna, qui reste au nominatif.');
+    if (!prev) return R('Nominatif : il ouvre la phrase, c\'est probablement le **sujet d\'une phrase nominale** (mubtadaʾ) — une phrase sans verbe « être ».');
+    return R('Nominatif (rafʿ) : sujet ou attribut d\'une phrase nominale, ou sujet d\'un verbe.');
   }
   return '';
 }
@@ -237,18 +236,18 @@ function moodReason(mood, word, prev, prev2) {
   const near = [prev, prev2].filter(Boolean).map(w => stemOf(w));
   const inWord = word.filter(s => parseFeats(s[1], s[2]).pref).map(s => parseFeats(s[1], s[2]));
   const md = MOODS[mood];
-  if (mood === 'IND') return R('Finale -u : **indicatif**, ' + md.why, 'Окончание -u : **изъявительное наклонение** (марфӯʿ) — обычная форма настоящего времени, никакая частица её не меняет.');
+  if (mood === 'IND') return R('Finale -u : **indicatif**, ' + md.why);
   if (mood === 'SUBJ') {
-    if (inWord.some(x => x.tags[0] === 'PRP' || x.tags[0] === 'CAUS')) return R('Finale -a : **subjonctif**, à cause du لِ / فَ « pour que » collé devant.', 'Окончание -a : **сослагательное** (мансӯб) из-за приставки لِ / فَ «чтобы».');
+    if (inWord.some(x => x.tags[0] === 'PRP' || x.tags[0] === 'CAUS')) return R('Finale -a : **subjonctif**, à cause du لِ / فَ « pour que » collé devant.');
     const t = near.find(n => n.f.pos === 'P' && ['SUB', 'NEG', 'P'].includes(n.f.sub));
-    if (t) return R('Finale -a (ou ـوا au lieu de ـونَ) : **subjonctif**, à cause de ' + t.seg[0] + ' juste avant.', 'Окончание -a (или ـوا вместо ـونَ) : **сослагательное** из-за ' + t.seg[0] + ' перед глаголом.');
-    return R('Finale -a : **subjonctif** ; ' + md.why, 'Окончание -a : **сослагательное** — после أَنْ «чтобы», لَنْ «никогда не», كَيْ, حَتَّى.');
+    if (t) return R('Finale -a (ou ـوا au lieu de ـونَ) : **subjonctif**, à cause de ' + t.seg[0] + ' juste avant.');
+    return R('Finale -a : **subjonctif** ; ' + md.why);
   }
   if (mood === 'JUS') {
-    if (inWord.some(x => x.tags[0] === 'IMPV')) return R('Soukoun final : **apocopé**, à cause du لِ d\'ordre collé devant (« qu\'il… ! »).', 'Сукӯн на конце : **усечённое** (маджзӯм) из-за повелительной частицы لِ («пусть он…!»).');
+    if (inWord.some(x => x.tags[0] === 'IMPV')) return R('Soukoun final : **apocopé**, à cause du لِ d\'ordre collé devant (« qu\'il… ! »).');
     const t = near.find(n => n.f.pos === 'P' && ['NEG', 'PRO', 'COND'].includes(n.f.sub));
-    if (t) return R('Soukoun final (ou ـوا au lieu de ـونَ) : **apocopé**, à cause de ' + t.seg[0] + ' juste avant.', 'Сукӯн на конце (или ـوا вместо ـونَ) : **усечённое** из-за ' + t.seg[0] + ' перед глаголом.');
-    return R('Soukoun final : **apocopé** — souvent la réponse à un ordre ou à une condition (« fais…, tu obtiendras »).', 'Сукӯн на конце : **усечённое** — часто ответ на повеление или условие («сделай — получишь»).');
+    if (t) return R('Soukoun final (ou ـوا au lieu de ـونَ) : **apocopé**, à cause de ' + t.seg[0] + ' juste avant.');
+    return R('Soukoun final : **apocopé** — souvent la réponse à un ordre ou à une condition (« fais…, tu obtiendras »).');
   }
   return '';
 }

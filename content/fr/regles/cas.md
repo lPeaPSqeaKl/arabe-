@@ -35,9 +35,6 @@ Grâce aux cas, l'ordre des mots peut changer sans changer le sens. كَتَبَ
 - À l'arrêt (fin de verset), on **ne prononce pas** la dernière voyelle : on lit rabbil-ʿālamīn, pas rabbil-ʿālamīna. Regarde l'écrit pour trouver le cas.
 - Le pronom collé cache parfois la fin : dans كِتَابِي (mon livre), on ne voit pas le cas.
 
-## Comparaison avec le russe
-C'est exactement le principe des cas russes : книг**а** (именительный), книг**у** (винительный), книг**и** (родительный). L'arabe a seulement **trois** cas au lieu de six, et le génitif arabe couvre aussi le cas après **toutes** les prépositions (в доме, о доме → فِي ٱلْبَيْتِ).
-
 ## Pour vérifier
 > Dans إِنَّ ٱللَّهَ غَفُورٌ, pourquoi ٱللَّهَ finit-il par -a ?
 > Réponse : parce qu'il vient après **إِنَّ**, qui met le nom suivant à l'accusatif. L'attribut غَفُورٌ, lui, reste à -u.

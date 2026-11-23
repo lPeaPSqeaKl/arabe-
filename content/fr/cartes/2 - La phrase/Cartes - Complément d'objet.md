@@ -9,7 +9,7 @@ règle: Le complément d'objet (mafʿūl bihi)
 ← [[Règles - paquets de cartes]] · Voir aussi : [[Cartes - Accusatif]] · [[Cartes - Phrase verbale]] · [[Cartes - Pronoms collés]] · Règle complète : Atelier arabe › Règles › « Le complément d'objet »
 
 > [!tip] Le fil rouge de ce paquet
-> Le complément d'objet répond à **« qui ? quoi ? »** après le verbe. Il est à l'**accusatif** (-a), comme le **винительный** russe.
+> Le complément d'objet répond à **« qui ? quoi ? »** après le verbe. Il est à l'**accusatif** (-a).
 
 Qu'est-ce que le **mafʿūl bihi** ? À quel cas ?
 ?

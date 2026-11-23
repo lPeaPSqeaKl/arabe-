@@ -2,7 +2,7 @@
  * 04 - Données : chargement local du Coran (aucune connexion internet)
  * ==================================================================== */
 
-const DATA_VERSION = '2';
+const DATA_VERSION = '3';
 const DATA_URL = 'https://raw.githubusercontent.com/lPeaPSqeaKl/arabe-/main/data/';
 const INL_NAMES = { 'ا': 'alif', 'ل': 'lām', 'م': 'mīm', 'ص': 'ṣād', 'ر': 'rā', 'ك': 'kāf', 'ه': 'hā', 'ي': 'yā', 'ع': 'ʿayn', 'ط': 'ṭā', 'س': 'sīn', 'ح': 'ḥā', 'ق': 'qāf', 'ن': 'nūn' };
 const AR_DIGITS = '٠١٢٣٤٥٦٧٨٩';

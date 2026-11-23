@@ -18,9 +18,9 @@ règle: Les trois cas (iʿrāb)
 
 Les trois cas : nom arabe, fin, et rôle principal ?
 ?
-- **Nominatif** = rafʿ : **-u / -un** : sujet, attribut (именительный)
-- **Accusatif** = naṣb : **-a / -an** : complément d'objet (винительный)
-- **Génitif** = jarr : **-i / -in** : après préposition, « le X **de** Y » (родительный)
+- **Nominatif** = rafʿ : **-u / -un** : sujet, attribut
+- **Accusatif** = naṣb : **-a / -an** : complément d'objet
+- **Génitif** = jarr : **-i / -in** : après préposition, « le X **de** Y »
 
 Où se voit le cas d'un nom arabe ?
 ?
@@ -37,7 +37,7 @@ Pourquoi l'ordre des mots est-il libre en arabe ?
 ?
 Parce que les **cas** disent le rôle de chaque mot.
 كَتَبَ الْوَلَدُ الدَّرْسَ = كَتَبَ الدَّرْسَ الْوَلَدُ = « l'enfant a écrit la leçon ».
-Le -u montre le sujet, le -a montre le complément. Exactement comme en russe.
+Le -u montre le sujet, le -a montre le complément. L'ordre des mots peut changer, le sens reste.
 
 ## 2. Un même mot, trois rôles
 

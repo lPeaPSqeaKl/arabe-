@@ -1,6 +1,6 @@
 /* Transforme les fichiers texte de content/ en un fichier JS (src/09-content.gen.js).
  * Le contenu (explications) reste séparé du code : on corrige un .md sans toucher au reste.
- * Un dossier par langue : content/fr/, et plus tard content/ru/ (même noms de fichiers).
+ * Le contenu est dans content/fr/.
  *   content/<langue>/regles/<id>.md  → RULE_DOCS[langue][id]
  *   content/<langue>/<nom>.json      → CONTENT[langue][nom]
  * Ce qui manque dans une langue est pris en français. */

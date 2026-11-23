@@ -36,9 +36,6 @@ Les prépositions acceptent un pronom collé : لَهُ (à lui), عَلَيْه
 - وَ peut être « et » (conjonction) **ou** la préposition du **serment** « par… ! » : وَٱلْعَصْرِ = « **Par** le Temps ! », avec le génitif.
 - مِنْ devant ال prend une fatḥa pour se lier : مِنَ ٱللَّهِ (mina llāhi).
 
-## Comparaison avec le russe
-En russe, chaque préposition choisit son cas (в + предложный, к + дательный, из + родительный). En arabe, c'est beaucoup plus simple : **toujours le génitif**.
-
 ## Pour vérifier
 > Lis et traduis : مِنَ ٱلْجِنَّةِ وَٱلنَّاسِ (114:6).
 > Réponse : **mina l-jinnati wa n-nās**, « (parmi) les djinns et les hommes ». ٱلْجِنَّةِ au génitif après مِنْ, ٱلنَّاسِ au génitif car relié par « et ».

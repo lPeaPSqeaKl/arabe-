@@ -13,8 +13,6 @@ function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); return
 /* texte avec **gras** */
 function mdText(parent, tag, cls, text) {
   const e = h(parent, tag, cls);
-  const both = String(text || '').split(' ‖ ');
-  if (both.length > 1) { mdText(e, 'div', null, both[0]); mdText(e, 'div', 'aa-ru', both[1]); return e; }
   String(text || '').split(/\*\*/).forEach((part, i) => {
     if (!part) return;
     addBidi(i % 2 ? h(e, 'b') : e, part);
@@ -217,7 +215,6 @@ function renderWordDetail(ctx, el, words, wi, ref, verse) {
   }
   const lemRow = st.seg[3] >= 0 ? data.lemmas[st.seg[3]] : null;
   if (lemRow && lemRow[7]) mdText(right, 'div', 'aa-def', lemRow[7]);
-  if (lemRow && lemRow[8] && (ctx.settings.showRu || ctx.settings.ruExpl)) h(right, 'div', 'aa-ru', '🇷🇺 ' + lemRow[8]);
   if (lemRow) { const lk = h(right, 'a', 'aa-link aa-small', '📖 Voir dans le dictionnaire'); lk.addEventListener('click', ev => { ev.preventDefault(); ctx.openDict(st.seg[3]); }); }
   if (isInitials(word)) mdText(el, 'p', 'aa-why', 'Ces lettres se lisent **par leur nom** : ' + initialsTranslit(word) + '. On les appelle « al-ḥurūf al-muqaṭṭaʿa » ; leur sens n\'est connu que d\'Allah.');
 
@@ -399,7 +396,6 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
       tokens.forEach((t, i) => { const s = h(trl, 'span', 'aa-trw', t); s.addEventListener('click', () => spans[i].click()); trl.appendChild(document.createTextNode(' ')); });
     }
     if (S.showFr) { const fr = h(box, 'div', 'aa-verse-fr'); h(fr, 'span', 'aa-ref', surahN + ':' + vn + ' '); fr.appendChild(document.createTextNode(v[0])); }
-    if (S.showRu && v[1]) h(box, 'div', 'aa-verse-ru', v[1]);
     const tools = h(box, 'div', 'aa-verse-tools');
     const structBox = h(document.createElement('div'), 'div', 'aa-struct');
     btn(tools, '🧩 Analyse de la phrase', () => {

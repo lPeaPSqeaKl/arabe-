@@ -10,7 +10,6 @@ règle: Le génitif (jarr)
 
 > [!tip] Le fil rouge de ce paquet
 > Le génitif, c'est la fin **-i** (ـِ). Il n'a que **deux** emplois : **après une préposition**, et comme **2e nom de « le X de Y »**.
-> En russe : **родительный** (книга **мальчика**) + le cas après les prépositions (в **доме**).
 
 ## 1. Reconnaître le génitif
 
@@ -34,13 +33,6 @@ Comment reconnaître un génitif en 2 regards ?
 2. Regarde **le mot d'avant** : une **préposition** ? ou un **nom sans ال ni tanwīn** ?
 Oui aux deux : c'est un génitif. Traduis avec « de » ou avec la préposition.
 
-À quels cas russes correspond le génitif arabe ?
-?
-À **deux** choses en russe :
-- le **родительный** : книга **ученика** = كِتَابُ **الطَّالِبِ** ; Господь **миров** = رَبُّ **الْعَالَمِينَ**
-- le cas **après une préposition** : в **доме** = فِي **الْبَيْتِ** ; о **Боге** = عَنِ **اللَّهِ**
-En arabe, c'est toujours la même fin : **-i**.
-
 ## 2. Pourquoi cette terminaison ?
 
 بِسْمِ اللَّهِ : pourquoi **les deux** mots finissent-ils par **-i** ?
@@ -61,7 +53,6 @@ Ce sont des **adjectifs** (ou des noms qui précisent) de **اللَّهِ**.
 C'est une **chaîne** d'annexions : chaque mot est le « de » du mot d'avant.
 - يَوْمِ : le « de » de مَالِكِ, donc génitif.
 - الدِّينِ : le « de » de يَوْمِ, donc génitif.
-Comme en russe : Владыка **дня суда**.
 
 رَبِّ الْعَالَمِينَ : pourquoi **ـِينَ** à la fin ?
 ?

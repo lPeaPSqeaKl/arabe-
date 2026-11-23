@@ -31,9 +31,6 @@ Beaucoup de noms font leur pluriel en **changeant l'intérieur** du mot : كِت
 - À l'arrêt, on ne prononce pas le -a final : al-ʿālamīn, al-kāfirūn.
 - Devant un complément du nom, le ن tombe : مُسْلِمُو مَكَّةَ.
 
-## Comparaison avec le russe
-Comme en russe, le pluriel change avec le cas (книги / книг), mais ici **seulement deux formes**.
-
 ## Pour vérifier
 > مِنَ ٱلْمُؤْمِنُونَ ou مِنَ ٱلْمُؤْمِنِينَ ?
 > Réponse : **مِنَ ٱلْمُؤْمِنِينَ** : après la préposition مِنْ, génitif → ـِينَ.

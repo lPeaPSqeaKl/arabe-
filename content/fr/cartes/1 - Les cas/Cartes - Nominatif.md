@@ -9,7 +9,7 @@ règle: Le nominatif (rafʿ)
 ← [[Règles - paquets de cartes]] · Voir aussi : [[Cartes - Les trois cas]] · [[Cartes - Accusatif]] · [[Cartes - Génitif]] · [[Tableau 2 - Les trois cas]] · Règle complète : Atelier arabe › Règles › « Le nominatif »
 
 > [!tip] Le fil rouge de ce paquet
-> Le nominatif, c'est la fin **-u** (ـُ). Il répond à la question **« qui fait l'action ? »** ou **« de qui parle-t-on ? »**. En russe : **именительный** (кто? что?).
+> Le nominatif, c'est la fin **-u** (ـُ). Il répond à la question **« qui fait l'action ? »** ou **« de qui parle-t-on ? »**.
 > Avant de retourner une carte, dis à voix haute **la terminaison** et **la raison**. La raison compte plus que la réponse.
 
 ## 1. Reconnaître le nominatif
@@ -19,12 +19,6 @@ Quelle est la marque du **nominatif** (rafʿ) sur un nom singulier ?
 **-u** (ḍamma ـُ) si le nom a ال : الْكِتَابُ *al-kitāb**u*** (le livre).
 **-un** (tanwīn ـٌ) s'il n'a pas ال : كِتَابٌ *kitāb**un*** (un livre).
 Un mot au nominatif est dit **marfūʿ** (مَرْفُوع).
-
-En russe, à quel cas ressemble le nominatif arabe ?
-?
-À l'**именительный падеж** : il répond à **кто? что?**
-« **Бог** един » = اللَّهُ أَحَدٌ.
-« **Мальчик** ушёл » = ذَهَبَ الْوَلَدُ.
 
 Quelles sont les **6 places** où un nom est au nominatif ?
 ?
@@ -122,7 +116,7 @@ Le sens du mot ne change pas. Seul son **rôle** change, et la dernière voyelle
 **L'enfant** a écrit **la leçon**.
 - الْوَلَدُ a **-u** : c'est le sujet (celui qui écrit).
 - الدَّرْسَ a **-a** : c'est le complément (ce qui est écrit).
-Si on dit كَتَبَ الدَّرْسَ الْوَلَدُ, le sens est **le même**. C'est la terminaison qui décide, pas l'ordre. Comme en russe : « Урок написал мальчик ».
+Si on dit كَتَبَ الدَّرْسَ الْوَلَدُ, le sens est **le même**. C'est la terminaison qui décide, pas l'ordre.
 
 أَكَلَ التُّفَّاحَةَ الْوَلَدُ : qui a mangé quoi ?
 ?
@@ -225,7 +219,7 @@ Si le sujet passe devant, le verbe s'accorde : الرِّجَالُ جَاءُو
 Dis en arabe : « le livre est nouveau » (livre = كِتَاب, nouveau = جَدِيد).
 ?
 **الْكِتَابُ جَدِيدٌ** (*al-kitābu jadīdun*).
-Sujet avec ال (-u) + attribut sans ال (-un). Pas de verbe « être » au présent, comme en russe : « Книга — новая ».
+Sujet avec ال (-u) + attribut sans ال (-un). Pas de verbe « être » au présent.
 
 Dis en arabe : « l'homme est parti » (partir = ذَهَبَ, homme = رَجُل).
 ?

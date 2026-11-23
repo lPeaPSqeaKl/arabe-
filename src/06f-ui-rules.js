@@ -47,7 +47,7 @@ function renderRuleCard(ctx, parent, r, opts) {
       const s = h(row, 'td'); soundBtn(s, () => speak(ar), 'Écouter');
     });
   }
-  if (r.ru && ctx.settings.ruExpl) { const ru = h(box, 'div', 'aa-rule-ru'); h(ru, 'span', null, '🇷🇺 '); addBidi(ru, r.ru); }
+  if (r.ru) { const ru = h(box, 'div', 'aa-rule-ru'); addBidi(ru, r.ru); }
   if (opts.inline) {
     const a = h(box, 'div', 'aa-actions');
     if (ruleDoc(r.id)) { let dbox = null; btn(a, '📖 Explication détaillée', () => { if (dbox) { dbox.remove(); dbox = null; return; } dbox = h(document.createElement('div'), 'div'); box.insertBefore(dbox, a); renderRuleDetail(ctx, dbox, r); }, 'aa-btn-quiet'); }
@@ -141,7 +141,7 @@ function ruleDoc(id) { return ((RULE_DOCS[UI_LANG] || {})[id]) || ((RULE_DOCS.fr
 /* Mini-markdown : ## titres, paragraphes, listes, tableaux, > encadrés, @coran s:v | mots | note */
 function renderDoc(ctx, el, md) {
   md = String(md || '').replace(/^---\n[\s\S]*?\n---\n?/, '').replace(/%%[\s\S]*?%%/g, '');
-  if (!ctx.settings.ruExpl) md = md.replace(/^#{2,3} [^\n]*russe[^\n]*\n[\s\S]*?(?=^#{1,3} |(?![\s\S]))/gim, '');
+  md = md.replace(/^#{2,3} [^\n]*russe[^\n]*\n[\s\S]*?(?=^#{1,3} |(?![\s\S]))/gim, '');
   const lines = md.split('\n'); const jobs = []; let para = []; let i = 0;
   const flush = () => { if (para.length) { const p = h(el, 'div', 'aa-doc-p'); para.forEach(l => mdText(p, 'div', null, l)); para = []; } };
   while (i < lines.length) {

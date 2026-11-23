@@ -9,7 +9,7 @@ règle: La phrase nominale
 ← [[Règles - paquets de cartes]] · Voir aussi : [[Cartes - Sujet (mubtada)]] · [[Cartes - Attribut (khabar)]] · [[Cartes - Phrase verbale]] · Règle complète : Atelier arabe › Règles › « La phrase nominale »
 
 > [!tip] Le fil rouge de ce paquet
-> Une phrase nominale = **sujet + attribut**, **sans verbe « être »** au présent, et les deux au **nominatif**. Exactement comme en russe : « Дом — большой ».
+> Une phrase nominale = **sujet + attribut**, **sans verbe « être »** au présent, et les deux au **nominatif**.
 
 Qu'est-ce qu'une **phrase nominale** ?
 ?

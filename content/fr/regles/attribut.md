@@ -25,9 +25,6 @@ Le **khabar** (« l'information ») est **ce qu'on dit du sujet** dans une phras
 - Un attribut défini (ٱللَّهُ ٱلصَّمَدُ) ressemble à un adjectif. Si la phrase n'a pas d'autre attribut, c'est bien l'attribut.
 - L'attribut peut venir **avant** le sujet : لَهُمْ عَذَابٌ.
 
-## Comparaison avec le russe
-C'est le **сказуемое** sans verbe : « Бог — **един** », « Дом — **большой** ».
-
 ## Pour vérifier
 > Dans ٱلْبَيْتُ فِي ٱلْمَدِينَةِ, quel est l'attribut ?
 > Réponse : **فِي ٱلْمَدِينَةِ** (dans la ville) : « la maison est dans la ville ».

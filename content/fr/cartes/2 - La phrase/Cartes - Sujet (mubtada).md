@@ -14,7 +14,7 @@ règle: Le sujet de la phrase nominale (mubtadaʾ)
 Qu'est-ce que le **mubtadaʾ** ? À quel cas est-il ?
 ?
 Le **sujet d'une phrase nominale** : le mot dont on parle. Son nom veut dire « ce par quoi on commence ».
-Il est au **nominatif** : -u, ـُونَ, ـَانِ. En russe : подлежащее d'une phrase sans verbe (« **Бог** — един »).
+Il est au **nominatif** : -u, ـُونَ, ـَانِ.
 
 Quels mots peuvent être mubtadaʾ ? (5 types)
 ?

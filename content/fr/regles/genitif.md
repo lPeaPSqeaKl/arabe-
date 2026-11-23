@@ -29,9 +29,6 @@ Et bien sûr : un adjectif ou un mot relié par « et » à un génitif est auss
 - Dans « le X de Y », c'est **Y** qui est au génitif. **X**, lui, prend le cas de son rôle : نَصْرُ ٱللَّهِ, « le secours d'Allah », نَصْرُ est sujet (-u).
 - Le pronom collé à une préposition est aussi « au génitif », même si on ne le voit pas : عَلَيْهِمْ, لَهُ.
 
-## Comparaison avec le russe
-Le génitif arabe regroupe deux cas russes : le **родительный** (книга **мальчика**, Господь **миров**) et le cas qui suit une préposition (**в доме**, **о боге**). En arabe, c'est toujours le même : -i.
-
 ## Pour vérifier
 > Pourquoi ٱلدِّينِ finit-il par -i dans يَوْمِ ٱلدِّينِ ?
 > Réponse : c'est le **2e mot** de l'annexion « le jour **du** Jugement ».

@@ -9,7 +9,7 @@ règle: L'annexion (iḍāfa)
 ← [[Règles - paquets de cartes]] · Voir aussi : [[Cartes - Génitif]] · [[Cartes - Adjectif]] · Règle complète : Atelier arabe › Règles › « L'annexion »
 
 > [!tip] Le fil rouge de ce paquet
-> « **le X de Y** » = deux noms collés. **X** : sans ال ni tanwīn, cas selon son rôle. **Y** : toujours au **génitif**. Comme le родительный russe : книга **ученика**.
+> « **le X de Y** » = deux noms collés. **X** : sans ال ni tanwīn, cas selon son rôle. **Y** : toujours au **génitif**.
 
 Comment dit-on « **le X de Y** » en arabe ?
 ?

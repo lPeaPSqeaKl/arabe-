@@ -19,9 +19,6 @@ Avec **وَ** « alors que » : جَاءَ وَهُوَ يَضْحَكُ = il es
 - Ne le confonds pas avec l'adjectif : l'adjectif copie le ال du nom (ٱلرَّجُلُ ٱلْمُسْرِعُ = l'homme pressé), le ḥāl reste **indéfini** (ٱلرَّجُلُ مُسْرِعًا = l'homme, pressé).
 - Ne le confonds pas avec le complément d'objet : le ḥāl décrit une **personne**, pas ce qui subit l'action.
 
-## Comparaison avec le russe
-Comme « пришёл **усталым** », « вернись **довольной** » : un état pendant l'action, ou un adverbe en -ом (« толпами »).
-
 ## Pour vérifier
 > Dans دَخَلَ ٱلطَّالِبُ فَرِحًا, que veut dire فَرِحًا ?
 > Réponse : « **joyeux** » : l'élève est entré, joyeux. C'est un ḥāl (indéfini, -an).

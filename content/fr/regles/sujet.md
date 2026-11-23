@@ -27,9 +27,6 @@ Quand le sujet est **indéfini**, il vient **après** son attribut : لَهُم�
 - Après إِنَّ, le sujet passe à l'**accusatif** : إِنَّ ٱلْإِنْسَانَ.
 - Ne le confonds pas avec le **sujet d'un verbe** (fāʿil), qui vient après le verbe.
 
-## Comparaison avec le russe
-C'est le **подлежащее** d'une phrase sans verbe : « **Бог** — един ».
-
 ## Pour vérifier
 > Quel est le sujet dans وَرَبُّكَ ٱلْأَكْرَمُ (96:3) ?
 > Réponse : **رَبُّكَ** (ton Seigneur), défini par le pronom ـكَ. ٱلْأَكْرَمُ (le Très-Noble) est l'attribut.

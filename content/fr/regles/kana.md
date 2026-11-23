@@ -34,9 +34,6 @@ Les deux mettent un -a, mais pas sur le même mot.
 - Après لَمْ, يَكُونُ devient **يَكُنْ** puis souvent **يَكُ** : le و tombe.
 - L'attribut peut venir avant le sujet : لَمْ يَكُنْ لَهُ كُفُوًا أَحَدٌ.
 
-## Comparaison avec le russe
-Comme en russe : « он **учитель** » mais « он был **учителем** ». Après « быть », l'attribut change de cas (творительный). En arabe, il passe à l'accusatif.
-
 ## Pour vérifier
 > Mets au passé avec كَانَ : ٱلْجَوُّ جَمِيلٌ (le temps est beau).
 > Réponse : **كَانَ ٱلْجَوُّ جَمِيلًا**.

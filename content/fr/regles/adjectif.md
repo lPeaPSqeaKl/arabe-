@@ -36,9 +36,6 @@ L'adjectif se met **après tout le groupe**, et il copie le mot qu'il qualifie :
 - Un nom avec un possessif est défini : son adjectif prend ال. رَبُّكَ ٱلْأَكْرَمُ = ton Seigneur le Très-Noble.
 - Les pluriels de personnes gardent un adjectif pluriel : رِجَالٌ صَالِحُونَ (des hommes vertueux).
 
-## Comparaison avec le russe
-L'accord est le même qu'en russe (больш**ой** дом, больш**ого** дома), mais l'adjectif arabe vient **après** le nom.
-
 ## Pour vérifier
 > ٱلرَّجُلُ صَالِحٌ ou ٱلرَّجُلُ ٱلصَّالِحُ : lequel veut dire « l'homme vertueux » ?
 > Réponse : **ٱلرَّجُلُ ٱلصَّالِحُ** (défini + défini). L'autre veut dire « l'homme est vertueux ».

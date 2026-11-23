@@ -14,7 +14,7 @@ règle: L'attribut (khabar)
 Qu'est-ce que le **khabar** ?
 ?
 L'**attribut** de la phrase nominale : ce qu'on **dit du sujet**, l'information nouvelle. Son nom veut dire « l'information ».
-Il est au **nominatif** (sauf après كَانَ). En russe : сказуемое sans verbe (« Бог — **един** »).
+Il est au **nominatif** (sauf après كَانَ).
 
 Comment trouver l'attribut en 2 étapes ?
 ?

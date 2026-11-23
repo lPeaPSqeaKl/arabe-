@@ -50,7 +50,7 @@ Pourquoi قَالَ (il a dit) n'a-t-il que deux consonnes visibles ?
 Sa racine est **ق و ل** : le و est une lettre **faible** qui s'est transformée en ا.
 Dans قُلْ (dis !), il a même disparu.
 
-Comparaison avec le russe ?
+Comparaison avec le français ?
 ?
-En russe aussi une partie du mot porte le sens : **пис**-ать, **пис**-атель, **пис**-ьмо.
+En français aussi une partie du mot porte le sens : **écri**-re, **écri**-vain, **écri**-ture.
 Mais en arabe, la racine est faite de **consonnes séparées**, et les voyelles se glissent **entre** elles : k**a**t**a**b**a**, k**i**t**ā**b.

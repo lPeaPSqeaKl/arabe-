@@ -38,7 +38,6 @@ Qu'est-ce que le **duel** ? Ses deux formes ?
 Une forme spéciale pour **deux** choses :
 - **ـَانِ** au nominatif : رَجُلَانِ (deux hommes)
 - **ـَيْنِ** à l'accusatif et au génitif : رَجُلَيْنِ
-Le russe n'a plus de duel, mais on en voit la trace dans « два стол**а** ».
 
 ## Pourquoi cette terminaison ?
 

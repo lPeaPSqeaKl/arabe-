@@ -39,11 +39,6 @@ Les sœurs de kāna ?
 - **مَا زَالَ** : ne pas cesser d'être
 Même effet : attribut à l'accusatif.
 
-Comparaison avec le russe ?
-?
-« он **учитель** » mais « он был **учителем** » : après « быть », l'attribut change de cas (творительный).
-En arabe, il passe à l'**accusatif** : كَانَ **مُعَلِّمًا**.
-
 وَلَمْ يَكُنْ لَهُ كُفُوًا أَحَدٌ (112:4) : sujet ? attribut ?
 ?
 - يَكُنْ = كَانَ (après لَمْ).

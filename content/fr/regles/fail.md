@@ -17,9 +17,6 @@ Quand le verbe est au passif (« a été fait »), le sujet est celui qui **subi
 ## Les pièges
 - Le sujet peut être séparé du verbe par un complément : أَلْهَاكُمُ ٱلتَّكَاثُرُ (102:1), « la course aux richesses **vous** distrait » : ـكُمْ (complément) est collé au verbe, et le sujet ٱلتَّكَاثُرُ vient après.
 
-## Comparaison avec le russe
-C'est le **подлежащее** d'un verbe (кто делает?). Comme en russe où « мы создали » n'a pas besoin de « мы » quand la terminaison le montre (создали**м** en ancien style), l'arabe colle le sujet au verbe.
-
 ## Pour vérifier
 > Qui fait l'action dans أَلْهَىٰكُمُ ٱلتَّكَاثُرُ ?
 > Réponse : **ٱلتَّكَاثُرُ** (la course aux richesses), au nominatif. ـكُمْ (vous) est le complément.

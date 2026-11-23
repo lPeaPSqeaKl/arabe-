@@ -9,7 +9,7 @@ règle: L'accusatif (naṣb)
 ← [[Règles - paquets de cartes]] · Voir aussi : [[Cartes - Nominatif]] · [[Cartes - Complément d'objet]] · [[Cartes - Inna et ses sœurs]] · [[Cartes - Kana et ses sœurs]] · Règle complète : Atelier arabe › Règles › « L'accusatif »
 
 > [!tip] Le fil rouge de ce paquet
-> L'accusatif, c'est la fin **-a** (ـَ), ou **-an** (ـًا) sans ال. Son emploi le plus fréquent : le **complément d'objet** (« qui ? quoi ? » après le verbe), comme le **винительный** russe.
+> L'accusatif, c'est la fin **-a** (ـَ), ou **-an** (ـًا) sans ال. Son emploi le plus fréquent : le **complément d'objet** (« qui ? quoi ? » après le verbe).
 > Mais il a beaucoup d'autres emplois : après إِنَّ, l'attribut de كَانَ, le temps, l'état…
 
 ## 1. Reconnaître l'accusatif
@@ -35,11 +35,6 @@ Cite **5 emplois** fréquents de l'accusatif.
 4. **Temps ou lieu** : **يَوْمَ** الْقِيَامَةِ (le jour de la Résurrection)
 5. **État** (ḥāl) : ارْجِعِي **رَاضِيَةً** (reviens, satisfaite)
 Et aussi : après لَا « aucun » (لَا رَيْبَ), après إِلَّا (« sauf »), le complément absolu.
-
-À quels cas russes ressemble l'accusatif arabe ?
-?
-Surtout au **винительный** : вижу (кого? что?) **людей** = رَأَيْتُ **النَّاسَ**.
-Mais aussi au **творительный** : он был **учителем** = كَانَ **مُعَلِّمًا** ; et à certains adverbes : **толпами** = **أَفْوَاجًا**.
 
 ## 2. Pourquoi cette terminaison ?
 

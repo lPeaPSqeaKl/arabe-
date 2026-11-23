@@ -33,9 +33,6 @@ Le sujet de inna est souvent un **pronom collé** : إِنَّهُ (certes lui),
 - Ne confonds pas **إِنَّ** (certes, avec chadda) et **إِنْ** (si, sans chadda) : إِنْ n'a pas cet effet.
 - **أَنْ** (que + verbe) n'est pas **أَنَّ** (que + nom) : أَنْ met le verbe au subjonctif.
 
-## Comparaison avec le russe
-Imagine que « вот » oblige à dire « вот книг**у** » : un petit mot change le cas du sujet.
-
 ## Pour vérifier
 > Ajoute إِنَّ à ٱلْعِلْمُ نُورٌ (la science est une lumière).
 > Réponse : **إِنَّ ٱلْعِلْمَ نُورٌ** — le sujet passe à -a, l'attribut reste à -un.

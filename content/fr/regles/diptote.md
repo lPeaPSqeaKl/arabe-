@@ -25,9 +25,6 @@ Dès qu'un diptote a **ال** ou est le **premier mot d'une annexion**, il repre
 - Dans l'atelier, quand un génitif finit par -a, la rubrique « Marque » l'explique : « fatḥa à la place de la kasra : nom diptote ».
 - Ne pas confondre avec l'accusatif : regarde le mot d'avant (une préposition ? → c'est un génitif diptote).
 
-## Comparaison avec le russe
-Comme des mots russes qui se déclinent « à moitié » ou pas du tout (пальто, кофе, et beaucoup de noms étrangers).
-
 ## Pour vérifier
 > Lis : عَلَىٰ إِبْرَاهِيمَ.
 > Réponse : **ʿalā ibrāhīma** — génitif après عَلَى, mais -a car إِبْرَاهِيم est diptote.

@@ -35,9 +35,6 @@ Un pronom collé à un nom joue le rôle du second mot : رَبُّكَ = « le 
 - Un adjectif ne peut pas se glisser entre les deux noms : il se met **après** le second. بَيْتُ ٱللَّهِ ٱلْحَرَامُ = la Maison sacrée d'Allah (l'adjectif copie le cas du **premier** nom).
 - Le pluriel masculin perd son ن en premier terme : مُسْلِمُونَ → مُسْلِمُو مَكَّةَ (les musulmans de La Mecque).
 
-## Comparaison avec le russe
-C'est le **родительный** russe sans préposition : книга ученика, Господь миров, день Суда. Le premier mot garde son cas, le second est « кого? чего? ».
-
 ## Pour vérifier
 > Comment dire « la porte de la mosquée » (porte = بَاب, mosquée = مَسْجِد) ?
 > Réponse : **بَابُ ٱلْمَسْجِدِ** — premier mot sans ال ni tanwīn, second avec ال et au génitif.
