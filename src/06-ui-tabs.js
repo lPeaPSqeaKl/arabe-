@@ -81,6 +81,11 @@ function renderQuranTab(ctx, root, state) {
   opt.addEventListener('toggle', () => { if (small) state.optsOpen = opt.open; });
   if (ctx.settings.audio !== false) renderReciteBar(ctx, root, opt, state, nV);
   const tg = h(opt, 'div', 'aa-toggles');
+  const quick = h(bar, 'div', 'aa-actions aa-quick');
+  btn(quick, 'A−', () => setArSize(ctx, root, -2), 'aa-btn-quiet aa-asize').title = 'Texte arabe plus petit';
+  btn(quick, 'A+', () => setArSize(ctx, root, +2), 'aa-btn-quiet aa-asize').title = 'Texte arabe plus grand';
+  btn(quick, '⤢ Lecture', () => setReading(root.closest('.aa-root') || root, true), 'aa-btn-quiet').title = 'Plein écran : seulement le texte (Échap ou ✕ pour sortir)';
+  btn(quick, '🔎 Chercher', () => { state.searchOpen = !state.searchOpen; renderQuranTab(ctx, root, state); }, 'aa-btn-quiet' + (state.searchOpen ? ' aa-on' : '')).title = 'Chercher un mot dans tout le Coran';
   checkbox(tg, 'translittération', ctx.settings.showTr, v => { ctx.settings.showTr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'français', ctx.settings.showFr, v => { ctx.settings.showFr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'couleurs des mots', ctx.settings.wordColors !== false, v => { ctx.settings.wordColors = v; ctx.save(); const r = root.closest && root.closest('.aa-root'); if (r) r.classList.toggle('aa-nocolor', !v); });
@@ -109,6 +114,7 @@ function renderQuranTab(ctx, root, state) {
   }).catch(() => {});
   if (ctx.settings.tajwid) renderTajwidLegend(details(root, '🎨 Couleurs de prononciation : ce qu\'on prononce ou pas', true));
   mdText(root, 'p', 'aa-help', '**Clique sur un mot** pour voir ses morceaux, ses signes lettre par lettre, la raison de sa terminaison et les autres formes possibles. Couleurs : bleu = nom, rouge = verbe, gris = particule. Les mots **soulignés en pointillé** sont déjà dans ton vocabulaire.');
+  if (state.searchOpen) renderQuranSearch(ctx, root, state);
   const body = h(root, 'div', 'aa-verses' + (ctx.settings.practice ? ' aa-practice' : ''));
   const from = state.page * PAGE + 1, to = Math.min(nV, from + PAGE - 1);
   renderVerses(ctx, body, state.surah, from, to, { title: true, basmala: from === 1 }).then(() => {
@@ -181,6 +187,73 @@ function renderBookmarks(ctx, root, state, goSurah) {
     const x = h(row, 'span', 'aa-bm-x', '✕'); x.title = 'Retirer ce signet';
     x.addEventListener('click', () => { toggleBookmark(ctx, b.s, b.v); renderQuranTab(ctx, root, state); });
   });
+}
+
+function setArSize(ctx, root, d) {
+  const S = ctx.settings; S.arSize = Math.max(20, Math.min(56, (S.arSize || 30) + d));
+  const r = root.closest ? (root.closest('.aa-root') || root) : root;
+  r.style.setProperty('--aa-ar-size', S.arSize + 'px');
+  r.querySelectorAll('.aa-verse-ar').forEach(el => { el.style.fontSize = S.arSize + 'px'; });
+  ctx.save();
+}
+/* mode lecture : on cache tout sauf le texte */
+function setReading(rootEl, on) {
+  rootEl.classList.toggle('aa-reading', on);
+  let bar = rootEl.querySelector(':scope > .aa-reading-bar');
+  if (on && !bar) {
+    bar = h(rootEl, 'div', 'aa-reading-bar');
+    const body = rootEl.querySelector('.aa-body');
+    const ctxRoot = body;
+    btn(bar, 'A−', () => { const b = rootEl.querySelector('.aa-body button.aa-asize'); if (b) b.click(); }, 'aa-btn-quiet');
+    btn(bar, 'A+', () => { const b = rootEl.querySelectorAll('.aa-body button.aa-asize')[1]; if (b) b.click(); }, 'aa-btn-quiet');
+    btn(bar, '✕ Quitter la lecture', () => setReading(rootEl, false), 'aa-btn-quiet');
+  }
+  if (!on && bar) bar.remove();
+}
+/* chercher un mot (français ou arabe) dans tout le Coran */
+function renderQuranSearch(ctx, root, state) {
+  const box = h(root, 'div', 'aa-qsearch');
+  const inp = h(box, 'input', 'aa-search'); inp.type = 'search'; inp.placeholder = 'un mot en français (miséricorde) ou en arabe (رحمة)…';
+  inp.value = state.query || '';
+  const out = h(box, 'div', 'aa-qsearch-out');
+  let timer = null;
+  const run = async () => {
+    const q = inp.value.trim(); state.query = q; clear(out);
+    if (q.length < 2) { h(out, 'p', 'aa-muted aa-small', 'Tape au moins 2 lettres.'); return; }
+    const isAr = /[\u0600-\u06FF]/.test(q);
+    const qa = stripAr(q).replace(/\s+/g, ' ').trim(), ql = stripLat(q);
+    const wait = h(out, 'p', 'aa-muted aa-small', 'Recherche…');
+    const res = []; let total = 0;
+    for (let n = 1; n <= 114; n++) {
+      const d = await ctx.data.surah(n);
+      if (inp.value.trim() !== q) return; // on a tapé autre chose entre-temps
+      d.v.forEach((v, i) => {
+        const hit = isAr ? (' ' + stripAr(v[2].map(wordText).join(' ')) + ' ').includes(qa) : stripLat(v[0]).includes(ql);
+        if (hit) { total++; if (res.length < 60) res.push([n, i + 1, v]); }
+      });
+    }
+    wait.remove();
+    h(out, 'p', 'aa-muted aa-small', total ? total + ' verset' + (total > 1 ? 's' : '') + (total > 60 ? ' (les 60 premiers)' : '') : 'Aucun verset trouvé.');
+    res.forEach(([n, vn, v]) => {
+      const r = h(out, 'div', 'aa-qres');
+      const a = h(r, 'a', 'aa-link aa-small', ctx.data.surahInfo(n)[1] + ' ' + n + ':' + vn);
+      const go = ev => { ev.preventDefault(); state.searchOpen = false; ctx.openQuran(n, vn); };
+      a.addEventListener('click', go);
+      const ar = arSpan(h(r, 'div', 'aa-qres-ar'), v[2].map(wordText).join(' '));
+      const fr = h(r, 'div', 'aa-qres-fr aa-small');
+      if (!isAr) {
+        const t = v[0]; let norm = ''; const idx = [];
+        for (let i = 0; i < t.length; i++) { const c = stripLat(t[i]); for (const x of c) { norm += x; idx.push(i); } }
+        const k = norm.indexOf(ql);
+        if (k >= 0) { const a0 = idx[k], a1 = idx[k + ql.length - 1] + 1; fr.appendChild(document.createTextNode(t.slice(0, a0))); h(fr, 'mark', null, t.slice(a0, a1)); fr.appendChild(document.createTextNode(t.slice(a1))); }
+        else fr.textContent = t;
+      } else fr.textContent = v[0];
+      r.addEventListener('click', go);
+    });
+  };
+  inp.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(run, 350); });
+  setTimeout(() => { try { inp.focus(); } catch (e) { /* */ } }, 30);
+  if (state.query) run();
 }
 
 /* ---------------------------- Analyser ---------------------------- */

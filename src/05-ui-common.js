@@ -69,6 +69,12 @@ function details(parent, title, open, cls) {
 function copyText(t) {
   try { navigator.clipboard.writeText(t).then(() => notify('Copié dans le presse-papiers'), () => notify('Impossible de copier')); } catch (e) { notify('Impossible de copier'); }
 }
+/* iPad / iPhone : menu de partage du système ; ordinateur : copie */
+function canShare() { try { return !!(navigator.share && window.matchMedia && window.matchMedia('(pointer: coarse)').matches); } catch (e) { return false; } }
+function shareText(text, title) {
+  if (canShare()) { navigator.share({ title, text }).catch(err => { if (!err || err.name !== 'AbortError') copyText(text); }); return; }
+  copyText(text);
+}
 let notify = (msg) => { try { console.log(msg); } catch (e) { /* */ } };
 
 /* ---------- Son ---------- */
@@ -419,7 +425,8 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
       const bm = btn(tools, on ? '★ Signet' : '☆ Signet', () => { const now = toggleBookmark(ctx, surahN, vn); bm.textContent = now ? '★ Signet' : '☆ Signet'; bm.classList.toggle('aa-bm-on', now); }, 'aa-btn-quiet' + (on ? ' aa-bm-on' : ''));
       bm.title = 'Garder ce verset dans « Mes signets » (en haut de l\'onglet Coran)';
     }
-    btn(tools, 'Copier le verset', () => copyText(words.map(wordText).join(' ') + '\n' + tokens.join(' ') + '\n' + v[0] + ' (' + surahN + ':' + vn + ')'), 'aa-btn-quiet');
+    const vText = () => words.map(wordText).join(' ') + '\n' + tokens.join(' ') + '\n« ' + v[0] + ' » (' + info[1] + ' ' + surahN + ':' + vn + ')';
+    btn(tools, canShare() ? '↗ Partager' : 'Copier le verset', () => shareText(vText(), info[1] + ' ' + surahN + ':' + vn), 'aa-btn-quiet');
     btn(tools, 'Insérer dans la note', () => ctx.insertText('> [!quote] ' + info[1] + ' ' + surahN + ':' + vn + '\n> ' + words.map(wordText).join(' ') + '\n> *' + tokens.join(' ') + '*\n> ' + v[0] + '\n\n'), 'aa-btn-quiet');
     box.appendChild(structBox);
     box.appendChild(detail);

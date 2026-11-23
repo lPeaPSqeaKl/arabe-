@@ -32,7 +32,7 @@ class AtelierView extends ItemView {
     super(leaf);
     this.plugin = plugin;
     this.tab = TABS.some(t => t[0] === plugin.settings.lastTab) ? plugin.settings.lastTab : 'home';
-    this.states = { coran: { surah: plugin.settings.lastSurah || 1, page: 0, resume: plugin.settings.lastVerse || 0 }, dict: {}, alphabet: {}, home: {}, write: {}, lessons: {}, rules: {}, review: {}, analyse: {}, build: {}, signs: {}, quiz: {} };
+    this.states = { coran: { surah: plugin.settings.lastSurah || 1, page: 0, resume: plugin.settings.lastVerse || 0 }, dict: {}, alphabet: {}, home: {}, write: {}, lessons: plugin.settings.lessonPlace && plugin.settings.lessonPlace.open ? { open: plugin.settings.lessonPlace.open, step: plugin.settings.lessonPlace.step || 0, stepFor: plugin.settings.lessonPlace.open } : {}, rules: {}, review: {}, analyse: {}, build: {}, signs: {}, quiz: {} };
   }
   getViewType() { return VIEW_TYPE; }
   getDisplayText() { return 'Atelier arabe'; }
@@ -50,6 +50,7 @@ class AtelierView extends ItemView {
     this.render();
     /* ordinateur : flèches ← → dans l'onglet Coran (sourate / versets suivants) */
     this.registerDomEvent(document, 'keydown', ev => {
+      if (ev.key === 'Escape' && this.contentEl.classList.contains('aa-reading')) { setReading(this.contentEl, false); return; }
       if (this.tab !== 'coran' || ev.altKey || ev.ctrlKey || ev.metaKey || (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight')) return;
       const ws = (this.app || this.plugin.app || {}).workspace; if (ws && ws.activeLeaf && ws.activeLeaf !== this.leaf) return;
       const t = ev.target; if (t && (t.closest && t.closest('input, textarea, select, [contenteditable="true"]'))) return;

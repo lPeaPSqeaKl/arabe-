@@ -3,8 +3,14 @@
  * ==================================================================== */
 function lessonState(ctx) { return ctx.settings.lessons || (ctx.settings.lessons = {}); }
 
+function saveLessonPlace(ctx, state) {
+  const P = { open: state.open || null, step: state.step || 0 };
+  const o = ctx.settings.lessonPlace || {};
+  if (o.open !== P.open || o.step !== P.step) { ctx.settings.lessonPlace = P; ctx.save(); }
+}
 function renderLessonsTab(ctx, root, state) {
   clear(root);
+  saveLessonPlace(ctx, state);
   if (state.open) { const L = LESSONS.find(l => l.id === state.open); if (L) return renderLesson(ctx, root, state, L); state.open = null; }
   const done = lessonState(ctx);
   const nDone = LESSONS.filter(l => done[l.id] && done[l.id].done).length;
@@ -86,7 +92,7 @@ async function renderLesson(ctx, root, state, L) {
   const openStep = (i, scroll) => {
     steps.forEach((d, j) => { d.open = j === i; });
     stepBar.querySelectorAll('.aa-step-dot').forEach((b, j) => { b.classList.toggle('aa-on', j === i); b.classList.toggle('aa-seen', j < i); });
-    state.step = i;
+    state.step = i; saveLessonPlace(ctx, state);
     if (scroll && steps[i] && steps[i].scrollIntoView) setTimeout(() => steps[i].scrollIntoView({ block: 'start', behavior: 'smooth' }), 30);
   };
   h(stepBar, 'span', 'aa-muted aa-small', 'Étapes :');
