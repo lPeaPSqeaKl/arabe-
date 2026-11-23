@@ -40,6 +40,6 @@ Le plugin est entièrement en français et en arabe.
 
 ## Données et droits
 
-Texte du Coran : projet [Tanzil](https://tanzil.net). Analyse morphologique : [Quranic Arabic Corpus](https://corpus.quran.com) (Kais Dukes, Université de Leeds, GNU GPL). Traduction française : Muhammad Hamidullah, utilisée à des fins d'étude non commerciales. Polices arabes : Amiri Quran de Khaled Hosny, et au choix Scheherazade New, Noto Naskh Arabic, Amiri, Lateef, Aref Ruqaa (toutes SIL Open Font License 1.1). Détails et conditions : [SOURCES.md](SOURCES.md).
+Texte du Coran : projet [Tanzil](https://tanzil.net). Analyse morphologique : [Quranic Arabic Corpus](https://corpus.quran.com) (Kais Dukes, Université de Leeds, GNU GPL). Traduction française : Muhammad Hamidullah, utilisée à des fins d'étude non commerciales. Polices arabes : Amiri Quran de Khaled Hosny, et au choix Scheherazade New, Noto Naskh Arabic, Amiri, Lateef, Aref Ruqaa, Bouazzi Maghribi (toutes SIL Open Font License 1.1). Détails et conditions : [SOURCES.md](SOURCES.md).
 
 Outil d'apprentissage : les analyses automatiques peuvent contenir des erreurs.

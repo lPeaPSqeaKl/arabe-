@@ -18,6 +18,7 @@ const AR_FONTS = [
   ['amiri-classic', 'Amiri', 'Naskh élégant des livres anciens.'],
   ['lateef', 'Lateef', 'Naskh simple et aéré.'],
   ['ruqaa', 'Ruqʿa (écriture à la main)', 'Le style qu\'on utilise pour écrire à la main au quotidien. Utile pour lire une écriture manuscrite. Certains petits signes du Coran sont plus simples.'],
+  ['maghribi', 'Maghribi (style marocain)', 'Écriture maghrébine, celle des manuscrits et des Corans du Maroc. Attention : dans ce style, le ف a souvent son point en dessous et le ق un seul point au-dessus.'],
   ['device', 'Police de l\'appareil', 'La police arabe de ton PC ou de ton iPad.'],
 ];
 const TAB_ICONS = { home: 'home', write: 'pencil', coran: 'book-open', alphabet: 'a-large-small', lessons: 'graduation-cap', rules: 'book-marked', review: 'layers', dict: 'library', analyse: 'scan-search', build: 'blocks', signs: 'flask-conical', quiz: 'target' };
