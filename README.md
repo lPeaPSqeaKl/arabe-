@@ -33,13 +33,13 @@ Le texte des explications est séparé du code :
 - `content/fr/regles/<règle>.md` : l'explication détaillée de chaque règle, en Markdown simple (`## titres`, listes, tableaux, `> encadrés`, et `@coran sourate:verset | n° des mots | note` pour un exemple tiré du Coran).
 - `content/fr/cartes/<groupe>/Cartes - <règle>.md` : les cartes de révision, au format du plugin Spaced Repetition (`question` / ligne `?` / `réponse`, ou `question :: réponse`).
 - `content/fr/alphabet.json` : les lettres, leur prononciation et les zones du schéma de la bouche.
-- `css/style.css` : l'apparence (`css/fonts.css` contient la police arabe incluse).
+- `css/style.css` : l'apparence (`css/fonts.css` contient les polices arabes incluses).
 - `src/` : le code, en morceaux numérotés. `build.sh` assemble le tout dans `main.js` (avec `node tools/content.js` pour le contenu).
 
 Le plugin est entièrement en français et en arabe.
 
 ## Données et droits
 
-Texte du Coran : projet [Tanzil](https://tanzil.net). Analyse morphologique : [Quranic Arabic Corpus](https://corpus.quran.com) (Kais Dukes, Université de Leeds, GNU GPL). Traduction française : Muhammad Hamidullah, utilisée à des fins d'étude non commerciales. Police arabe : Amiri Quran de Khaled Hosny (SIL Open Font License 1.1). Détails et conditions : [SOURCES.md](SOURCES.md).
+Texte du Coran : projet [Tanzil](https://tanzil.net). Analyse morphologique : [Quranic Arabic Corpus](https://corpus.quran.com) (Kais Dukes, Université de Leeds, GNU GPL). Traduction française : Muhammad Hamidullah, utilisée à des fins d'étude non commerciales. Polices arabes : Amiri Quran de Khaled Hosny, et au choix Scheherazade New, Noto Naskh Arabic, Amiri, Lateef, Aref Ruqaa (toutes SIL Open Font License 1.1). Détails et conditions : [SOURCES.md](SOURCES.md).
 
 Outil d'apprentissage : les analyses automatiques peuvent contenir des erreurs.

@@ -15,6 +15,8 @@ Le plugin Atelier arabe est un outil personnel d'apprentissage, gratuit et non c
 
 **Amiri Quran**, © Khaled Hosny, sous [SIL Open Font License 1.1](https://openfontlicense.org) ([projet Amiri](https://github.com/aliftype/amiri)), incluse dans `css/fonts.css` via le paquet @fontsource/amiri-quran. Elle n'est pas vendue seule et garde son nom d'origine.
 
+**Autres polices au choix** (réglage « Police arabe »), toutes sous [SIL Open Font License 1.1](https://openfontlicense.org), incluses dans `css/fonts.css` via les paquets @fontsource, avec leur nom d'origine et sans être vendues seules : **Scheherazade New** et **Lateef** (© SIL Global), **Noto Naskh Arabic** (© The Noto Project Authors), **Amiri** (© The Amiri Project Authors), **Aref Ruqaa** (© The Aref Ruqaa Project Authors).
+
 ## Ordre de la révélation
 
 Ordre traditionnel de l'édition égyptienne du Coran (1924), vérifié avec le paquet [quran-meta](https://www.npmjs.com/package/quran-meta).

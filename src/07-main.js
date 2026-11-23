@@ -10,6 +10,16 @@ const DEFAULT_SETTINGS = {
   writing: null, activity: null, uiSize: 'normal',
 };
 function emptyProgress() { return { byType: { case: { ok: 0, n: 0 }, mood: { ok: 0, n: 0 }, sens: { ok: 0, n: 0 }, phrase: { ok: 0, n: 0 } }, lem: {} }; }
+/* polices arabes au choix : [id, nom dans la liste, description] */
+const AR_FONTS = [
+  ['amiri', 'Amiri Quran (conseillée pour le Coran)', 'Style des Corans imprimés. Tous les signes de récitation.'],
+  ['scheherazade', 'Scheherazade New', 'Naskh classique, très lisible, grandes voyelles. Très bonne pour le Coran.'],
+  ['naskh', 'Noto Naskh', 'Naskh moderne, celle des livres et des journaux d\'aujourd\'hui.'],
+  ['amiri-classic', 'Amiri', 'Naskh élégant des livres anciens.'],
+  ['lateef', 'Lateef', 'Naskh simple et aéré.'],
+  ['ruqaa', 'Ruqʿa (écriture à la main)', 'Le style qu\'on utilise pour écrire à la main au quotidien. Utile pour lire une écriture manuscrite. Certains petits signes du Coran sont plus simples.'],
+  ['device', 'Police de l\'appareil', 'La police arabe de ton PC ou de ton iPad.'],
+];
 const TAB_ICONS = { home: 'home', write: 'pencil', coran: 'book-open', alphabet: 'a-large-small', lessons: 'graduation-cap', rules: 'book-marked', review: 'layers', dict: 'library', analyse: 'scan-search', build: 'blocks', signs: 'flask-conical', quiz: 'target' };
 const TABS = [
   ['home', 'Accueil', 'Ton tableau de bord du jour'], ['coran', 'Coran', 'Lire une sourate mot par mot'], ['alphabet', 'Alphabet', 'Les lettres et leur prononciation'], ['write', 'Écrire', 'Apprendre à écrire les lettres et les mots'], ['lessons', 'Leçons', 'Parcours de grammaire guidé'], ['rules', 'Règles', 'Les règles expliquées simplement'], ['review', 'Révision', 'Réviser les cartes de chaque règle'], ['dict', 'Dictionnaire', 'Tous les mots du Coran'], ['analyse', 'Analyser', 'Analyser un texte arabe'],
@@ -48,7 +58,7 @@ class AtelierView extends ItemView {
   render() {
     clear(this.nav);
     this.contentEl.classList.toggle('aa-nocolor', this.plugin.settings.wordColors === false);
-    this.contentEl.classList.toggle('aa-font-device', this.plugin.settings.arFont === 'device');
+    AR_FONTS.forEach(f => this.contentEl.classList.toggle('aa-font-' + f[0], (this.plugin.settings.arFont || 'amiri') === f[0]));
     this.contentEl.classList.toggle('aa-ui-l', this.plugin.settings.uiSize === 'grand');
     this.contentEl.classList.toggle('aa-ui-xl', this.plugin.settings.uiSize === 'tres-grand');
     this.contentEl.style.setProperty('--aa-ar-size', (this.plugin.settings.arSize || 30) + 'px');
@@ -99,8 +109,11 @@ class AtelierSettingTab extends PluginSettingTab {
     new Setting(el).setName('Afficher la traduction française').setDesc('Traduction de Muhammad Hamidullah.').addToggle(t => t.setValue(s.showFr).onChange(async v => { s.showFr = v; await p.saveSettings(); }));
     new Setting(el).setName('Ordre des sourates').setDesc('Ordre du Coran (1 à 114, comme dans le livre), ou ordre de la révélation (de la première sourate révélée, al-ʿAlaq, à la dernière).')
       .addDropdown(d => d.addOption('mushaf', 'ordre du Coran').addOption('nuzul', 'ordre de la révélation').setValue(s.surahOrder || 'mushaf').onChange(async v => { s.surahOrder = v; await p.saveSettings(); p.refreshViews && p.refreshViews(); }));
-    new Setting(el).setName('Police arabe').setDesc('« Amiri Quran » est incluse dans le plugin : elle affiche correctement tous les petits signes du Coran, sur PC comme sur iPad.')
-      .addDropdown(d => d.addOption('amiri', 'Amiri Quran (incluse)').addOption('device', 'police de l\'appareil').setValue(s.arFont || 'amiri').onChange(async v => { s.arFont = v; await p.saveSettings(); }));
+    const fontSet = new Setting(el).setName('Police arabe').setDesc('Toutes ces polices sont incluses dans le plugin : elles marchent sans internet, sur PC comme sur iPad. « Amiri Quran » affiche le mieux les petits signes du Coran.');
+    const preview = el.createDiv({ cls: 'aa-font-preview aa-root' });
+    const showFont = v => { AR_FONTS.forEach(f => preview.classList.toggle('aa-font-' + f[0], v === f[0])); const f = AR_FONTS.find(x => x[0] === v) || AR_FONTS[0]; preview.empty(); preview.createDiv({ text: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ' }); const d = preview.createDiv({ text: f[2] }); d.style.cssText = 'font-size:12px;direction:ltr;text-align:left;color:var(--text-muted);font-family:var(--font-interface)'; };
+    fontSet.addDropdown(d => { AR_FONTS.forEach(f => d.addOption(f[0], f[1])); d.setValue(s.arFont || 'amiri').onChange(async v => { s.arFont = v; showFont(v); await p.saveSettings(); p.refreshViews && p.refreshViews(); }); });
+    showFont(s.arFont || 'amiri');
     new Setting(el).setName('Couleurs des mots').setDesc('Dans le Coran : bleu = nom, rouge = verbe, gris = particule. Désactivé : texte d\'une seule couleur, plus reposant.')
       .addToggle(t => t.setValue(s.wordColors !== false).onChange(async v => { s.wordColors = v; await p.saveSettings(); }));
     new Setting(el).setName('Taille du texte arabe').setDesc('En pixels (30 par défaut).')

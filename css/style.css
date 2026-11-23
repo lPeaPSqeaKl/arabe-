@@ -740,3 +740,11 @@ li.aa-rule-inline { list-style: none; border: none; background: none; }
   .aa-body { padding-left: 12px; padding-right: 12px; }
   .aa-doc-table, .aa-table { font-size: .88em; }
 }
+
+/* ---- 2.10 : choix de la police arabe ---- */
+.aa-root.aa-font-scheherazade { --aa-ar-font: "Atelier Scheherazade", "Atelier Amiri Quran", serif; }
+.aa-root.aa-font-naskh { --aa-ar-font: "Atelier Noto Naskh", "Atelier Amiri Quran", serif; }
+.aa-root.aa-font-amiri-classic { --aa-ar-font: "Atelier Amiri", "Atelier Amiri Quran", serif; }
+.aa-root.aa-font-lateef { --aa-ar-font: "Atelier Lateef", "Atelier Amiri Quran", serif; }
+.aa-root.aa-font-ruqaa { --aa-ar-font: "Atelier Aref Ruqaa", "Atelier Amiri Quran", serif; }
+.aa-font-preview { font-size: 26px; line-height: 2; direction: rtl; text-align: right; padding: 6px 12px; margin: -6px 0 12px; border-radius: 8px; background: var(--background-secondary); }
