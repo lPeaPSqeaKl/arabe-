@@ -26,6 +26,17 @@ const TABS = [
   ['home', 'Accueil', 'Ton tableau de bord du jour'], ['coran', 'Coran', 'Lire une sourate mot par mot'], ['alphabet', 'Alphabet', 'Les lettres et leur prononciation'], ['write', 'Écrire', 'Apprendre à écrire les lettres et les mots'], ['lessons', 'Leçons', 'Parcours de grammaire guidé'], ['rules', 'Règles', 'Les règles expliquées simplement'], ['review', 'Révision', 'Réviser les cartes de chaque règle'], ['dict', 'Dictionnaire', 'Tous les mots du Coran'], ['analyse', 'Analyser', 'Analyser un texte arabe'],
   ['build', 'Construire', 'Construire une phrase'], ['signs', 'Signes', 'Laboratoire des signes'], ['quiz', 'Entraînement', 'S\'entraîner'],
 ];
+/* 2.17 : 6 grands onglets ; chaque groupe a ses sous-onglets (rien n'a été supprimé) */
+const TAB_GROUPS = [
+  ['home', 'Accueil', 'home', 'Ton tableau de bord du jour', [['home', 'Accueil']]],
+  ['coran', 'Coran', 'book-open', 'Lire une sourate mot par mot', [['coran', 'Coran']]],
+  ['learn', 'Apprendre', 'graduation-cap', 'Alphabet, écriture, leçons et règles', [['alphabet', 'Alphabet'], ['write', 'Écrire'], ['lessons', 'Leçons'], ['rules', 'Règles']]],
+  ['revise', 'Réviser', 'layers', 'Cartes de révision et exercices', [['review', 'Cartes du jour'], ['quiz', 'Exercices']]],
+  ['dict', 'Dictionnaire', 'library', 'Chercher un mot ou analyser un texte', [['dict', 'Chercher un mot'], ['analyse', 'Analyser un texte']]],
+  ['build', 'Atelier', 'blocks', 'Construire une phrase, jouer avec les voyelles', [['build', 'Construire une phrase'], ['signs', 'Changer les voyelles']]],
+];
+function groupOf(tab) { return TAB_GROUPS.find(g => g[4].some(t => t[0] === tab)) || TAB_GROUPS[0]; }
+function tabLabel(tab) { const g = groupOf(tab); const t = g[4].find(x => x[0] === tab); return g[4].length > 1 && t ? g[1] + ' › ' + t[1] : g[1]; }
 
 class AtelierView extends ItemView {
   constructor(leaf, plugin) {
@@ -41,6 +52,7 @@ class AtelierView extends ItemView {
     const root = this.contentEl;
     clear(root); root.classList.add('aa-root');
     this.nav = h(root, 'div', 'aa-tabs');
+    this.sub = h(root, 'div', 'aa-subtabs-row');
     this.body = h(root, 'div', 'aa-body');
     h(this.body, 'p', 'aa-muted', 'Chargement du Coran…');
     try { const msg = this.body.firstChild; await this.plugin.data.init((d, n) => { msg.textContent = 'Premier lancement : téléchargement du Coran… ' + d + ' / ' + n; }); } catch (e) {
@@ -77,7 +89,10 @@ class AtelierView extends ItemView {
   }
   setTab(tab, opts) {
     this.tab = tab;
-    if (tab !== 'settings' && this.plugin.settings.lastTab !== tab) { this.plugin.settings.lastTab = tab; this.plugin.saveData(this.plugin.settings); }
+    if (tab !== 'settings') {
+      const g = groupOf(tab)[0]; const ls = this.plugin.settings.lastSub || (this.plugin.settings.lastSub = {});
+      if (this.plugin.settings.lastTab !== tab || ls[g] !== tab) { this.plugin.settings.lastTab = tab; ls[g] = tab; this.plugin.saveData(this.plugin.settings); }
+    }
     if (tab === 'review' && !this.states.review.session) this.states.review.decks = null; // relit les notes du coffre
     if (opts) Object.assign(this.states[tab], opts);
     if (this.body && this.plugin.data.surahs) this.render();
@@ -90,12 +105,18 @@ class AtelierView extends ItemView {
     this.contentEl.classList.toggle('aa-ui-l', this.plugin.settings.uiSize === 'grand');
     this.contentEl.classList.toggle('aa-ui-xl', this.plugin.settings.uiSize === 'tres-grand');
     this.contentEl.style.setProperty('--aa-ar-size', (this.plugin.settings.arSize || 30) + 'px');
-    TABS.forEach(([id, label, title]) => {
-      const b = h(this.nav, 'button', 'aa-tab' + (this.tab === id ? ' aa-on' : ''));
-      if (TAB_ICONS[id] && typeof setIcon === 'function') { try { setIcon(h(b, 'span', 'aa-tab-ic'), TAB_ICONS[id]); } catch (e) { /* */ } }
+    const cur = groupOf(this.tab);
+    TAB_GROUPS.forEach(([gid, label, icon, title, subs]) => {
+      const on = this.tab !== 'settings' && cur[0] === gid;
+      const b = h(this.nav, 'button', 'aa-tab' + (on ? ' aa-on' : ''));
+      if (typeof setIcon === 'function') { try { setIcon(h(b, 'span', 'aa-tab-ic'), icon); } catch (e) { /* */ } }
       h(b, 'span', 'aa-tab-lab', label);
       b.title = title;
-      b.addEventListener('click', () => { this.back = []; this.setTab(id); });
+      b.addEventListener('click', () => {
+        this.back = [];
+        const last = (this.plugin.settings.lastSub || {})[gid];
+        this.setTab(subs.some(t => t[0] === last) ? last : subs[0][0]);
+      });
     });
     const gear = document.createElement('button'); gear.className = 'aa-tab aa-tab-gear' + (this.tab === 'settings' ? ' aa-on' : '');
     this.nav.insertBefore(gear, this.nav.firstChild);
@@ -105,6 +126,14 @@ class AtelierView extends ItemView {
     const ctx = this.plugin.ctx(this);
     const st = this.states[this.tab];
     clear(this.body);
+    clear(this.sub);
+    if (this.tab !== 'settings' && cur[4].length > 1) {
+      const sub = h(this.sub, 'div', 'aa-subtabs');
+      cur[4].forEach(([id, lab]) => {
+        const b = h(sub, 'button', 'aa-subtab' + (this.tab === id ? ' aa-on' : ''), lab);
+        b.addEventListener('click', () => { if (this.tab !== id) { this.back = []; this.setTab(id); } });
+      });
+    }
     if (this.tab === 'home') renderHomeTab(ctx, this.body, st);
     else if (this.tab === 'write') renderWriteTab(ctx, this.body, st);
     else if (this.tab === 'coran') renderQuranTab(ctx, this.body, st);
@@ -120,7 +149,7 @@ class AtelierView extends ItemView {
     else renderQuizTab(ctx, this.body, st);
     if (this.back && this.back.length) {
       const last = this.back[this.back.length - 1];
-      const lab = (TABS.find(t => t[0] === last.tab) || [, ''])[1];
+      const lab = last.tab === 'settings' ? 'Réglages' : tabLabel(last.tab);
       const bb = document.createElement('button'); bb.className = 'aa-btn aa-btn-quiet aa-back'; bb.textContent = '← Retour' + (lab ? ' (' + lab + ')' : '');
       bb.addEventListener('click', ev => { ev.preventDefault(); this.goBack(); });
       this.body.insertBefore(bb, this.body.firstChild);
@@ -190,7 +219,7 @@ function fillSettings(el, plugin, inObsidian) {
       ['Récitations : everyayah.com et quran.com, écoutées en ligne (rien n\'est copié dans le plugin).', 'https://everyayah.com'],
     ].forEach(([t, u]) => { const d = h(src, 'p', 'aa-small'); d.appendChild(document.createTextNode(t + ' ')); if (u) { const a = h(d, 'a', null, u); a.href = u; } });
     h(src, 'p', 'aa-small aa-muted', 'Les définitions, explications, leçons et analyses automatiques (iʿrāb, prononciation) sont un outil d\'apprentissage : elles peuvent contenir des erreurs. Pour le Coran, vérifie toujours auprès d\'un enseignant.');
-    new Setting(el).setName('Dossier des cartes de révision').setDesc('Les notes « Cartes - … » de ce dossier remplacent les paquets inclus dans le plugin (tes corrections gagnent). Sans ce dossier, l\'onglet Révision utilise les paquets inclus : c\'est le cas sur iPad et iPhone.')
+    new Setting(el).setName('Dossier des cartes de révision').setDesc('Les notes « Cartes - … » de ce dossier remplacent les paquets inclus dans le plugin (tes corrections gagnent). Sans ce dossier, l\'onglet Réviser utilise les paquets inclus : c\'est le cas sur iPad et iPhone.')
       .addText(t => t.setValue(s.cardsFolder || DEFAULT_SETTINGS.cardsFolder).onChange(async v => { s.cardsFolder = v.trim() || DEFAULT_SETTINGS.cardsFolder; await p.saveSettings(); }));
     new Setting(el).setName('Fichier des flashcards').setDesc('Note où l\'atelier ajoute tes cartes (format Spaced Repetition « question :: réponse »).')
       .addText(t => t.setValue(s.flashFile).onChange(async v => { s.flashFile = v.trim() || DEFAULT_SETTINGS.flashFile; await p.saveSettings(); }));

@@ -51,7 +51,7 @@ function renderRuleCard(ctx, parent, r, opts) {
   if (opts.inline) {
     const a = h(box, 'div', 'aa-actions');
     if (ruleDoc(r.id)) { let dbox = null; btn(a, '📖 Explication détaillée', () => { if (dbox) { dbox.remove(); dbox = null; return; } dbox = h(document.createElement('div'), 'div'); box.insertBefore(dbox, a); renderRuleDetail(ctx, dbox, r); }, 'aa-btn-quiet'); }
-    btn(a, 'Ouvrir dans l\'onglet Règles', () => ctx.openRule(r.id), 'aa-btn-quiet');
+    btn(a, 'Ouvrir la fiche complète (Apprendre › Règles)', () => ctx.openRule(r.id), 'aa-btn-quiet');
     btn(a, 'Fermer', () => box.remove(), 'aa-btn-quiet');
   } else {
     const dd = details(box, '📖 Explication détaillée', !!opts.openDetail, 'aa-doc-det');

@@ -53,7 +53,7 @@ const LESSONS = [
         ex: [{ r: '1:2', w: [1], n: 'ٱلْحَمْدُ : **-u**, nominatif. C\'est le sujet : « la louange (est) à Allah ».' }, { r: '1:6', w: [2], n: 'ٱلصِّرَٰطَ : **-a**, accusatif. C\'est le complément : « guide-nous **(sur) le chemin** ».' }, { r: '1:2', w: [3, 4], n: 'رَبِّ ٱلْعَٰلَمِينَ : **-i**, génitif. « Seigneur **de** l\'univers ».' }] },
       { t: 'Le pluriel en -ūna / -īna', md: 'Le pluriel masculin « sain » ne change pas de voyelle mais de **terminaison** : **ـُونَ** au nominatif, **ـِينَ** à l\'accusatif et au génitif. ٱلْكَٰفِرُونَ (nominatif, sourate 109) mais ٱلْعَٰلَمِينَ, ٱلضَّآلِّينَ (génitif, Fātiḥa).',
         ex: [{ r: '109:1', w: [3], n: 'ٱلْكَٰفِرُونَ : ـُونَ → nominatif (on s\'adresse à eux : « ô vous les… »).' }, { r: '1:7', w: [9], n: 'ٱلضَّآلِّينَ : ـِينَ → génitif.' }] },
-      { t: 'Tester toi-même', md: 'Dans l\'onglet **Signes**, change la dernière voyelle d\'un mot et regarde ce que devient son rôle. Dans le détail d\'un mot du Coran, la partie « Et si on changeait le dernier signe ? » montre les trois cas côte à côte.' },
+      { t: 'Tester toi-même', md: 'Dans l\'onglet **Atelier › Changer les voyelles**, change la dernière voyelle d\'un mot et regarde ce que devient son rôle. Dans le détail d\'un mot du Coran, la partie « Et si on changeait le dernier signe ? » montre les trois cas côte à côte.' },
     ],
     keep: ['**-u** nominatif (sujet), **-a** accusatif (objet), **-i** génitif (après préposition ou « de »).', 'Avec le tanwīn : -un, -an, -in.', 'Pluriel masculin : ـُونَ (nominatif) / ـِينَ (accusatif et génitif).'],
     practice: [

@@ -160,7 +160,7 @@ function onSwipe(el, cb) {
   el.addEventListener('touchstart', e => {
     const t = e.touches[0]; if (e.touches.length !== 1) { ok = false; return; }
     const tg = e.target;
-    ok = !(tg.closest && tg.closest('select, input, textarea, button, .aa-struct, .aa-irab, table, .aa-tabs, .aa-wr-pad, canvas, svg, .aa-scroll-x'));
+    ok = !(tg.closest && tg.closest('select, input, textarea, button, .aa-struct, .aa-irab, table, .aa-tabs, .aa-subtabs, .aa-wr-pad, canvas, svg, .aa-scroll-x'));
     x0 = t.clientX; y0 = t.clientY; t0 = Date.now();
   }, { passive: true });
   el.addEventListener('touchend', e => {
