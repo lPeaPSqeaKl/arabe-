@@ -100,10 +100,63 @@ function makeWritePad(ctx, parent, opts) {
     c.restore();
   }
   /* démonstration : la lettre apparaît de droite à gauche, dans le sens de l'écriture */
-  pad.demo = () => {
+  /* le chemin du stylo, calculé une fois pour ce texte et cette taille */
+  let plan = null, planKey = '';
+  function getPlan() {
+    const key = pad.text + '|' + W + 'x' + H;
+    if (plan && planKey === key) return plan;
+    const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); drawText(g, '#000', null);
+    const d = g.getImageData(0, 0, W, H).data;
+    let x0 = W, y0 = H, x1 = -1, y1 = -1;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3] > 110) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    if (x1 < 0) { plan = { strokes: [] }; planKey = key; return plan; }
+    x0 = Math.max(0, x0 - 2); y0 = Math.max(0, y0 - 2); x1 = Math.min(W - 1, x1 + 2); y1 = Math.min(H - 1, y1 + 2);
+    const w = x1 - x0 + 1, hh = y1 - y0 + 1; const m = new Uint8Array(w * hh);
+    for (let y = 0; y < hh; y++) for (let x = 0; x < w; x++) m[y * w + x] = d[((y + y0) * W + x + x0) * 4 + 3] > 110 ? 1 : 0;
+    const pl = penPlan(m, w, hh, lay.fs);
+    pl.strokes.forEach(s => { s.pts = s.pts.map(([x, y, r]) => [x + x0, y + y0, r]); });
+    plan = pl; planKey = key; return plan;
+  }
+  /* démonstration : un stylo écrit le texte, trait par trait, dans le bon ordre et le bon sens */
+  pad.demo = (slow) => {
     if (!lay) return; if (demoT) cancelAnimationFrame(demoT);
-    const t0 = performance.now(); const from = lay.right + 4, to = lay.left - 4; const dur = 1800;
-    const step = now => { const t = Math.min(1, (now - t0) / dur); redraw({ demo: from - (from - to) * t }); if (t < 1) demoT = requestAnimationFrame(step); else { demoT = null; if (pad.mode !== 'view') setTimeout(() => { if (!pad.strokes.length && !pad.checked) redraw(); }, 700); } };
+    const pl = getPlan(); if (!pl.strokes.length) return;
+    const col = colors(); const accent = getComputedStyle(wrap).getPropertyValue('--interactive-accent').trim() || '#6a5acd';
+    const mask = document.createElement('canvas'); mask.width = cv.width; mask.height = cv.height; const mg = mask.getContext('2d'); mg.setTransform(dpr, 0, 0, dpr, 0, 0); mg.fillStyle = '#000'; mg.strokeStyle = '#000'; mg.lineCap = 'round';
+    const tmp = document.createElement('canvas'); tmp.width = cv.width; tmp.height = cv.height; const tg = tmp.getContext('2d');
+    const showNum = pad.text.replace(/[ً-ٰٟۖ-ۭ]/g, '').length <= 3;
+    const speed = Math.max(0.12, lay.fs / 900) * (slow ? 0.55 : 1); // pixels par milliseconde
+    const labels = []; let si = 0, pi = 0, pause = 350, last = performance.now(), num = 0;
+    const paint = (pen) => {
+      const c = g2(); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
+      c.save(); c.strokeStyle = col.line; c.lineWidth = 1; c.setLineDash([6, 6]); c.beginPath(); c.moveTo(10, lay.y); c.lineTo(W - 10, lay.y); c.stroke(); c.restore();
+      drawText(c, col.model, null);
+      tg.setTransform(1, 0, 0, 1, 0, 0); tg.clearRect(0, 0, tmp.width, tmp.height); tg.globalCompositeOperation = 'source-over'; tg.setTransform(dpr, 0, 0, dpr, 0, 0); drawText(tg, col.ink, null);
+      tg.setTransform(1, 0, 0, 1, 0, 0); tg.globalCompositeOperation = 'destination-in'; tg.drawImage(mask, 0, 0); tg.globalCompositeOperation = 'source-over';
+      c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(tmp, 0, 0); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      labels.forEach(([x, y, n]) => { c.save(); c.fillStyle = accent; c.beginPath(); c.arc(x, y, 11, 0, 7); c.fill(); c.fillStyle = '#fff'; c.font = 'bold 13px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(n), x, y + 0.5); c.restore(); });
+      if (pen) { c.save(); c.fillStyle = accent; c.globalAlpha = .9; c.beginPath(); c.arc(pen[0], pen[1], Math.max(5, lay.lw * 0.7), 0, 7); c.fill(); c.globalAlpha = .25; c.beginPath(); c.arc(pen[0], pen[1], Math.max(11, lay.lw * 1.5), 0, 7); c.fill(); c.restore(); }
+    };
+    const step = now => {
+      let dt = now - last; last = now;
+      if (pause > 0) { pause -= dt; dt = 0; }
+      let budget = dt * speed; let pen = null;
+      while (budget > 0 && si < pl.strokes.length) {
+        const s = pl.strokes[si];
+        if (pi === 0 && s.first && s.comp !== 'tiny') { num++; if (showNum && s.pts.length > 2) { const [x, y] = s.pts[0]; labels.push([x + 14, y - 14, num]); } }
+        const p = s.pts[pi]; const q = pi > 0 ? s.pts[pi - 1] : p;
+        mg.lineWidth = 2 * (p[2] + 1.3); mg.beginPath(); mg.moveTo(q[0], q[1]); mg.lineTo(p[0], p[1]); mg.stroke();
+        mg.beginPath(); mg.arc(p[0], p[1], p[2] + 1.3, 0, 7); mg.fill();
+        budget -= Math.hypot(p[0] - q[0], p[1] - q[1]) || 1; pen = p; pi++;
+        if (pi >= s.pts.length) { si++; pi = 0; const nx = pl.strokes[si]; if (nx && (nx.comp !== 'tiny' || !nx.first)) { pause = nx.first ? 380 : 220; break; } }
+      }
+      if (si < pl.strokes.length) { paint(pen || (pl.strokes[si].pts[Math.max(0, pi - 1)])); demoT = requestAnimationFrame(step); }
+      else {
+        demoT = null; mg.setTransform(1, 0, 0, 1, 0, 0); mg.fillRect(0, 0, mask.width, mask.height); paint(null);
+        if (pad.mode !== 'view') setTimeout(() => { if (!pad.strokes.length && !pad.checked && !demoT) redraw(); }, 1600);
+      }
+    };
+    paint(pl.strokes[0].pts[0]);
     demoT = requestAnimationFrame(step);
   };
   const pt = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * H / r.height]; };
@@ -112,6 +165,7 @@ function makeWritePad(ctx, parent, opts) {
     cv.addEventListener('pointerdown', e => {
       if (e.pointerType === 'pen') penSeen = true;
       if (penSeen && e.pointerType === 'touch') return; // la paume posée sur l'iPad
+      if (demoT) { cancelAnimationFrame(demoT); demoT = null; }
       if (pad.checked) { pad.checked = false; pad.strokes = []; clear(res); }
       e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (x) { /* */ }
       cur = [pt(e)]; pad.strokes.push(cur); redraw();
@@ -127,7 +181,7 @@ function makeWritePad(ctx, parent, opts) {
     btn(tools, '↶ Annuler le trait', () => { pad.strokes.pop(); pad.checked = false; clear(res); redraw(); }, 'aa-btn-quiet');
     btn(tools, '✕ Effacer', () => { pad.strokes = []; pad.checked = false; clear(res); redraw(); }, 'aa-btn-quiet');
   }
-  if (pad.text) btn(tools, '▶ Voir le geste', () => { pad.strokes = []; pad.checked = false; clear(res); pad.demo(); }, 'aa-btn-quiet');
+  if (pad.text) { btn(tools, '▶ Voir le geste', () => { pad.strokes = []; pad.checked = false; clear(res); pad.demo(); }, 'aa-btn-quiet'); btn(tools, '🐢 Au ralenti', () => { pad.strokes = []; pad.checked = false; clear(res); pad.demo(true); }, 'aa-btn-quiet'); }
   if (pad.text && pad.mode !== 'view' && opts.onScore) btn(tools, '✓ Vérifier', () => pad.check(), 'mod-cta');
   pad.check = () => {
     if (!lay) return;
@@ -164,6 +218,7 @@ function makeWritePad(ctx, parent, opts) {
     if (opts.onScore) opts.onScore(r.score, r);
   };
   pad.info = () => ({ lay, W, H });
+  pad.plan = () => getPlan();
   pad.setText = t => { pad.text = t; pad.strokes = []; pad.checked = false; clear(res); layout(); redraw(); };
   const start = () => {
     layout(); redraw(); if (opts.autoDemo) setTimeout(() => pad.demo(), 300);

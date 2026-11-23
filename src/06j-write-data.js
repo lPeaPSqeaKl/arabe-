@@ -26,7 +26,7 @@ const WRITE_LETTERS = {
   'ش': { steps: ['Trace un س.', 'Ajoute **trois points au-dessus** (petit triangle).'], tip: 'Les 3 points sont au-dessus des dents.' },
   'ص': { steps: ['Fais une **boucle allongée** couchée vers la droite, comme un œuf posé sur la ligne.', 'Ajoute une petite dent à gauche.', 'Isolée ou à la fin : finis par le grand bol sous la ligne.'], tip: 'La boucle est fermée et allongée. Ne pas oublier la petite dent.' },
   'ض': { steps: ['Trace un ص.', 'Ajoute **un point au-dessus** de la boucle.'], tip: 'ض est la lettre qu\'on dit « propre à l\'arabe ».' },
-  'ط': { steps: ['Fais la **boucle allongée** posée sur la ligne (comme ص, sans la dent).', 'Ajoute un **grand trait vertical** qui descend du haut sur la boucle, à gauche.'], tip: 'Trace d\'abord la boucle, puis le trait vertical.' },
+  'ط': { steps: ['Trace le **grand trait vertical**, du haut vers le bas.', 'Sans lever le stylo, fais la **boucle allongée** posée sur la ligne, vers la droite, et reviens.'], tip: 'Beaucoup de gens font d\'abord la boucle puis le trait : les deux se font. L\'important est que le trait touche la boucle à gauche.' },
   'ظ': { steps: ['Trace un ط.', 'Ajoute **un point** à droite du trait vertical.'], tip: 'Le point est dans l\'angle, au-dessus de la boucle.' },
   'ع': { steps: ['Trace une **petite tête ouverte**, comme un c, en haut.', 'Repars vers la droite puis descends en grande courbe **sous la ligne**, comme pour ج.'], tip: 'Au milieu d\'un mot, la tête devient un petit triangle plein : ـعـ.' },
   'غ': { steps: ['Trace un ع.', 'Ajoute **un point au-dessus** de la tête.'], tip: 'Même forme que ع, avec un point.' },
