@@ -402,10 +402,10 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
     });
     arSpan(line, '﴿' + arNum(vn) + '﴾', 'aa-vnum');
     if (S.showTr) {
-      const trl = h(box, 'div', 'aa-tr aa-verse-tr');
+      const trl = h(box, 'div', 'aa-tr aa-verse-tr'); trl.addEventListener('click', () => box.classList.add('aa-revealed'), true);
       tokens.forEach((t, i) => { const s = h(trl, 'span', 'aa-trw', t); s.addEventListener('click', () => spans[i].click()); trl.appendChild(document.createTextNode(' ')); });
     }
-    if (S.showFr) { const fr = h(box, 'div', 'aa-verse-fr'); h(fr, 'span', 'aa-ref', surahN + ':' + vn + ' '); fr.appendChild(document.createTextNode(v[0])); }
+    if (S.showFr) { const fr = h(box, 'div', 'aa-verse-fr'); fr.addEventListener('click', () => box.classList.add('aa-revealed')); h(fr, 'span', 'aa-ref', surahN + ':' + vn + ' '); fr.appendChild(document.createTextNode(v[0])); }
     const tools = h(box, 'div', 'aa-verse-tools');
     const structBox = h(document.createElement('div'), 'div', 'aa-struct');
     btn(tools, '🧩 Analyse de la phrase', () => {
@@ -414,6 +414,11 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
     }, 'aa-btn-quiet');
     if (ctx.settings.audio !== false) btn(tools, '▶ Écouter le verset', () => playVerse(surahN, vn), 'aa-btn-quiet');
     box.dataset.verse = String(vn);
+    {
+      const on = isBookmarked(ctx, surahN, vn);
+      const bm = btn(tools, on ? '★ Signet' : '☆ Signet', () => { const now = toggleBookmark(ctx, surahN, vn); bm.textContent = now ? '★ Signet' : '☆ Signet'; bm.classList.toggle('aa-bm-on', now); }, 'aa-btn-quiet' + (on ? ' aa-bm-on' : ''));
+      bm.title = 'Garder ce verset dans « Mes signets » (en haut de l\'onglet Coran)';
+    }
     btn(tools, 'Copier le verset', () => copyText(words.map(wordText).join(' ') + '\n' + tokens.join(' ') + '\n' + v[0] + ' (' + surahN + ':' + vn + ')'), 'aa-btn-quiet');
     btn(tools, 'Insérer dans la note', () => ctx.insertText('> [!quote] ' + info[1] + ' ' + surahN + ':' + vn + '\n> ' + words.map(wordText).join(' ') + '\n> *' + tokens.join(' ') + '*\n> ' + v[0] + '\n\n'), 'aa-btn-quiet');
     box.appendChild(structBox);

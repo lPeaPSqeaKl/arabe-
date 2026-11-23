@@ -47,7 +47,8 @@ function renderQuranTab(ctx, root, state) {
   const bar = h(root, 'div', 'aa-toolbar');
   const order = ctx.settings.surahOrder === 'nuzul' ? 'nuzul' : 'mushaf';
   const seq = surahSequence(order);
-  const goSurah = n => { state.surah = n; state.page = 0; state.focus = 0; renderQuranTab(ctx, root, state); };
+  const goSurah = n => { state.surah = n; state.page = 0; state.focus = 0; state.resume = 0; renderQuranTab(ctx, root, state); };
+  rememberPlace(ctx, state.surah, state.focus || state.resume || (state.page || 0) * PAGE + 1);
   const f0 = field(bar, 'Ordre');
   selectEl(f0, [['mushaf', 'ordre du Coran'], ['nuzul', 'ordre de la révélation']], order, v => { ctx.settings.surahOrder = v; ctx.save(); renderQuranTab(ctx, root, state); });
   const f1 = field(bar, 'Sourate');
@@ -58,18 +59,34 @@ function renderQuranTab(ctx, root, state) {
   if (pos > 0) btn(nav, '← ' + data.surahInfo(seq[pos - 1])[1], () => goSurah(seq[pos - 1]), 'aa-btn-quiet').title = 'Sourate précédente (' + (order === 'nuzul' ? 'ordre de la révélation' : 'ordre du Coran') + ')';
   if (pos < seq.length - 1) btn(nav, data.surahInfo(seq[pos + 1])[1] + ' →', () => goSurah(seq[pos + 1]), 'aa-btn-quiet').title = 'Sourate suivante (' + (order === 'nuzul' ? 'ordre de la révélation' : 'ordre du Coran') + ')';
   const pages = Math.ceil(nV / PAGE);
-  if (state.focus) state.page = Math.floor((state.focus - 1) / PAGE);
+  root._aaSwipeGo = dir => {
+    if (dir > 0 && state.page < pages - 1) { state.page++; state.focus = 0; renderQuranTab(ctx, root, state); }
+    else if (dir < 0 && state.page > 0) { state.page--; state.focus = 0; renderQuranTab(ctx, root, state); }
+    else if (dir > 0 && pos < seq.length - 1) goSurah(seq[pos + 1]);
+    else if (dir < 0 && pos > 0) goSurah(seq[pos - 1]);
+    else return;
+    try { root.closest('.aa-root').scrollTop = 0; } catch (e) { /* */ }
+  };
+  onSwipe(root, dir => { if (root._aaSwipeGo && root.querySelector('.aa-verses')) root._aaSwipeGo(dir); });
+  if (state.focus || state.resume) state.page = Math.floor(((state.focus || state.resume) - 1) / PAGE);
   if (pages > 1) {
     const f2 = field(bar, 'Versets');
     const opts = []; for (let p = 0; p < pages; p++) opts.push([p, (p * PAGE + 1) + '–' + Math.min(nV, (p + 1) * PAGE)]);
     selectEl(f2, opts, state.page, v => { state.page = +v; state.focus = 0; renderQuranTab(ctx, root, state); });
   }
-  if (ctx.settings.audio !== false) renderReciteBar(ctx, root, bar, state, nV);
-  const tg = h(bar, 'div', 'aa-toggles');
+  /* petit écran (iPhone) : le son et les options se replient pour laisser la place au texte */
+  const small = (root.clientWidth || window.innerWidth || 1000) < 600;
+  const opt = h(bar, 'details', 'aa-qopts' + (small ? '' : ' aa-qopts-wide')); opt.open = !small || !!state.optsOpen;
+  h(opt, 'summary', null, (ctx.settings.audio !== false ? '🔊 Son et ' : '') + 'options d\'affichage');
+  opt.addEventListener('toggle', () => { if (small) state.optsOpen = opt.open; });
+  if (ctx.settings.audio !== false) renderReciteBar(ctx, root, opt, state, nV);
+  const tg = h(opt, 'div', 'aa-toggles');
   checkbox(tg, 'translittération', ctx.settings.showTr, v => { ctx.settings.showTr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'français', ctx.settings.showFr, v => { ctx.settings.showFr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'couleurs des mots', ctx.settings.wordColors !== false, v => { ctx.settings.wordColors = v; ctx.save(); const r = root.closest && root.closest('.aa-root'); if (r) r.classList.toggle('aa-nocolor', !v); });
   checkbox(tg, '🎨 prononciation', !!ctx.settings.tajwid, v => { ctx.settings.tajwid = v; ctx.save(); renderQuranTab(ctx, root, state); });
+  checkbox(tg, '👁 m\'entraîner à lire', !!ctx.settings.practice, v => { ctx.settings.practice = v; ctx.save(); const b = root.querySelector('.aa-verses'); if (b) b.classList.toggle('aa-practice', v); });
+  renderBookmarks(ctx, root, state, n => goSurah(n));
   const course = ctx.courseSurahs();
   if (course.length) {
     const cb = h(root, 'div', 'aa-course');
@@ -92,18 +109,77 @@ function renderQuranTab(ctx, root, state) {
   }).catch(() => {});
   if (ctx.settings.tajwid) renderTajwidLegend(details(root, '🎨 Couleurs de prononciation : ce qu\'on prononce ou pas', true));
   mdText(root, 'p', 'aa-help', '**Clique sur un mot** pour voir ses morceaux, ses signes lettre par lettre, la raison de sa terminaison et les autres formes possibles. Couleurs : bleu = nom, rouge = verbe, gris = particule. Les mots **soulignés en pointillé** sont déjà dans ton vocabulaire.');
-  const body = h(root, 'div', 'aa-verses');
+  const body = h(root, 'div', 'aa-verses' + (ctx.settings.practice ? ' aa-practice' : ''));
   const from = state.page * PAGE + 1, to = Math.min(nV, from + PAGE - 1);
   renderVerses(ctx, body, state.surah, from, to, { title: true, basmala: from === 1 }).then(() => {
     if (state.focus) {
       const el = body.querySelector('[data-ref="' + state.surah + ':' + state.focus + '"]');
       if (el) { el.classList.add('aa-verse-focus'); el.scrollIntoView && el.scrollIntoView({ block: 'center' }); }
+    } else if (state.resume > 1) {
+      const el = body.querySelector('[data-ref="' + state.surah + ':' + state.resume + '"]');
+      if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start' });
     }
+    state.resume = 0;
+    watchReading(ctx, root, body, state);
     if (pages > 1) {
       const nav = h(root, 'div', 'aa-pager');
       if (state.page > 0) btn(nav, '← versets précédents', () => { state.page--; state.focus = 0; renderQuranTab(ctx, root, state); });
       if (state.page < pages - 1) btn(nav, 'versets suivants →', () => { state.page++; state.focus = 0; renderQuranTab(ctx, root, state); });
     }
+  });
+}
+
+/* ---------- confort : reprendre la lecture, glisser, signets ---------- */
+let placeTimer = null;
+function rememberPlace(ctx, s, v) {
+  ctx.settings.lastSurah = s; ctx.settings.lastVerse = v || 1;
+  clearTimeout(placeTimer); placeTimer = setTimeout(() => ctx.save(), 800);
+}
+/* le verset en haut de l'écran devient « l'endroit où j'en suis » */
+function watchReading(ctx, root, body, state) {
+  if (typeof IntersectionObserver === 'undefined') return;
+  if (root._aaObs) root._aaObs.disconnect();
+  const obs = new IntersectionObserver(entries => {
+    const vis = entries.filter(e => e.isIntersecting).map(e => +e.target.dataset.verse).filter(Boolean);
+    if (vis.length) rememberPlace(ctx, state.surah, Math.min(...vis));
+  }, { rootMargin: '0px 0px -70% 0px' });
+  body.querySelectorAll('.aa-verse').forEach(el => obs.observe(el));
+  root._aaObs = obs;
+}
+/* glisser du doigt vers la gauche = suivant, vers la droite = précédent */
+function onSwipe(el, cb) {
+  if (el._aaSwipe) return; el._aaSwipe = true;
+  let x0 = 0, y0 = 0, t0 = 0, ok = false;
+  el.addEventListener('touchstart', e => {
+    const t = e.touches[0]; if (e.touches.length !== 1) { ok = false; return; }
+    const tg = e.target;
+    ok = !(tg.closest && tg.closest('select, input, textarea, button, .aa-struct, .aa-irab, table, .aa-tabs, .aa-wr-pad, canvas, svg, .aa-scroll-x'));
+    x0 = t.clientX; y0 = t.clientY; t0 = Date.now();
+  }, { passive: true });
+  el.addEventListener('touchend', e => {
+    if (!ok) return; ok = false;
+    const t = e.changedTouches[0]; const dx = t.clientX - x0, dy = t.clientY - y0;
+    if (Date.now() - t0 > 700 || Math.abs(dx) < 70 || Math.abs(dx) < 2 * Math.abs(dy)) return;
+    cb(dx < 0 ? 1 : -1);
+  }, { passive: true });
+}
+function isBookmarked(ctx, s, v) { return (ctx.settings.bookmarks || []).some(b => b.s === s && b.v === v); }
+function toggleBookmark(ctx, s, v) {
+  const L = ctx.settings.bookmarks || (ctx.settings.bookmarks = []);
+  const i = L.findIndex(b => b.s === s && b.v === v);
+  if (i >= 0) L.splice(i, 1); else L.unshift({ s, v, d: Date.now() });
+  ctx.save(); return i < 0;
+}
+function renderBookmarks(ctx, root, state, goSurah) {
+  const L = ctx.settings.bookmarks || []; if (!L.length) return;
+  const box = details(root, '★ Mes signets (' + L.length + ')', false);
+  const list = h(box, 'div', 'aa-bm-list');
+  L.forEach(b => {
+    const row = h(list, 'div', 'aa-bm');
+    const a = h(row, 'a', 'aa-link', b.s + ':' + b.v + ' · ' + ctx.data.surahInfo(b.s)[1]);
+    a.addEventListener('click', ev => { ev.preventDefault(); ctx.openQuran(b.s, b.v); });
+    const x = h(row, 'span', 'aa-bm-x', '✕'); x.title = 'Retirer ce signet';
+    x.addEventListener('click', () => { toggleBookmark(ctx, b.s, b.v); renderQuranTab(ctx, root, state); });
   });
 }
 

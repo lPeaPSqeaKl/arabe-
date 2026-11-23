@@ -769,3 +769,27 @@ li.aa-rule-inline { list-style: none; border: none; background: none; }
 .aa-root.aa-font-ruqaa { --aa-ar-font: "Atelier Aref Ruqaa", "Atelier Amiri Quran", serif; }
 .aa-font-preview { font-size: 26px; line-height: 2; direction: rtl; text-align: right; padding: 6px 12px; margin: -6px 0 12px; border-radius: 8px; background: var(--background-secondary); }
 .aa-root.aa-font-maghribi { --aa-ar-font: "Bouazzi Maghribi", "Atelier Amiri Quran", serif; }
+
+/* ---- 2.12 : confort ---- */
+.aa-root.aa-paper { --aa-paper-bg: #f7f0e1; --aa-paper-fg: #3a3127; background: var(--aa-paper-bg); color: var(--aa-paper-fg); }
+.theme-dark .aa-root.aa-paper { --aa-paper-bg: #1f1b15; --aa-paper-fg: #e6dccb; }
+.aa-root.aa-paper .aa-tabs { background: var(--aa-paper-bg); }
+.aa-root.aa-paper .aa-verse, .aa-root.aa-paper .aa-sec, .aa-root.aa-paper .aa-fc-deck { background: color-mix(in srgb, var(--aa-paper-bg) 82%, #fff 18%); }
+.theme-dark .aa-root.aa-paper .aa-verse, .theme-dark .aa-root.aa-paper .aa-sec, .theme-dark .aa-root.aa-paper .aa-fc-deck { background: color-mix(in srgb, var(--aa-paper-bg) 90%, #fff 10%); }
+.aa-practice .aa-verse:not(.aa-revealed) .aa-verse-tr, .aa-practice .aa-verse:not(.aa-revealed) .aa-verse-fr { filter: blur(6px); cursor: pointer; user-select: none; transition: filter .2s; }
+.aa-practice .aa-verse:not(.aa-revealed) .aa-verse-tr::before { content: none; }
+.aa-practice .aa-verse:not(.aa-revealed) .aa-verse-tr:hover, .aa-practice .aa-verse:not(.aa-revealed) .aa-verse-fr:hover { filter: blur(4px); }
+.aa-bm-list { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 4px 2px; }
+.aa-bm { display: inline-flex; gap: 6px; align-items: center; }
+.aa-bm-x { color: var(--text-faint); cursor: pointer; font-size: .85em; padding: 2px 4px; }
+.aa-bm-x:hover { color: var(--text-error, #c33); }
+.aa-btn.aa-bm-on { color: #c9a227; }
+@media (max-width: 560px) {
+  .aa-verse-tools { gap: 4px; }
+  .aa-verse-tools .aa-btn { font-size: 12px; padding: 2px 8px; }
+}
+.aa-qopts { width: 100%; }
+.aa-qopts > summary { cursor: pointer; color: var(--text-muted); font-size: .9em; padding: 4px 0; list-style: none; }
+.aa-qopts > summary::before { content: '▸ '; }
+.aa-qopts[open] > summary::before { content: '▾ '; }
+.aa-qopts.aa-qopts-wide > summary { display: none; }

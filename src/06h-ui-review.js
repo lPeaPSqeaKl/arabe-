@@ -152,6 +152,7 @@ function renderCardText(parent, text) {
 /* ---------- l'onglet ---------- */
 function renderReviewTab(ctx, root, state) {
   clear(root);
+  onSwipe(root, () => { const b = root.querySelector('.aa-fc-reveal'); if (b) b.click(); }); // iPad / iPhone : glisser = voir la réponse
   const go = () => renderReviewTab(ctx, root, state);
   if (!state.decks) {
     h(root, 'p', 'aa-muted', 'Chargement des cartes…');

@@ -31,8 +31,8 @@ class AtelierView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
-    this.tab = 'home';
-    this.states = { coran: { surah: plugin.settings.lastSurah || 1, page: 0 }, dict: {}, alphabet: {}, home: {}, write: {}, lessons: {}, rules: {}, review: {}, analyse: {}, build: {}, signs: {}, quiz: {} };
+    this.tab = TABS.some(t => t[0] === plugin.settings.lastTab) ? plugin.settings.lastTab : 'home';
+    this.states = { coran: { surah: plugin.settings.lastSurah || 1, page: 0, resume: plugin.settings.lastVerse || 0 }, dict: {}, alphabet: {}, home: {}, write: {}, lessons: {}, rules: {}, review: {}, analyse: {}, build: {}, signs: {}, quiz: {} };
   }
   getViewType() { return VIEW_TYPE; }
   getDisplayText() { return 'Atelier arabe'; }
@@ -48,16 +48,26 @@ class AtelierView extends ItemView {
       return;
     }
     this.render();
+    /* ordinateur : flèches ← → dans l'onglet Coran (sourate / versets suivants) */
+    this.registerDomEvent(document, 'keydown', ev => {
+      if (this.tab !== 'coran' || ev.altKey || ev.ctrlKey || ev.metaKey || (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight')) return;
+      const ws = (this.app || this.plugin.app || {}).workspace; if (ws && ws.activeLeaf && ws.activeLeaf !== this.leaf) return;
+      const t = ev.target; if (t && (t.closest && t.closest('input, textarea, select, [contenteditable="true"]'))) return;
+      if (!this.body || !this.body._aaSwipeGo) return;
+      ev.preventDefault(); this.body._aaSwipeGo(ev.key === 'ArrowRight' ? 1 : -1);
+    });
   }
   async onClose() { try { stopAudio(); } catch (e) { /* */ } clear(this.contentEl); }
   setTab(tab, opts) {
     this.tab = tab;
+    if (this.plugin.settings.lastTab !== tab) { this.plugin.settings.lastTab = tab; this.plugin.saveData(this.plugin.settings); }
     if (tab === 'review' && !this.states.review.session) this.states.review.decks = null; // relit les notes du coffre
     if (opts) Object.assign(this.states[tab], opts);
     if (this.body && this.plugin.data.surahs) this.render();
   }
   render() {
     clear(this.nav);
+    this.contentEl.classList.toggle('aa-paper', this.plugin.settings.paper === true);
     this.contentEl.classList.toggle('aa-nocolor', this.plugin.settings.wordColors === false);
     AR_FONTS.forEach(f => this.contentEl.classList.toggle('aa-font-' + f[0], (this.plugin.settings.arFont || 'amiri') === f[0]));
     this.contentEl.classList.toggle('aa-ui-l', this.plugin.settings.uiSize === 'grand');
@@ -115,6 +125,8 @@ class AtelierSettingTab extends PluginSettingTab {
     const showFont = v => { AR_FONTS.forEach(f => preview.classList.toggle('aa-font-' + f[0], v === f[0])); const f = AR_FONTS.find(x => x[0] === v) || AR_FONTS[0]; preview.empty(); preview.createDiv({ text: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ' }); const d = preview.createDiv({ text: f[2] }); d.style.cssText = 'font-size:12px;direction:ltr;text-align:left;color:var(--text-muted);font-family:var(--font-interface)'; };
     fontSet.addDropdown(d => { AR_FONTS.forEach(f => d.addOption(f[0], f[1])); d.setValue(s.arFont || 'amiri').onChange(async v => { s.arFont = v; showFont(v); await p.saveSettings(); p.refreshViews && p.refreshViews(); }); });
     showFont(s.arFont || 'amiri');
+    new Setting(el).setName('Fond « papier »').setDesc('Un fond crème (ou brun très sombre en thème sombre), plus doux pour les yeux quand tu lis longtemps.')
+      .addToggle(t => t.setValue(s.paper === true).onChange(async v => { s.paper = v; await p.saveSettings(); p.refreshViews && p.refreshViews(); }));
     new Setting(el).setName('Couleurs des mots').setDesc('Dans le Coran : bleu = nom, rouge = verbe, gris = particule. Désactivé : texte d\'une seule couleur, plus reposant.')
       .addToggle(t => t.setValue(s.wordColors !== false).onChange(async v => { s.wordColors = v; await p.saveSettings(); }));
     new Setting(el).setName('Taille du texte arabe').setDesc('En pixels (30 par défaut).')
