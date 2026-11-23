@@ -188,9 +188,8 @@ function renderReviewTab(ctx, root, state) {
   CARD_GROUPS.forEach(([g, label, ic]) => {
     const ds = state.decks.filter(d => d.group === g); if (!ds.length) return;
     h(root, 'h3', 'aa-fc-group', ic + '  ' + label);
-    if (g === 'vocab') mdText(root, 'p', 'aa-muted aa-small', 'Les **300 mots les plus fréquents** du Coran, du plus courant au moins courant. Ils font à eux seuls les **trois quarts** du texte. Les nouveaux mots arrivent dans ta révision du jour (' + S.vocabPerDay + ' par jour). Pour une sourate précise : onglet Coran › « Apprendre les mots de cette sourate ».');
-    const grid = h(root, 'div', 'aa-fc-grid');
-    ds.forEach(d => {
+    if (g === 'vocab') mdText(root, 'p', 'aa-muted aa-small', '**Tous les mots du Coran** (' + ds.reduce((n, d) => n + d.cards.length, 0) + '), du plus courant au plus rare, en 5 niveaux. Le niveau 1 (300 mots) fait déjà les **trois quarts** du texte ; à la fin du niveau 5, tu as vu **100 %** des mots. Les nouveaux mots arrivent dans ta révision du jour (' + S.vocabPerDay + ' par jour), dans cet ordre. Pour une sourate précise : onglet Coran › « Apprendre les mots de cette sourate ».');
+    const deckCard = (grid, d) => {
       const c = deckCounts(S, d);
       const card = h(grid, 'div', 'aa-fc-deck' + (FIRST_DECKS.slice(0, 2).includes(d.id.split('/').pop()) ? ' aa-fc-star' : ''));
       const top = h(card, 'div', 'aa-fc-deck-top');
@@ -200,6 +199,22 @@ function renderReviewTab(ctx, root, state) {
       h(card, 'div', 'aa-muted aa-small', (c.total - c.fresh) + ' / ' + c.total + (d.vocab ? ' mots vus' : ' cartes vues') + (c.known ? ' · ' + c.known + ' bien su' + (d.vocab ? 's' : 'es') : ''));
       if (d.vocab) h(card, 'div', 'aa-muted aa-small', (d.id === 'vocab/1' ? 'ces mots = ' : 'avec les paquets d\'avant : ') + d.cover + ' % du Coran');
       card.addEventListener('click', () => { state.deck = d.id; go(); });
+    };
+    if (g !== 'vocab' || ds.some(d => d.level == null)) { const grid = h(root, 'div', 'aa-fc-grid'); ds.forEach(d => deckCard(grid, d)); return; }
+    /* vocabulaire : un bloc repliable par niveau ; on ouvre le niveau en cours */
+    const levels = []; ds.forEach(d => { (levels[d.level] = levels[d.level] || []).push(d); });
+    let cur = levels.findIndex(L => L && L.some(d => deckCounts(S, d).fresh > 0)); if (cur < 0) cur = 0;
+    if (state.vocOpen == null) state.vocOpen = {};
+    levels.forEach((L, lv) => {
+      if (!L) return;
+      const n = L.reduce((a, d) => a + d.cards.length, 0);
+      const seen = L.reduce((a, d) => { const c = deckCounts(S, d); return a + c.total - c.fresh; }, 0);
+      const box = h(root, 'details', 'aa-sec aa-fc-level');
+      box.open = state.vocOpen[lv] != null ? state.vocOpen[lv] : lv === cur;
+      box.addEventListener('toggle', () => { state.vocOpen[lv] = box.open; });
+      const sum = h(box, 'summary', null, L[0].levelName);
+      h(sum, 'span', 'aa-muted aa-small', '  ·  ' + n + ' mots · ' + seen + ' vus · jusqu\'à ' + L[L.length - 1].cover + ' % du Coran');
+      const grid = h(box, 'div', 'aa-fc-grid'); L.forEach(d => deckCard(grid, d));
     });
   });
   h(root, 'p', 'aa-muted aa-small aa-fc-foot', state.decks.length + ' paquets · ' + total + ' cartes. Les cartes sont aussi dans ton coffre (5 - Flashcards/Règles) : si tu corriges une carte là-bas, l\'atelier prend ta version.');

@@ -9,7 +9,7 @@ Plugin Obsidian en français pour apprendre l'arabe avec le Coran :
 - **Ordre des sourates** : ordre du Coran ou ordre de la révélation.
 - **Couleurs de prononciation** : lettres muettes, voyelles longues, nasalisation, qalqala, arrêt.
 - **Règles** : 36 règles expliquées simplement, chacune avec une explication détaillée (pas à pas, exemples du Coran, pièges, exercice), ouvertes d'un clic depuis les leçons. Chaque explication peut être corrigée dans une note, sans toucher à l'original.
-- **Vocabulaire du Coran** : les 300 mots les plus fréquents (les trois quarts du texte) en cartes, avec le son, la racine et un verset d'exemple ; et pour chaque sourate, « apprendre les mots de cette sourate ».
+- **Vocabulaire du Coran** : tous les mots du Coran (4 776), du plus fréquent au plus rare, en 5 niveaux jusqu'à 100 % du texte (les 300 premiers en font déjà les trois quarts), en cartes, avec le son, la racine et un verset d'exemple ; et pour chaque sourate, « apprendre les mots de cette sourate ».
 - **Hors ligne** : tout marche sans internet après le premier lancement ; le son d'une sourate (ou de toutes les sourates courtes) peut être gardé sur l'appareil.
 - **Révision** : un paquet de cartes pour chaque règle (50 paquets, plus de 450 cartes : nominatif, prépositions, génitif, accusatif, phrase, verbe, lecture, tajwid), avec répétition espacée : chaque jour les cartes à revoir et quelques nouvelles. Les paquets sont inclus dans le plugin (donc aussi sur iPad et iPhone) ; si le coffre contient sa propre version d'un paquet (`5 - Flashcards/Règles/Cartes - …`), c'est elle qui est utilisée.
 - **Leçons** : un parcours de grammaire en 14 leçons à partir de vrais versets, avec exercices.

@@ -5,23 +5,47 @@
  * Elle est « en cours » dès qu'elle a été vue, « acquise » quand elle
  * revient dans 7 jours ou plus.
  * ==================================================================== */
-const VOCAB_TOP = 300, VOCAB_DECK = 50;
+/* Tous les mots du Coran, du plus fréquent au plus rare, rangés en 5 niveaux.
+ * [premier mot, dernier mot, taille des paquets, nom du niveau] */
+const VOCAB_LEVELS = [
+  [1, 300, 50, 'Niveau 1 · les mots de base'],
+  [301, 1000, 50, 'Niveau 2 · les mots courants'],
+  [1001, 2000, 100, 'Niveau 3 · les mots moins courants'],
+  [2001, 3000, 100, 'Niveau 4 · les mots rares'],
+  [3001, Infinity, 100, 'Niveau 5 · les mots très rares (jusqu\'à 100 %)'],
+];
 function vocabCardId(l) { return 'voc|' + cardHash(l[0] + '|' + l[1] + '|' + l[2]); }
+/* identifiant de la carte du lemme n° li ; quelques mots s'écrivent pareil mais viennent
+ * de deux racines (ex. جَواب « réponse » / « bassins ») : le plus rare reçoit sa racine en plus */
+function vocabIdOf(data, li) {
+  if (!data._vocIds) {
+    const ids = new Array(data.lemmas.length), used = new Set();
+    vocabRank(data).forEach(i => { const l = data.lemmas[i]; let id = vocabCardId(l); if (used.has(id)) id = 'voc|' + cardHash(l[0] + '|' + l[1] + '|' + l[2] + '|' + l[3]); used.add(id); ids[i] = id; });
+    data._vocIds = ids;
+  }
+  return data._vocIds[li];
+}
 /* lemmes triés du plus fréquent au moins fréquent */
 function vocabRank(data) {
-  if (!data._vocRank) data._vocRank = data.lemmas.map((l, i) => i).sort((a, b) => data.lemmas[b][5] - data.lemmas[a][5]);
+  if (!data._vocRank) data._vocRank = data.lemmas.map((l, i) => i).sort((a, b) => data.lemmas[b][5] - data.lemmas[a][5] || a - b);
   return data._vocRank;
 }
 function vocabTotal(data) { if (!data._vocTot) data._vocTot = data.lemmas.reduce((s, l) => s + (l[5] || 0), 0); return data._vocTot; }
-function vocabCard(data, li) { const l = data.lemmas[li]; return { id: vocabCardId(l), s: '', q: l[0], a: l[4], voc: li }; }
+function vocabCard(data, li) { const l = data.lemmas[li]; return { id: vocabIdOf(data, li), s: '', q: l[0], a: l[4], voc: li }; }
 function vocabDecks(data) {
   if (!data || !data.lemmas) return [];
-  const r = vocabRank(data).slice(0, VOCAB_TOP); const out = []; const tot = vocabTotal(data); let cum = 0;
-  for (let k = 0; k < r.length; k += VOCAB_DECK) {
-    const part = r.slice(k, k + VOCAB_DECK);
-    part.forEach(li => { cum += data.lemmas[li][5]; });
-    out.push({ id: 'vocab/' + (k / VOCAB_DECK + 1), group: 'vocab', vocab: true, title: 'Mots ' + (k + 1) + ' à ' + (k + part.length), cover: Math.round(100 * cum / tot), cards: part.map(li => vocabCard(data, li)) });
-  }
+  if (data._vocDecks) return data._vocDecks;
+  const r = vocabRank(data); const out = []; const tot = vocabTotal(data); let cum = 0, n = 0;
+  VOCAB_LEVELS.forEach(([a, b, size, name], lv) => {
+    const end = Math.min(b, r.length);
+    for (let k = a - 1; k < end; k += size) {
+      const part = r.slice(k, Math.min(k + size, end));
+      part.forEach(li => { cum += data.lemmas[li][5]; });
+      const pct = 100 * cum / tot;
+      out.push({ id: 'vocab/' + (++n), group: 'vocab', vocab: true, level: lv, levelName: name, title: 'Mots ' + (k + 1) + ' à ' + (k + part.length), cover: k + part.length >= r.length ? 100 : (pct > 99 ? Math.floor(pct * 10) / 10 : Math.round(pct)), cards: part.map(li => vocabCard(data, li)) });
+    }
+  });
+  data._vocDecks = out;
   return out;
 }
 /* état de chaque lemme : 2 = acquis, 1 = en cours (vu, ou dans « mon vocabulaire ») */
@@ -29,7 +53,7 @@ function lemmaKnowledge(ctx) {
   const data = ctx.data; const S = srsStore(ctx);
   const out = new Map();
   for (let i = 0; i < data.lemmas.length; i++) {
-    const st = S.cards[vocabCardId(data.lemmas[i])];
+    const st = S.cards[vocabIdOf(data, i)];
     if (st) out.set(i, st[1] >= 7 ? 2 : 1);
   }
   Object.keys(ctx.settings.myWords || {}).forEach(k => { const i = +k; if (!out.has(i)) out.set(i, 1); });
