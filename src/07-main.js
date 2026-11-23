@@ -145,7 +145,7 @@ class AtelierView extends ItemView {
     else if (this.tab === 'analyse') renderAnalyseTab(ctx, this.body, st);
     else if (this.tab === 'build') renderBuildTab(ctx, this.body, st);
     else if (this.tab === 'signs') renderSignsTab(ctx, this.body, st);
-    else if (this.tab === 'settings') { h(this.body, 'h2', 'aa-set-title', '⚙ Réglages'); const box = h(this.body, 'div', 'aa-settings-inview'); fillSettings(box, this.plugin, false); }
+    else if (this.tab === 'settings') { h(this.body, 'h2', 'aa-set-title', '⚙ Réglages'); const box = h(this.body, 'div', 'aa-settings-inview'); fillSettings(box, this.plugin, false, ctx); }
     else renderQuizTab(ctx, this.body, st);
     if (this.back && this.back.length) {
       const last = this.back[this.back.length - 1];
@@ -154,12 +154,20 @@ class AtelierView extends ItemView {
       bb.addEventListener('click', ev => { ev.preventDefault(); this.goBack(); });
       this.body.insertBefore(bb, this.body.firstChild);
     }
-    // l'aide du haut de l'onglet se replie : on l'ouvre seulement si on en a besoin
-    const help = this.body.querySelector(':scope > .aa-help');
-    if (help) {
+    // l'aide du haut de l'onglet se replie : on l'ouvre seulement si on en a besoin (aussi pour les onglets qui s'affichent en deux temps)
+    const wrapHelp = () => {
+      const help = this.body.querySelector(':scope > .aa-help');
+      if (!help) return false;
       const d = document.createElement('details'); d.className = 'aa-howto';
-      const sm = h(d, 'summary', null, 'ⓘ Comment utiliser cet onglet');
+      h(d, 'summary', null, 'ⓘ Comment utiliser cet onglet');
       help.parentNode.insertBefore(d, help); d.appendChild(help);
+      return true;
+    };
+    if (this._helpObs) { this._helpObs.disconnect(); this._helpObs = null; }
+    wrapHelp();
+    if (typeof MutationObserver !== 'undefined') {
+      const ob = new MutationObserver(() => { if (this.body.querySelector(':scope > .aa-help')) wrapHelp(); });
+      ob.observe(this.body, { childList: true }); this._helpObs = ob;
     }
     if (this.body.scrollTo && this.tab !== this._lastTab) { try { this.contentEl.scrollTop = 0; } catch (e) { /* */ } }
     this._lastTab = this.tab;
@@ -171,12 +179,13 @@ class AtelierSettingTab extends PluginSettingTab {
   display() { fillSettings(this.containerEl, this.plugin, true); }
 }
 /* les réglages : dans Obsidian (Réglages › Atelier arabe) et dans l'atelier (bouton ⚙) */
-function fillSettings(el, plugin, inObsidian) {
+function fillSettings(el, plugin, inObsidian, ctx) {
   {
     clear(el);
     if (inObsidian) h(el, 'h2', null, 'Atelier arabe');
     h(el, 'p', null, 'Toutes les données (Coran, traductions, analyse grammaticale) sont dans le dossier du plugin. Rien de ce que tu fais n\'est envoyé sur internet. Seul le son (si « Son en ligne » est activé) est téléchargé quand tu appuies sur ▶ ou 🔊.');
     const p = plugin; const s = p.settings;
+    h(el, 'h3', 'aa-set-h', 'Lecture du Coran');
     new Setting(el).setName('Translittération').setDesc('Savante (ā, ū, sh, j) ou « à la française » (ou, ch, dj).')
       .addDropdown(d => d.addOption('sci', 'savante : al-ḥamdu, shukr').addOption('fr', 'à la française : al-ḥamdou, choukr').setValue(s.style).onChange(async v => { s.style = v; await p.saveSettings(); }));
     new Setting(el).setName('Afficher la translittération').addToggle(t => t.setValue(s.showTr).onChange(async v => { s.showTr = v; await p.saveSettings(); }));
@@ -184,6 +193,10 @@ function fillSettings(el, plugin, inObsidian) {
     new Setting(el).setName('Afficher la traduction française').setDesc('Traduction de Muhammad Hamidullah.').addToggle(t => t.setValue(s.showFr).onChange(async v => { s.showFr = v; await p.saveSettings(); }));
     new Setting(el).setName('Ordre des sourates').setDesc('Ordre du Coran (1 à 114, comme dans le livre), ou ordre de la révélation (de la première sourate révélée, al-ʿAlaq, à la dernière).')
       .addDropdown(d => d.addOption('mushaf', 'ordre du Coran').addOption('nuzul', 'ordre de la révélation').setValue(s.surahOrder || 'mushaf').onChange(async v => { s.surahOrder = v; await p.saveSettings(); p.refreshViews && p.refreshViews(); }));
+    new Setting(el).setName('Couleurs de prononciation').setDesc('Colore les lettres muettes, les voyelles longues, la nasalisation (ghunna) et l\'écho (qalqala) dans le Coran et dans les blocs ```coran```.')
+      .addToggle(t => t.setValue(!!s.tajwid).onChange(async v => { s.tajwid = v; await p.saveSettings(); }));
+    new Setting(el).setName('Ouvrir « lettre par lettre » automatiquement').addToggle(t => t.setValue(s.openLetters).onChange(async v => { s.openLetters = v; await p.saveSettings(); }));
+    h(el, 'h3', 'aa-set-h', 'Apparence');
     const fontSet = new Setting(el).setName('Police arabe').setDesc('Toutes ces polices sont incluses dans le plugin : elles marchent sans internet, sur PC comme sur iPad. « Amiri Quran » affiche le mieux les petits signes du Coran.');
     const preview = el.createDiv({ cls: 'aa-font-preview aa-root' });
     const showFont = v => { AR_FONTS.forEach(f => preview.classList.toggle('aa-font-' + f[0], v === f[0])); const f = AR_FONTS.find(x => x[0] === v) || AR_FONTS[0]; preview.empty(); preview.createDiv({ text: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ' }); const d = preview.createDiv({ text: f[2] }); d.style.cssText = 'font-size:12px;direction:ltr;text-align:left;color:var(--text-muted);font-family:var(--font-interface)'; };
@@ -197,33 +210,38 @@ function fillSettings(el, plugin, inObsidian) {
       .addSlider(sl => sl.setLimits(20, 52, 2).setValue(s.arSize).setDynamicTooltip().onChange(async v => { s.arSize = v; await p.saveSettings(); }));
     new Setting(el).setName('Taille de l\'interface').setDesc('« Très grande » est pratique sur téléphone. Chaque appareil garde son propre réglage.')
       .addDropdown(d => d.addOption('normal', 'normale').addOption('grand', 'grande').addOption('tres-grand', 'très grande').setValue(s.uiSize || 'normal').onChange(async v => { s.uiSize = v; await p.saveSettings(); }));
-    new Setting(el).setName('Son gardé sur l\'appareil').setDesc('Le son des sourates que tu as gardées hors ligne (bouton dans l\'onglet Coran ou l\'Accueil).')
-      .addButton(b => b.setButtonText('Effacer le son gardé').onClick(async () => { await p.dropAudio(); new Notice('Son effacé.'); }));
-    new Setting(el).setName('Couleurs de prononciation').setDesc('Colore les lettres muettes, les voyelles longues, la nasalisation (ghunna) et l\'écho (qalqala) dans le Coran et dans les blocs ```coran```.')
-      .addToggle(t => t.setValue(!!s.tajwid).onChange(async v => { s.tajwid = v; await p.saveSettings(); }));
+    h(el, 'h3', 'aa-set-h', 'Son');
     new Setting(el).setName('Son en ligne').setDesc('Récitation (Mishary Alafasy) et prononciation des mots depuis internet, seulement quand tu appuies sur ▶ ou 🔊. Désactivé : voix de l\'appareil uniquement.')
       .addToggle(t => t.setValue(s.audio).onChange(async v => { s.audio = v; await p.saveSettings(); }));
+    new Setting(el).setName('Récitateur').setDesc('La voix qui récite les versets quand tu appuies sur ▶.')
+      .addDropdown(d => { RECITERS.forEach(r => d.addOption(r[0], r[1])); d.setValue(s.reciter || 'Alafasy_128kbps').onChange(async v => { s.reciter = v; AUDIO.reciter = v; await p.saveSettings(); }); });
+    new Setting(el).setName('Vitesse du son').setDesc('Plus lent pour bien entendre chaque lettre.')
+      .addDropdown(d => { [['0.5', '0,5× (très lent)'], ['0.6', '0,6×'], ['0.75', '0,75× (lent)'], ['0.85', '0,85×'], ['1', '1× (normal)']].forEach(o => d.addOption(o[0], o[1])); d.setValue(String(s.audioRate || 1)).onChange(async v => { s.audioRate = +v; AUDIO.rate = +v; await p.saveSettings(); }); });
+    if (ctx && typeof renderOfflineAudio === 'function') renderOfflineAudio(ctx, h(el, 'div', 'aa-set-offline'));
+    new Setting(el).setName('Son gardé sur l\'appareil').setDesc('Le son des sourates que tu as gardées hors ligne (bouton dans l\'onglet Coran ou l\'Accueil).')
+      .addButton(b => b.setButtonText('Effacer le son gardé').onClick(async () => { await p.dropAudio(); new Notice('Son effacé.'); }));
+    h(el, 'h3', 'aa-set-h', 'Mes notes dans le coffre');
     new Setting(el).setName('Dossier de tes corrections').setDesc('Quand tu corriges ou complètes une explication, ta version est rangée ici. Le texte d\'origine du plugin n\'est jamais modifié.')
       .addText(t => t.setValue(s.fixFolder).onChange(async v => { s.fixFolder = v.trim() || DEFAULT_SETTINGS.fixFolder; await p.saveSettings(); }));
     new Setting(el).setName('Note de vocabulaire').setDesc('Le bouton « Ajouter à mon vocabulaire » ajoute une ligne au tableau de cette note.')
       .addText(t => t.setValue(s.vocabFile).onChange(async v => { s.vocabFile = v.trim() || DEFAULT_SETTINGS.vocabFile; await p.saveSettings(); }));
     new Setting(el).setName('Dossier des textes du cours').setDesc('Les sourates qui ont une note dans ce dossier apparaissent dans « Mon cours ».')
       .addText(t => t.setValue(s.textsFolder).onChange(async v => { s.textsFolder = v.trim() || DEFAULT_SETTINGS.textsFolder; await p.saveSettings(); }));
-    new Setting(el).setName('Ouvrir « lettre par lettre » automatiquement').addToggle(t => t.setValue(s.openLetters).onChange(async v => { s.openLetters = v; await p.saveSettings(); }));
+    new Setting(el).setName('Dossier des cartes de révision').setDesc('Les notes « Cartes - … » de ce dossier remplacent les paquets inclus dans le plugin (tes corrections gagnent). Sans ce dossier, l\'onglet Réviser utilise les paquets inclus : c\'est le cas sur iPad et iPhone.')
+      .addText(t => t.setValue(s.cardsFolder || DEFAULT_SETTINGS.cardsFolder).onChange(async v => { s.cardsFolder = v.trim() || DEFAULT_SETTINGS.cardsFolder; await p.saveSettings(); }));
+    new Setting(el).setName('Fichier des flashcards').setDesc('Note où l\'atelier ajoute tes cartes (format Spaced Repetition « question :: réponse »).')
+      .addText(t => t.setValue(s.flashFile).onChange(async v => { s.flashFile = v.trim() || DEFAULT_SETTINGS.flashFile; await p.saveSettings(); }));
     const src = h(el, 'div', 'aa-sources');
     h(src, 'h3', null, 'Sources et droits');
     [
       ['Texte du Coran : projet Tanzil (texte vérifié, non modifié).', 'https://tanzil.net'],
       ['Analyse des mots (racines, cas, formes) : Quranic Arabic Corpus, Kais Dukes, Université de Leeds, licence GNU GPL. Version corrigée par mustafa0x/quran-morphology.', 'https://corpus.quran.com'],
+      ['Signes de pause (pour couper les longs versets) : texte uthmani de quranenc.com, via le paquet quran-json (CC BY-SA 4.0).', 'https://github.com/risan/quran-json'],
       ['Traduction française : Muhammad Hamidullah. Utilisée ici à des fins d\'étude, non commerciales ; les droits appartiennent à son auteur et à ses éditeurs.', ''],
-      ['Police arabe : Amiri Quran, Khaled Hosny, SIL Open Font License 1.1.', 'https://github.com/aliftype/amiri'],
+      ['Polices arabes : Amiri et Amiri Quran (Khaled Hosny), Scheherazade New et Lateef (SIL Global), Noto Naskh Arabic (Noto Project), Aref Ruqaa, Bouazzi Maghribi (aleftypefoundry). Toutes sous SIL Open Font License 1.1.', 'https://github.com/aliftype/amiri'],
       ['Récitations : everyayah.com et quran.com, écoutées en ligne (rien n\'est copié dans le plugin).', 'https://everyayah.com'],
     ].forEach(([t, u]) => { const d = h(src, 'p', 'aa-small'); d.appendChild(document.createTextNode(t + ' ')); if (u) { const a = h(d, 'a', null, u); a.href = u; } });
     h(src, 'p', 'aa-small aa-muted', 'Les définitions, explications, leçons et analyses automatiques (iʿrāb, prononciation) sont un outil d\'apprentissage : elles peuvent contenir des erreurs. Pour le Coran, vérifie toujours auprès d\'un enseignant.');
-    new Setting(el).setName('Dossier des cartes de révision').setDesc('Les notes « Cartes - … » de ce dossier remplacent les paquets inclus dans le plugin (tes corrections gagnent). Sans ce dossier, l\'onglet Réviser utilise les paquets inclus : c\'est le cas sur iPad et iPhone.')
-      .addText(t => t.setValue(s.cardsFolder || DEFAULT_SETTINGS.cardsFolder).onChange(async v => { s.cardsFolder = v.trim() || DEFAULT_SETTINGS.cardsFolder; await p.saveSettings(); }));
-    new Setting(el).setName('Fichier des flashcards').setDesc('Note où l\'atelier ajoute tes cartes (format Spaced Repetition « question :: réponse »).')
-      .addText(t => t.setValue(s.flashFile).onChange(async v => { s.flashFile = v.trim() || DEFAULT_SETTINGS.flashFile; await p.saveSettings(); }));
   }
 }
 

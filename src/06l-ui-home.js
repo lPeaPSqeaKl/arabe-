@@ -38,6 +38,17 @@ function renderHomeTab(ctx, root, state) {
     if (label) btn(h(c, 'div', 'aa-home-card-act'), label, fn, main ? 'mod-cta' : '');
     return c;
   };
+  {
+    /* reprendre la lecture du Coran là où on s'était arrêté */
+    const ls = ctx.settings.lastSurah || 1; const lv = ctx.settings.lastVerse || 0; const inf = ctx.data.surahInfo(ls);
+    const BM = ctx.settings.bookmarks || [];
+    const c = card('📖', lv ? 'Reprendre ma lecture' : 'Lire le Coran', lv ? '**' + inf[1] + '** (' + inf[2] + ') · verset ' + ls + ':' + lv + ' sur ' + inf[5] : 'Commence par **' + inf[1] + '**, mot par mot.', lv ? '▶ Continuer' : 'Ouvrir', () => ctx.openQuran(ls, lv));
+    if (BM.length) {
+      const bl = h(c, 'div', 'aa-home-bms');
+      h(bl, 'span', 'aa-muted aa-small', '★ ');
+      BM.slice(0, 3).forEach(b => { const a = h(bl, 'a', 'aa-link aa-small', b.s + ':' + b.v); a.title = ctx.data.surahInfo(b.s)[1]; a.addEventListener('click', ev => { ev.preventDefault(); ctx.openQuran(b.s, b.v); }); bl.appendChild(document.createTextNode(' ')); });
+    }
+  }
   const rc = h(todo, 'div', 'aa-home-card aa-home-main');
   const rt = h(rc, 'div', 'aa-home-card-top'); h(rt, 'span', 'aa-home-card-ic', '🃏'); h(rt, 'b', null, 'Révision du jour');
   const rl = h(rc, 'div', 'aa-muted aa-small', 'Calcul…');
@@ -76,7 +87,8 @@ function renderHomeTab(ctx, root, state) {
   for (let d = start; d <= t0; d++) { const e = A[d]; const n = e ? (e.c || 0) + 2 * (e.w || 0) + 5 * (e.l || 0) : 0; const c = h(grid, 'span', 'aa-home-day' + (n ? ' aa-home-day-' + (n >= 40 ? 3 : n >= 15 ? 2 : 1) : '') + (d === t0 ? ' aa-home-today' : '')); c.title = n ? n + ' activités' : 'rien ce jour-là'; }
   h(ac, 'div', 'aa-muted aa-small', 'Chaque case = un jour (cartes, écriture, leçons). Un peu chaque jour vaut mieux que beaucoup une fois par semaine.');
 
-  renderComfort(ctx, details(root, '⚙️ Confort : taille du texte, récitateur, son hors ligne', false, 'aa-home-comfort'), go);
+  const set = h(root, 'div', 'aa-home-settings');
+  btn(set, '⚙ Réglages : taille du texte, police, récitateur, son hors ligne', () => ctx.openTab('settings'), 'aa-btn-quiet');
 }
 
 function surahRow(ctx, parent, k) {
@@ -126,6 +138,9 @@ function renderComfort(ctx, box, go) {
   selectEl(r4, [['0.5', '0,5× (très lent)'], ['0.6', '0,6×'], ['0.75', '0,75× (lent)'], ['0.85', '0,85×'], ['1', '1× (normal)']], String(S.audioRate || 1), v => { S.audioRate = +v; setAudioRate(+v); ctx.save(); });
   const r5 = field(box, 'Couleurs des mots');
   checkbox(r5, 'nom bleu, verbe rouge', S.wordColors !== false, v => { S.wordColors = v; ctx.save(); ctx.refresh && ctx.refresh(); });
+  renderOfflineAudio(ctx, box);
+}
+function renderOfflineAudio(ctx, box) {
   if (ctx.keepSurahAudio) {
     h(box, 'h4', null, '🎧 Son hors ligne');
     mdText(box, 'p', 'aa-muted aa-small', 'Sans internet, le plugin marche déjà entièrement (Coran, traduction, dictionnaire, règles, cartes, écriture). Seul le **son** vient d\'internet. Tu peux garder sur l\'appareil le son d\'une sourate (bouton dans l\'onglet Coran), ou d\'un coup celui des **sourates courtes** (78 à 114, environ 50 Mo par récitateur, avec la prononciation de chaque mot).');

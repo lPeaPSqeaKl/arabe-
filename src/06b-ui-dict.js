@@ -122,7 +122,7 @@ function renderDictTab(ctx, root, state) {
     renderRows(ctx, listEl, ids, 100, showEntry);
   }
   if (state.entry != null) showEntry(state.entry);
-  else h(entryEl, 'p', 'aa-muted', 'Choisis un mot dans la liste pour voir sa fiche complète.');
+  else { entryEl.classList.add('aa-dict-empty'); h(entryEl, 'p', 'aa-muted', 'Choisis un mot dans la liste pour voir sa fiche complète.'); }
 }
 
 function renderRows(ctx, parent, ids, limit, onPick) {
@@ -144,7 +144,7 @@ function renderRows(ctx, parent, ids, limit, onPick) {
 }
 
 function renderDictEntry(ctx, el, id, onPick) {
-  clear(el);
+  clear(el); el.classList.remove('aa-dict-empty');
   const data = ctx.data; const l = data.lemmas[id]; const style = ctx.settings.style;
   const tr = lemmaTranslit(id, data.lemmas);
   const head = h(el, 'div', 'aa-dhead');

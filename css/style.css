@@ -852,3 +852,15 @@ li.aa-rule-inline { list-style: none; border: none; background: none; }
 .aa-layout-sel { max-width: 100%; }
 .aa-practice .aa-verse:not(.aa-revealed) .aa-ic-tr, .aa-practice .aa-verse:not(.aa-revealed) .aa-ic-fr { filter: blur(5px); user-select: none; }
 @media (max-width: 600px) { .aa-ic { padding: 3px 5px 5px; max-width: 8.5em; } }
+
+/* 2.19 : mise à niveau des onglets */
+.aa-al-zlist { padding-left: 0; column-gap: 26px; }
+.aa-al-zlist li { margin-left: 1.9em; }
+.aa-home-bms { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.aa-home-settings { margin: 14px 0 8px; display: flex; justify-content: center; }
+.aa-lesson-go { margin: 6px 0 12px; }
+.aa-lesson-go .mod-cta { white-space: normal; text-align: left; height: auto; min-height: 38px; padding: 8px 16px; }
+.aa-set-h { margin: 22px 0 4px; padding-bottom: 4px; font-size: 1.05em; border-bottom: 1px solid var(--background-modifier-border); color: var(--text-normal); }
+.aa-set-offline { padding: 4px 0 8px; }
+@media (max-width: 800px) { .aa-dict-entry.aa-dict-empty { display: none; } }
+.aa-home-todo { grid-template-columns: repeat(2, minmax(0, 1fr)); } @media (max-width: 520px) { .aa-home-todo { grid-template-columns: minmax(0, 1fr); } }

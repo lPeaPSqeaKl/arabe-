@@ -248,9 +248,8 @@ function renderWriteTab(ctx, root, state) {
   if (state.free) return renderWriteFree(ctx, root, state, go);
   const W = writeState(ctx);
   const all = writeAllLetters(); const nL = all.filter(l => letterLearned(W, l)).length;
+  mdText(root, 'p', 'aa-help', 'Un vrai cahier d\'écriture : pour chaque lettre, tu **regardes le geste**, tu **traces sur le modèle**, puis tu l\'**écris seul**. L\'atelier compare ton tracé au modèle et te donne une note. Une lettre est apprise quand tu l\'écris seul avec au moins **60 / 100**.');
   const head = h(root, 'div', 'aa-wr-head');
-  h(head, 'h2', null, '✍️ Apprendre à écrire');
-  mdText(head, 'p', 'aa-muted', 'Un vrai cahier d\'écriture : pour chaque lettre, tu **regardes le geste**, tu **traces sur le modèle**, puis tu l\'**écris seul**. L\'atelier compare ton tracé au modèle et te donne une note. Une lettre est apprise quand tu l\'écris seul avec au moins **60 / 100**.');
   const bar = h(head, 'div', 'aa-lesson-progress'); const f = h(bar, 'div', 'aa-lesson-fill'); f.style.width = Math.round(100 * nL / all.length) + '%';
   h(head, 'div', 'aa-muted aa-small', nL + ' / ' + all.length + ' lettres apprises');
   const nx = writeNext(W);

@@ -4,9 +4,9 @@
 function lessonState(ctx) { return ctx.settings.lessons || (ctx.settings.lessons = {}); }
 
 function saveLessonPlace(ctx, state) {
-  const P = { open: state.open || null, step: state.step || 0 };
   const o = ctx.settings.lessonPlace || {};
-  if (o.open !== P.open || o.step !== P.step) { ctx.settings.lessonPlace = P; ctx.save(); }
+  const P = { open: state.open || null, step: state.step || 0, lastOpen: state.open || o.lastOpen || null, lastStep: state.open ? (state.step || 0) : (o.lastStep || 0) };
+  if (o.open !== P.open || o.step !== P.step || o.lastOpen !== P.lastOpen || o.lastStep !== P.lastStep) { ctx.settings.lessonPlace = P; ctx.save(); }
 }
 function renderLessonsTab(ctx, root, state) {
   clear(root);
@@ -19,6 +19,12 @@ function renderLessonsTab(ctx, root, state) {
   const fill = h(bar, 'div', 'aa-lesson-fill'); fill.style.width = Math.round(100 * nDone / LESSONS.length) + '%';
   h(root, 'p', 'aa-muted aa-small', nDone + ' / ' + LESSONS.length + ' leçons validées');
   const next = LESSONS.find(l => !(done[l.id] && done[l.id].done));
+  if (next) {
+    const pl = ctx.settings.lessonPlace || {}; const lk = LESSONS.indexOf(next) + 1;
+    const resume = pl.lastOpen === next.id && pl.lastStep ? pl.lastStep : 0;
+    const act = h(root, 'div', 'aa-actions aa-lesson-go');
+    btn(act, '▶ ' + (resume ? 'Reprendre' : 'Commencer') + ' : leçon ' + lk + ' · ' + next.title, () => { state.open = next.id; state.q = null; state.step = resume; state.stepFor = next.id; renderLessonsTab(ctx, root, state); root.scrollTop = 0; }, 'mod-cta');
+  }
   const grid = h(root, 'div', 'aa-lesson-grid');
   LESSONS.forEach((L, k) => {
     const st = done[L.id];

@@ -187,9 +187,6 @@ function renderReviewTab(ctx, root, state) {
   selectEl(set, [0, 5, 10, 15, 20, 30].map(n => [n, String(n)]), S.vocabPerDay, v => { S.vocabPerDay = +v; ctx.save(); go(); });
 
   CARD_GROUPS.forEach(([g, label, ic]) => {
-    const ds = state.decks.filter(d => d.group === g); if (!ds.length) return;
-    h(root, 'h3', 'aa-fc-group', ic + '  ' + label);
-    if (g === 'vocab') mdText(root, 'p', 'aa-muted aa-small', '**Tous les mots du Coran** (' + ds.reduce((n, d) => n + d.cards.length, 0) + '), du plus courant au plus rare, en 5 niveaux. Le niveau 1 (300 mots) fait déjà les **trois quarts** du texte ; à la fin du niveau 5, tu as vu **100 %** des mots. Les nouveaux mots arrivent dans ta révision du jour (' + S.vocabPerDay + ' par jour), dans cet ordre. Pour une sourate précise : onglet Coran › « Apprendre les mots de cette sourate ».');
     const deckCard = (grid, d) => {
       const c = deckCounts(S, d);
       const card = h(grid, 'div', 'aa-fc-deck' + (FIRST_DECKS.slice(0, 2).includes(d.id.split('/').pop()) ? ' aa-fc-star' : ''));
@@ -201,6 +198,23 @@ function renderReviewTab(ctx, root, state) {
       if (d.vocab) h(card, 'div', 'aa-muted aa-small', (d.id === 'vocab/1' ? 'ces mots = ' : 'avec les paquets d\'avant : ') + d.cover + ' % du Coran');
       card.addEventListener('click', () => { state.deck = d.id; go(); });
     };
+    const ds = state.decks.filter(d => d.group === g); if (!ds.length) return;
+    if (g !== 'vocab') {
+      if (!state._rulesHead || state._rulesHead.parentNode !== root) state._rulesHead = h(root, 'h3', 'aa-fc-group', '📚  Les règles en cartes');
+      /* les paquets de règles : un bloc repliable par thème (ouvert s'il y a des cartes à revoir) */
+      let due = 0, tot = 0, seen = 0; ds.forEach(d => { const c = deckCounts(S, d); due += c.due; tot += c.total; seen += c.total - c.fresh; });
+      if (state.grpOpen == null) state.grpOpen = {};
+      const box = h(root, 'details', 'aa-sec aa-fc-level aa-fc-grp');
+      box.open = state.grpOpen[g] != null ? state.grpOpen[g] : due > 0;
+      box.addEventListener('toggle', () => { state.grpOpen[g] = box.open; });
+      const sum = h(box, 'summary', null, ic + '  ' + label);
+      h(sum, 'span', 'aa-muted aa-small', '  ·  ' + ds.length + ' paquet' + (ds.length > 1 ? 's' : '') + ' · ' + seen + ' / ' + tot + ' cartes vues');
+      if (due) h(sum, 'span', 'aa-fc-pill aa-fc-pill-due', due + ' à revoir');
+      const grid = h(box, 'div', 'aa-fc-grid'); ds.forEach(d => deckCard(grid, d));
+      return;
+    }
+    h(root, 'h3', 'aa-fc-group', ic + '  ' + label);
+    if (g === 'vocab') mdText(root, 'p', 'aa-muted aa-small', '**Tous les mots du Coran** (' + ds.reduce((n, d) => n + d.cards.length, 0) + '), du plus courant au plus rare, en 5 niveaux. Le niveau 1 (300 mots) fait déjà les **trois quarts** du texte ; à la fin du niveau 5, tu as vu **100 %** des mots. Les nouveaux mots arrivent dans ta révision du jour (' + S.vocabPerDay + ' par jour), dans cet ordre. Pour une sourate précise : onglet Coran › « Apprendre les mots de cette sourate ».');
     if (g !== 'vocab' || ds.some(d => d.level == null)) { const grid = h(root, 'div', 'aa-fc-grid'); ds.forEach(d => deckCard(grid, d)); return; }
     /* vocabulaire : un bloc repliable par niveau ; on ouvre le niveau en cours */
     const levels = []; ds.forEach(d => { (levels[d.level] = levels[d.level] || []).push(d); });
