@@ -63,8 +63,8 @@ function renderRuleCard(ctx, parent, r, opts) {
       ls.forEach((L, i) => { const lk = h(p, 'a', 'aa-link', 'Leçon ' + (LESSONS.indexOf(L) + 1) + ' : ' + L.title); lk.addEventListener('click', e => { e.preventDefault(); ctx.openLesson(L.id); }); if (i < ls.length - 1) p.appendChild(document.createTextNode(' · ')); });
     }
     const a = h(box, 'div', 'aa-actions');
-    btn(a, 'Insérer dans la note', () => ctx.insertText('> [!tip] ' + r.title + ' (' + r.ar + ')\n> ' + r.one.replace(/\*\*/g, '') + '\n' + r.txt.split('\n').map(l => '> ' + l).join('\n') + '\n' + (r.ex || []).map(e => '> - ' + e[0] + ' (' + e[1] + ') : ' + e[2]).join('\n') + '\n\n'), 'aa-btn-quiet');
-    btn(a, 'Créer une flashcard', () => ctx.addFlashcard(r.title + ' (' + r.ar + ')', r.one.replace(/\*\*/g, '')), 'aa-btn-quiet');
+    btn(moreMenu(a), 'Insérer dans ma note Obsidian', () => ctx.insertText('> [!tip] ' + r.title + ' (' + r.ar + ')\n> ' + r.one.replace(/\*\*/g, '') + '\n' + r.txt.split('\n').map(l => '> ' + l).join('\n') + '\n' + (r.ex || []).map(e => '> - ' + e[0] + ' (' + e[1] + ') : ' + e[2]).join('\n') + '\n\n'), 'aa-btn-quiet');
+    btn(moreMenu(a), 'Ajouter à mes cartes de révision', () => ctx.addFlashcard(r.title + ' (' + r.ar + ')', r.one.replace(/\*\*/g, '')), 'aa-btn-quiet');
   }
   return box;
 }

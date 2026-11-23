@@ -101,6 +101,7 @@ class AtelierView extends ItemView {
     this.nav.insertBefore(gear, this.nav.firstChild);
     h(gear, 'span', 'aa-tab-lab', '⚙'); gear.setAttribute('aria-label', 'Réglages'); gear.title = 'Réglages de l\'atelier (police, taille, son, couleurs…)';
     gear.addEventListener('click', () => { if (this.tab !== 'settings') { this.pushBack(); this.setTab('settings'); } else this.goBack(); });
+    { const on = this.nav.querySelector('.aa-tab.aa-on:not(.aa-tab-gear)'); if (on && this.nav.scrollWidth > this.nav.clientWidth) { try { this.nav.scrollLeft = on.offsetLeft - this.nav.clientWidth / 2 + on.offsetWidth / 2; } catch (e) { /* */ } } }
     const ctx = this.plugin.ctx(this);
     const st = this.states[this.tab];
     clear(this.body);

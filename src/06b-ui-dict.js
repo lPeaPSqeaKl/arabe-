@@ -187,8 +187,8 @@ function renderDictEntry(ctx, el, id, onPick) {
   // actions
   const act = h(el, 'div', 'aa-actions');
   btn(act, ctx.isMine(id) ? '✓ Dans mon vocabulaire' : 'Ajouter à mon vocabulaire', (ev) => { ctx.addVocab(id, l[0], tr, l[4], ''); ev.target.textContent = '✓ Dans mon vocabulaire'; });
-  btn(act, 'Créer une flashcard', () => ctx.addFlashcard(l[0], l[4] + ' — ' + tr));
-  btn(act, 'Insérer dans la note', () => ctx.insertText('- ' + l[0] + ' (' + tr + ') — ' + l[4] + (l[3] ? ' · racine ' + l[3] : '') + '\n'));
+  btn(moreMenu(act), 'Ajouter à mes cartes de révision', () => ctx.addFlashcard(l[0], l[4] + ' — ' + tr));
+  btn(moreMenu(act), 'Insérer dans ma note Obsidian', () => ctx.insertText('- ' + l[0] + ' (' + tr + ') — ' + l[4] + (l[3] ? ' · racine ' + l[3] : '') + '\n'));
   // occurrences
   const refs = data.allRefsOf(id);
   h(el, 'h4', null, 'Tous les versets (' + refs.length + ')');

@@ -1847,6 +1847,14 @@ function copyText(t) {
 }
 /* le texte sans voyelles (ni petits signes du Coran) : pour s'entraîner à lire comme dans un livre */
 function noVowels(t) { return String(t).replace(/[\u064B-\u0652\u0670\u0653-\u0655\u06D6-\u06ED]/g, '').replace(/\u0671/g, '\u0627'); }
+/* les actions moins fréquentes se rangent dans « ⋯ Plus » (une seule fois par barre) */
+function moreMenu(parent) {
+  if (parent._more) return parent._more;
+  const d = h(parent, 'details', 'aa-more'); h(d, 'summary', 'aa-btn aa-btn-quiet', '⋯ Plus');
+  const box = h(d, 'div', 'aa-more-box');
+  d.addEventListener('click', ev => ev.stopPropagation());
+  parent._more = box; return box;
+}
 /* iPad / iPhone : menu de partage du système ; ordinateur : copie */
 function canShare() { try { return !!(navigator.share && window.matchMedia && window.matchMedia('(pointer: coarse)').matches); } catch (e) { return false; } }
 function shareText(text, title) {
@@ -2092,9 +2100,9 @@ function renderWordDetail(ctx, el, words, wi, ref, verse) {
   const caseInfo = e.facts.filter(f => ['Cas', 'Mode', 'Temps'].includes(f[0])).map(f => f[1].split(' — ')[0].split(' (')[0]).join(', ');
   const summary = txt + ' (' + tr + ') — ' + (e.gloss || e.title) + (caseInfo ? ' · ' + caseInfo : '') + (ref ? ' · Coran ' + ref[0] + ':' + ref[1] : '');
   btn(act, 'Copier', () => copyText(summary));
-  btn(act, 'Insérer dans la note', () => ctx.insertText('- ' + summary + '\n'));
+  btn(moreMenu(act), 'Insérer dans ma note Obsidian', () => ctx.insertText('- ' + summary + '\n'));
   if (lemRow) btn(act, ctx.isMine(st.seg[3]) ? '✓ Dans mon vocabulaire' : 'Ajouter à mon vocabulaire', (ev) => { ctx.addVocab(st.seg[3], txt, isInitials(word) ? tr : translitPhrase([txt], ctx.settings.style), e.gloss, ref ? ref[0] + ':' + ref[1] : ''); ev.target.textContent = '✓ Dans mon vocabulaire'; });
-  btn(act, 'Créer une flashcard', () => ctx.addFlashcard(txt + (ref ? ' (' + ref[0] + ':' + ref[1] + ')' : ''), (e.gloss || e.title) + ' — ' + tr + (caseInfo ? ' — ' + caseInfo : '') + (e.why[0] ? ' — ' + e.why[0].replace(/\*\*/g, '') : '')));
+  btn(moreMenu(act), 'Ajouter à mes cartes de révision', () => ctx.addFlashcard(txt + (ref ? ' (' + ref[0] + ':' + ref[1] + ')' : ''), (e.gloss || e.title) + ' — ' + tr + (caseInfo ? ' — ' + caseInfo : '') + (e.why[0] ? ' — ' + e.why[0].replace(/\*\*/g, '') : '')));
   btn(act, 'Fermer', () => { clear(el); el.classList.remove('aa-detail-open'); }, 'aa-btn-quiet');
   linkTerms(ctx, el);
 }
@@ -2206,7 +2214,7 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
     }
     const vText = () => words.map(wordText).join(' ') + '\n' + tokens.join(' ') + '\n« ' + v[0] + ' » (' + info[1] + ' ' + surahN + ':' + vn + ')';
     btn(tools, canShare() ? '↗ Partager' : 'Copier le verset', () => shareText(vText(), info[1] + ' ' + surahN + ':' + vn), 'aa-btn-quiet');
-    btn(tools, 'Insérer dans la note', () => ctx.insertText('> [!quote] ' + info[1] + ' ' + surahN + ':' + vn + '\n> ' + words.map(wordText).join(' ') + '\n> *' + tokens.join(' ') + '*\n> ' + v[0] + '\n\n'), 'aa-btn-quiet');
+    btn(moreMenu(tools), 'Insérer dans ma note Obsidian', () => ctx.insertText('> [!quote] ' + info[1] + ' ' + surahN + ':' + vn + '\n> ' + words.map(wordText).join(' ') + '\n> *' + tokens.join(' ') + '*\n> ' + v[0] + '\n\n'), 'aa-btn-quiet');
     const key = surahN + ':' + vn; const notes = S.verseNotes || {};
     const noteBox = h(box, 'div', 'aa-vnote' + (notes[key] ? '' : ' aa-hidden'));
     const paintNote = () => { clear(noteBox); noteBox.classList.toggle('aa-hidden', !(S.verseNotes || {})[key]); if ((S.verseNotes || {})[key]) { h(noteBox, 'span', 'aa-vnote-ic', '📝 '); noteBox.appendChild(document.createTextNode(S.verseNotes[key])); } };
@@ -2762,8 +2770,8 @@ function renderBuildTab(ctx, root, state) {
   const act = h(out, 'div', 'aa-actions');
   soundBtn(act, () => speak(arText), 'Écouter (voix de l\'appareil)');
   btn(act, 'Copier', () => copyText(arText + '\n' + tr + '\n' + r.fr));
-  btn(act, 'Insérer dans la note', () => ctx.insertText('- ' + arText + ' — *' + tr + '* — ' + r.fr + '\n'));
-  btn(act, 'Créer une flashcard', () => ctx.addFlashcard(r.fr, arText + ' (' + tr + ')'));
+  btn(moreMenu(act), 'Insérer dans ma note Obsidian', () => ctx.insertText('- ' + arText + ' — *' + tr + '* — ' + r.fr + '\n'));
+  btn(moreMenu(act), 'Ajouter à mes cartes de révision', () => ctx.addFlashcard(r.fr, arText + ' (' + tr + ')'));
 
   h(root, 'h4', null, 'Pourquoi chaque mot a cette forme');
   const tbl = h(root, 'div', 'aa-why-table');
@@ -3272,8 +3280,8 @@ function renderDictEntry(ctx, el, id, onPick) {
   // actions
   const act = h(el, 'div', 'aa-actions');
   btn(act, ctx.isMine(id) ? '✓ Dans mon vocabulaire' : 'Ajouter à mon vocabulaire', (ev) => { ctx.addVocab(id, l[0], tr, l[4], ''); ev.target.textContent = '✓ Dans mon vocabulaire'; });
-  btn(act, 'Créer une flashcard', () => ctx.addFlashcard(l[0], l[4] + ' — ' + tr));
-  btn(act, 'Insérer dans la note', () => ctx.insertText('- ' + l[0] + ' (' + tr + ') — ' + l[4] + (l[3] ? ' · racine ' + l[3] : '') + '\n'));
+  btn(moreMenu(act), 'Ajouter à mes cartes de révision', () => ctx.addFlashcard(l[0], l[4] + ' — ' + tr));
+  btn(moreMenu(act), 'Insérer dans ma note Obsidian', () => ctx.insertText('- ' + l[0] + ' (' + tr + ') — ' + l[4] + (l[3] ? ' · racine ' + l[3] : '') + '\n'));
   // occurrences
   const refs = data.allRefsOf(id);
   h(el, 'h4', null, 'Tous les versets (' + refs.length + ')');
@@ -4064,8 +4072,8 @@ function renderRuleCard(ctx, parent, r, opts) {
       ls.forEach((L, i) => { const lk = h(p, 'a', 'aa-link', 'Leçon ' + (LESSONS.indexOf(L) + 1) + ' : ' + L.title); lk.addEventListener('click', e => { e.preventDefault(); ctx.openLesson(L.id); }); if (i < ls.length - 1) p.appendChild(document.createTextNode(' · ')); });
     }
     const a = h(box, 'div', 'aa-actions');
-    btn(a, 'Insérer dans la note', () => ctx.insertText('> [!tip] ' + r.title + ' (' + r.ar + ')\n> ' + r.one.replace(/\*\*/g, '') + '\n' + r.txt.split('\n').map(l => '> ' + l).join('\n') + '\n' + (r.ex || []).map(e => '> - ' + e[0] + ' (' + e[1] + ') : ' + e[2]).join('\n') + '\n\n'), 'aa-btn-quiet');
-    btn(a, 'Créer une flashcard', () => ctx.addFlashcard(r.title + ' (' + r.ar + ')', r.one.replace(/\*\*/g, '')), 'aa-btn-quiet');
+    btn(moreMenu(a), 'Insérer dans ma note Obsidian', () => ctx.insertText('> [!tip] ' + r.title + ' (' + r.ar + ')\n> ' + r.one.replace(/\*\*/g, '') + '\n' + r.txt.split('\n').map(l => '> ' + l).join('\n') + '\n' + (r.ex || []).map(e => '> - ' + e[0] + ' (' + e[1] + ') : ' + e[2]).join('\n') + '\n\n'), 'aa-btn-quiet');
+    btn(moreMenu(a), 'Ajouter à mes cartes de révision', () => ctx.addFlashcard(r.title + ' (' + r.ar + ')', r.one.replace(/\*\*/g, '')), 'aa-btn-quiet');
   }
   return box;
 }
@@ -5830,6 +5838,7 @@ class AtelierView extends ItemView {
     this.nav.insertBefore(gear, this.nav.firstChild);
     h(gear, 'span', 'aa-tab-lab', '⚙'); gear.setAttribute('aria-label', 'Réglages'); gear.title = 'Réglages de l\'atelier (police, taille, son, couleurs…)';
     gear.addEventListener('click', () => { if (this.tab !== 'settings') { this.pushBack(); this.setTab('settings'); } else this.goBack(); });
+    { const on = this.nav.querySelector('.aa-tab.aa-on:not(.aa-tab-gear)'); if (on && this.nav.scrollWidth > this.nav.clientWidth) { try { this.nav.scrollLeft = on.offsetLeft - this.nav.clientWidth / 2 + on.offsetWidth / 2; } catch (e) { /* */ } } }
     const ctx = this.plugin.ctx(this);
     const st = this.states[this.tab];
     clear(this.body);

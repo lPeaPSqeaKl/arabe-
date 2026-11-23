@@ -810,3 +810,13 @@ li.aa-rule-inline { list-style: none; border: none; background: none; }
 .aa-settings-inview .setting-item-info { flex: 1 1 260px; }
 .aa-settings-inview .setting-item-description { color: var(--text-muted); font-size: .88em; }
 .aa-tabs .aa-tab-gear { font-size: 1.15em; padding-left: 10px; padding-right: 10px; }
+
+/* ---- 2.16 : bilan des onglets ---- */
+.aa-more { display: inline-block; position: relative; }
+.aa-more > summary { list-style: none; cursor: pointer; display: inline-flex; }
+.aa-more > summary::-webkit-details-marker { display: none; }
+.aa-more-box { display: flex; flex-direction: column; align-items: stretch; gap: 4px; margin-top: 6px; }
+.aa-more[open] { flex-basis: 100%; }
+.aa-more[open] .aa-more-box { flex-direction: row; flex-wrap: wrap; }
+/* ordinateur (souris) : tous les onglets visibles sur 1 ou 2 lignes ; iPad / iPhone : barre qui glisse */
+@media (pointer: fine) { .aa-tabs { flex-wrap: wrap; overflow-x: visible; } }

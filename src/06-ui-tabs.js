@@ -432,8 +432,8 @@ function renderBuildTab(ctx, root, state) {
   const act = h(out, 'div', 'aa-actions');
   soundBtn(act, () => speak(arText), 'Écouter (voix de l\'appareil)');
   btn(act, 'Copier', () => copyText(arText + '\n' + tr + '\n' + r.fr));
-  btn(act, 'Insérer dans la note', () => ctx.insertText('- ' + arText + ' — *' + tr + '* — ' + r.fr + '\n'));
-  btn(act, 'Créer une flashcard', () => ctx.addFlashcard(r.fr, arText + ' (' + tr + ')'));
+  btn(moreMenu(act), 'Insérer dans ma note Obsidian', () => ctx.insertText('- ' + arText + ' — *' + tr + '* — ' + r.fr + '\n'));
+  btn(moreMenu(act), 'Ajouter à mes cartes de révision', () => ctx.addFlashcard(r.fr, arText + ' (' + tr + ')'));
 
   h(root, 'h4', null, 'Pourquoi chaque mot a cette forme');
   const tbl = h(root, 'div', 'aa-why-table');
