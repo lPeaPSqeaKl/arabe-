@@ -1,5 +1,5 @@
 ## En bref
-Le **khabar** (« l'information ») est **ce qu'on dit du sujet** dans une phrase nominale. C'est l'information nouvelle. Il est au **nominatif** (sauf après كَانَ).
+Le **khabar** (الخَبَر, « l'information ») est **ce qu'on dit du sujet** dans une phrase nominale. C'est l'information nouvelle. Il est au **nominatif** (sauf après كَانَ).
 
 ## Pas à pas
 1. Trouve le sujet (le mot dont on parle).

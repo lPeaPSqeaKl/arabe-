@@ -1,5 +1,5 @@
 ## En bref
-Certains noms n'ont que **deux** fins au lieu de trois : ils refusent le **tanwīn** et le **-i**. Au génitif, ils prennent **-a**. On les appelle « diptotes » (mamnūʿ min aṣ-ṣarf, « empêchés de déclinaison complète »).
+Certains noms n'ont que **deux** fins au lieu de trois : ils refusent le **tanwīn** et le **-i**. Au génitif, ils prennent **-a**. On les appelle « diptotes » (mamnūʿ min aṣ-ṣarf, المَمْنُوع مِنَ الصَّرْف, « empêchés de déclinaison complète »).
 
 ## Pas à pas
 | Cas | Nom normal | Nom diptote |

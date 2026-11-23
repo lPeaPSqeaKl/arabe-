@@ -1,5 +1,5 @@
 ## En bref
-Le **madd** (allongement) dit **combien de temps** on tient une voyelle longue. Un « temps » (ḥaraka) dure à peu près le temps de plier un doigt.
+Le **madd** (المَدّ, allongement) dit **combien de temps** on tient une voyelle longue. Un « temps » (ḥaraka) dure à peu près le temps de plier un doigt.
 - **Madd naturel** : 2 temps. C'est la voyelle longue normale : ā, ī, ū.
 - **Madd long** : 4 à 6 temps. Il est signalé dans le Coran par le petit signe **ٓ** (madda) au-dessus de la lettre.
 

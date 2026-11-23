@@ -1,5 +1,5 @@
 ## En bref
-Une **préposition** (en arabe : ḥarf jarr, « lettre qui tire ») relie un nom au reste de la phrase : dans, de, à, sur… Après **toute** préposition, le nom est au **génitif** (-i).
+Une **préposition** (en arabe : ḥarf jarr, حَرْف جَرّ, « lettre qui tire ») relie un nom au reste de la phrase : dans, de, à, sur… Après **toute** préposition, le nom est au **génitif** (-i).
 
 ## Les prépositions les plus fréquentes du Coran
 | Préposition | Sens | Exemple | Lecture |

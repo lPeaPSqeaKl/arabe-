@@ -61,6 +61,7 @@ class QuranData {
     if (this.surahs) return;
     await this.ensureData(progress);
     const [s, l] = await Promise.all([this.readJSON('surahs.json'), this.readJSON('lemmas.json')]);
+    applyLemmaFix(l);
     this.surahs = s; this.lemmas = l;
     this.byRoot = new Map();
     l.forEach((x, i) => { if (x[3]) { if (!this.byRoot.has(x[3])) this.byRoot.set(x[3], []); this.byRoot.get(x[3]).push(i); } });

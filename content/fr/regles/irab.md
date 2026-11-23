@@ -1,5 +1,5 @@
 ## En bref
-Faire l'**iʿrāb** d'une phrase, c'est expliquer **chaque mot** : ce qu'il est, son rôle, sa fin et pourquoi. C'est la méthode des grammairiens arabes depuis plus de mille ans.
+Faire l'**iʿrāb** (الإِعْرَاب) d'une phrase, c'est expliquer **chaque mot** : ce qu'il est, son rôle, sa fin et pourquoi. C'est la méthode des grammairiens arabes depuis plus de mille ans.
 
 ## Les 4 questions, mot par mot
 1. **Nom, verbe ou particule ?** (dans l'atelier : bleu, rouge ou gris)

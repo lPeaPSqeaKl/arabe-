@@ -1,5 +1,5 @@
 ## En bref
-Le **ḥāl** (« l'état ») dit **dans quel état** est quelqu'un pendant l'action : « il est venu **en courant** », « reviens, **satisfaite** ». C'est en général un nom **indéfini** à l'**accusatif** (-an).
+Le **ḥāl** (الحَال, « l'état ») dit **dans quel état** est quelqu'un pendant l'action : « il est venu **en courant** », « reviens, **satisfaite** ». C'est en général un nom **indéfini** à l'**accusatif** (-an).
 
 ## Pas à pas
 1. Trouve le verbe et celui qui fait l'action.

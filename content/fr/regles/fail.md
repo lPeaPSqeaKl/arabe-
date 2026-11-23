@@ -1,5 +1,5 @@
 ## En bref
-Le **fāʿil** (« celui qui fait ») est le **sujet d'un verbe** : celui qui fait l'action. Il est au **nominatif** et vient **après** le verbe.
+Le **fāʿil** (الفَاعِل, « celui qui fait ») est le **sujet d'un verbe** : celui qui fait l'action. Il est au **nominatif** et vient **après** le verbe.
 
 ## Deux façons d'exister
 1. **Un mot séparé**, après le verbe : جَاءَ نَصْرُ ٱللَّهِ (le secours d'Allah est venu).

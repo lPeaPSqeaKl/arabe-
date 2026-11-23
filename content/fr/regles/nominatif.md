@@ -1,5 +1,5 @@
 ## En bref
-Le **nominatif** (rafʿ, « l'élévation ») est le cas du **sujet** et de l'**attribut**. Sa marque est **-u** (ou -un, ou ـُونَ au pluriel masculin).
+Le **nominatif** (rafʿ, الرَّفْع, « l'élévation ») est le cas du **sujet** et de l'**attribut**. Sa marque est **-u** (ou -un, ou ـُونَ au pluriel masculin).
 
 ## Quand met-on le nominatif ?
 1. **Le sujet d'un verbe** (celui qui fait l'action) : جَاءَ نَصْرُ ٱللَّهِ, « le secours d'Allah est venu ».
@@ -24,7 +24,7 @@ Et un adjectif ou un mot relié par « et » à un nominatif est aussi au nomina
 @coran 110:1 | 3 | نَصْرُ : sujet du verbe جَآءَ (est venu), donc -u.
 @coran 112:2 | 1,2 | ٱللَّهُ ٱلصَّمَدُ : sujet et attribut, deux nominatifs, sans verbe.
 @coran 99:2 | 2 | ٱلْأَرْضُ : sujet du verbe أَخْرَجَتْ (a fait sortir).
-@coran 109:1 | 3 | ٱلْكَٰفِرُونَ : on les appelle (« ô vous les… ») : nominatif en ـُونَ.
+@coran 109:1 | 3 | ٱلْكَٰفِرُونَ : il précise أَيُّهَا (« ô vous… »), qui est au nominatif : il le copie, d'où ـُونَ.
 
 ## Les pièges
 - Le nominatif n'est **pas** forcément au début : dans la phrase verbale, le sujet vient **après** le verbe.

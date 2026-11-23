@@ -1,5 +1,5 @@
 ## En bref
-Le **génitif** (jarr, « le fait de tirer ») a la marque **-i** (ou -in, ou ـِينَ au pluriel masculin). Il n'a que **deux** emplois, faciles à reconnaître.
+Le **génitif** (jarr, الجَرّ, « le fait de tirer ») a la marque **-i** (ou -in, ou ـِينَ au pluriel masculin). Il n'a que **deux** emplois, faciles à reconnaître.
 
 ## Les deux emplois
 1. **Après une préposition** : فِي ٱلْبَيْتِ (dans la maison), بِسْمِ ٱللَّهِ (au nom d'Allah), مِنْ شَرِّ (du mal).

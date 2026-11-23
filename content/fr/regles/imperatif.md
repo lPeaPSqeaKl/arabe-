@@ -1,5 +1,5 @@
 ## En bref
-L'**impératif** (al-amr) sert à **donner un ordre** : « lis ! », « dis ! ». On le fabrique **à partir du présent** : on enlève la lettre du début et on met la fin au soukoun. Si le mot commence alors par deux consonnes, on ajoute un **alif de liaison** devant.
+L'**impératif** (al-amr, الأَمْر) sert à **donner un ordre** : « lis ! », « dis ! ». On le fabrique **à partir du présent** : on enlève la lettre du début et on met la fin au soukoun. Si le mot commence alors par deux consonnes, on ajoute un **alif de liaison** devant.
 
 ## Pas à pas
 1. Pars du présent « tu » : تَقْرَأُ (tu lis).

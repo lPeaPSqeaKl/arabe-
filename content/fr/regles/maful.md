@@ -1,5 +1,5 @@
 ## En bref
-Le **mafʿūl bihi** (« ce sur quoi l'action est faite ») est le **complément d'objet direct** : ce qui subit l'action. Il est à l'**accusatif** (-a).
+Le **mafʿūl bihi** (المَفْعُول بِهِ, « ce sur quoi l'action est faite ») est le **complément d'objet direct** : ce qui subit l'action. Il est à l'**accusatif** (-a).
 
 ## Pas à pas
 1. Trouve le verbe.

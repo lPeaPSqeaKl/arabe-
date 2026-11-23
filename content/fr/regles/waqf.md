@@ -1,5 +1,5 @@
 ## En bref
-Le **waqf** est la façon de **s'arrêter** (en fin de verset ou pour respirer). Quand on s'arrête sur un mot, **sa dernière voyelle ne se prononce pas** : on finit sur une consonne (soukoun).
+Le **waqf** (الوَقْف) est la façon de **s'arrêter** (en fin de verset ou pour respirer). Quand on s'arrête sur un mot, **sa dernière voyelle ne se prononce pas** : on finit sur une consonne (soukoun).
 - ٱلْعَٰلَمِينَ → al-ʿālamīn (le -a tombe) ;
 - أَحَدٌ → aḥad (le -un tombe) ;
 - ٱلْقَارِعَةُ → al-qāriʿah (ة devient h).

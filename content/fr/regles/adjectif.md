@@ -1,5 +1,5 @@
 ## En bref
-L'**adjectif** (naʿt) se place **après** le nom et le **copie** en tout : même cas, même ال ou même tanwīn, même genre, même nombre.
+L'**adjectif** (naʿt, النَّعْت) se place **après** le nom et le **copie** en tout : même cas, même ال ou même tanwīn, même genre, même nombre.
 
 ## Les quatre accords
 1. **Le cas** : nom à -u → adjectif à -u ; nom à -i → adjectif à -i.

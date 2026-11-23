@@ -1,5 +1,5 @@
 ## En bref
-Le **mubtadaʾ** (« ce par quoi on commence ») est le **sujet d'une phrase nominale** : le mot dont on parle. Il est au **nominatif** et en général **défini**.
+Le **mubtadaʾ** (المُبْتَدَأ, « ce par quoi on commence ») est le **sujet d'une phrase nominale** : le mot dont on parle. Il est au **nominatif** et en général **défini**.
 
 ## Pas à pas
 1. Il ouvre la phrase (sauf quand l'attribut passe devant).

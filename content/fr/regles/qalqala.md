@@ -1,5 +1,5 @@
 ## En bref
-La **qalqala** (écho, rebond) touche 5 lettres : **ق ط ب ج د**. Quand l'une d'elles n'a **pas de voyelle** (soukoun), on la fait **rebondir** légèrement : un petit écho, sans ajouter de vraie voyelle. Pour retenir les lettres : **قُطْبُ جَدٍّ** (quṭbu jaddin).
+La **qalqala** (القَلْقَلَة, écho, rebond) touche 5 lettres : **ق ط ب ج د**. Quand l'une d'elles n'a **pas de voyelle** (soukoun), on la fait **rebondir** légèrement : un petit écho, sans ajouter de vraie voyelle. Pour retenir les lettres : **قُطْبُ جَدٍّ** (quṭbu jaddin).
 
 ## Pourquoi ?
 Ces 5 lettres « ferment » complètement la bouche ou la gorge. Sans voyelle, elles deviendraient presque inaudibles. Le rebond permet de les entendre.

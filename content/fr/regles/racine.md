@@ -1,5 +1,5 @@
 ## En bref
-Un mot arabe se construit presque toujours sur **trois consonnes**. Ces trois lettres portent une idée. On les appelle la **racine** (en arabe : jadhr, « la racine de l'arbre »).
+Un mot arabe se construit presque toujours sur **trois consonnes**. Ces trois lettres portent une idée. On les appelle la **racine** (en arabe : jadhr, الجَذْر, « la racine de l'arbre »).
 
 ## Pas à pas
 1. On prend trois consonnes, par exemple **ك ت ب** (k, t, b). Elles portent l'idée d'« écrire ».

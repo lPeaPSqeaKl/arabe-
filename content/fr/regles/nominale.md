@@ -1,5 +1,5 @@
 ## En bref
-Une **phrase nominale** commence par un nom (ou un pronom) et n'a **pas de verbe « être »** au présent. Elle a deux parties : le **sujet** (mubtadaʾ) et ce qu'on dit de lui, l'**attribut** (khabar). Les deux sont au **nominatif**.
+Une **phrase nominale** commence par un nom (ou un pronom) et n'a **pas de verbe « être »** au présent. Elle a deux parties : le **sujet** (mubtadaʾ, المُبْتَدَأ) et ce qu'on dit de lui, l'**attribut** (khabar, الخَبَر). Les deux sont au **nominatif**.
 
 ## Pas à pas
 Construisons « la maison est grande » :

@@ -14,13 +14,13 @@ const VOCAB_LEVELS = [
   [2001, 3000, 100, 'Niveau 4 · les mots rares'],
   [3001, Infinity, 100, 'Niveau 5 · les mots très rares (jusqu\'à 100 %)'],
 ];
-function vocabCardId(l) { return 'voc|' + cardHash(l[0] + '|' + l[1] + '|' + l[2]); }
+function vocabCardId(l) { return 'voc|' + cardHash((l[9] || l[0]) + '|' + l[1] + '|' + l[2]); }
 /* identifiant de la carte du lemme n° li ; quelques mots s'écrivent pareil mais viennent
  * de deux racines (ex. جَواب « réponse » / « bassins ») : le plus rare reçoit sa racine en plus */
 function vocabIdOf(data, li) {
   if (!data._vocIds) {
     const ids = new Array(data.lemmas.length), used = new Set();
-    vocabRank(data).forEach(i => { const l = data.lemmas[i]; let id = vocabCardId(l); if (used.has(id)) id = 'voc|' + cardHash(l[0] + '|' + l[1] + '|' + l[2] + '|' + l[3]); used.add(id); ids[i] = id; });
+    vocabRank(data).forEach(i => { const l = data.lemmas[i]; let id = vocabCardId(l); if (used.has(id)) id = 'voc|' + cardHash((l[9] || l[0]) + '|' + l[1] + '|' + l[2] + '|' + l[3]); used.add(id); ids[i] = id; });
     data._vocIds = ids;
   }
   return data._vocIds[li];

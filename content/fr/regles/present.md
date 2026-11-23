@@ -1,5 +1,5 @@
 ## En bref
-Le **présent** (al-muḍāriʿ) dit ce qu'on **fait maintenant, d'habitude ou bientôt**. La personne est marquée **au début** par une lettre (أ ن ي ت), et parfois aussi à la fin. La voyelle finale normale est **-u**.
+Le **présent** (al-muḍāriʿ, المُضَارِع) dit ce qu'on **fait maintenant, d'habitude ou bientôt**. La personne est marquée **au début** par une lettre (أ ن ي ت), et parfois aussi à la fin. La voyelle finale normale est **-u**.
 
 ## Pas à pas
 1. Prends la racine : ع ب د (adorer, servir).

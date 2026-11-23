@@ -1,5 +1,5 @@
 ## En bref
-Pour dire « **le X de Y** », l'arabe n'a pas de mot pour « de ». On **colle deux noms** : le premier sans ال ni tanwīn, le second au **génitif**. Cela s'appelle l'**annexion** (iḍāfa).
+Pour dire « **le X de Y** », l'arabe n'a pas de mot pour « de ». On **colle deux noms** : le premier sans ال ni tanwīn, le second au **génitif**. Cela s'appelle l'**annexion** (iḍāfa, الإِضَافَة).
 
 ## Pas à pas
 Construisons « le livre de l'élève » :

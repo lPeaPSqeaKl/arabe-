@@ -1,5 +1,5 @@
 ## En bref
-Le **tanwīn** est une voyelle **écrite deux fois** à la fin d'un nom. On l'entend comme un **n** : -un, -an, -in. Il veut dire que le nom est **indéfini** : « un, une ».
+Le **tanwīn** (التَّنْوِين) est une voyelle **écrite deux fois** à la fin d'un nom. On l'entend comme un **n** : -un, -an, -in. Il veut dire que le nom est **indéfini** : « un, une ».
 
 ## Pas à pas
 | Signe | Lecture | Cas | Exemple |

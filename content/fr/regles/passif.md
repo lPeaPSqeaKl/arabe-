@@ -1,5 +1,5 @@
 ## En bref
-Le **passif** (al-majhūl, « celui qu'on ne nomme pas ») dit qu'une action **a été faite**, sans dire **par qui** : « il a été écrit ». On ne l'écrit pas avec un verbe « être » : on **change les voyelles** du verbe.
+Le **passif** (al-majhūl, المَجْهُول, « celui qu'on ne nomme pas ») dit qu'une action **a été faite**, sans dire **par qui** : « il a été écrit ». On ne l'écrit pas avec un verbe « être » : on **change les voyelles** du verbe.
 - passé : **u – i** (كُتِبَ, kutiba) au lieu de a – a (كَتَبَ) ;
 - présent : **u – a** (يُكْتَبُ, yuktabu) au lieu de a – u (يَكْتُبُ).
 

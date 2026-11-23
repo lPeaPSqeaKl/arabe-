@@ -1,5 +1,5 @@
 ## En bref
-Le **passé** (al-māḍī) dit une action **terminée**. On part du verbe de base, qui veut dire « **il** a fait » (فَعَلَ), et on ajoute **une terminaison à la fin** pour changer de personne. Aucun petit mot devant : la personne est **collée au verbe**.
+Le **passé** (al-māḍī, المَاضِي) dit une action **terminée**. On part du verbe de base, qui veut dire « **il** a fait » (فَعَلَ), et on ajoute **une terminaison à la fin** pour changer de personne. Aucun petit mot devant : la personne est **collée au verbe**.
 
 ## Pas à pas
 1. Prends la racine : ك ت ب (écrire).

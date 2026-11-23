@@ -1,5 +1,5 @@
 ## En bref
-Le **moule** (en arabe : wazn, « la pesée ») est la forme dans laquelle on verse une racine. La racine donne l'idée, le moule donne la nuance : qui fait, ce qui est fait, l'endroit, l'intensité.
+Le **moule** (en arabe : wazn, الوَزْن, « la pesée ») est la forme dans laquelle on verse une racine. La racine donne l'idée, le moule donne la nuance : qui fait, ce qui est fait, l'endroit, l'intensité.
 
 ## Les lettres ف ع ل : le modèle
 Pour parler des moules sans prendre une racine précise, les grammairiens utilisent les trois lettres **ف ع ل** (f, ʿ, l), qui veulent dire « faire ». Chaque fois qu'on lit **fāʿil**, **mafʿūl**, **fiʿāl**…, il faut remplacer f, ʿ, l par les trois lettres de la racine.

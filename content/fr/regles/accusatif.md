@@ -1,5 +1,5 @@
 ## En bref
-L'**accusatif** (naṣb, « le fait de dresser ») a la marque **-a** (ou -an, ou ـِينَ au pluriel masculin). C'est surtout le cas du **complément d'objet**, mais il a beaucoup d'autres usages.
+L'**accusatif** (naṣb, النَّصْب, « le fait de dresser ») a la marque **-a** (ou -an, ou ـِينَ au pluriel masculin). C'est surtout le cas du **complément d'objet**, mais il a beaucoup d'autres usages.
 
 ## Quand met-on l'accusatif ?
 1. **Le complément d'objet** (« qui ? quoi ? ») : خَلَقَ ٱلْإِنْسَانَ, « il a créé l'homme ».

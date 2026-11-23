@@ -1,5 +1,5 @@
 ## En bref
-Le **alif de liaison** (hamzat al-waṣl) s'écrit **ٱ** dans le Coran (un alif avec un petit ص dessus). Il sert seulement à **commencer** un mot qui débute par deux consonnes. **Au début** de la lecture, on le prononce (a, i ou u). **Au milieu** d'une phrase, il est **muet** : on enchaîne directement avec le mot d'avant.
+Le **alif de liaison** (hamzat al-waṣl, هَمْزَة الوَصْل) s'écrit **ٱ** dans le Coran (un alif avec un petit ص dessus). Il sert seulement à **commencer** un mot qui débute par deux consonnes. **Au début** de la lecture, on le prononce (a, i ou u). **Au milieu** d'une phrase, il est **muet** : on enchaîne directement avec le mot d'avant.
 
 ## Pas à pas
 1. Repère le ٱ : ٱلْحَمْدُ.

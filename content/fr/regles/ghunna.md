@@ -1,5 +1,5 @@
 ## En bref
-La **ghunna** (nasalisation) est un son qui passe **par le nez**, comme le « n » qu'on tient en fermant la bouche : « nnnn ». Elle touche **ن** et **م**, et le **tanwīn** (-an, -in, -un, qui finit par un n). On la tient environ **2 temps**.
+La **ghunna** (الغُنَّة, nasalisation) est un son qui passe **par le nez**, comme le « n » qu'on tient en fermant la bouche : « nnnn ». Elle touche **ن** et **م**, et le **tanwīn** (-an, -in, -un, qui finit par un n). On la tient environ **2 temps**.
 
 ## Pas à pas
 1. Une ن ou une م porte une **chadda** (نّ, مّ) ? Tiens le son dans le nez 2 temps : إِنَّ = in-nnna.
