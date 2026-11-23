@@ -8,7 +8,7 @@
  *   question :: réponse      (une ligne)
  * ==================================================================== */
 const CARD_GROUPS = [
-  ['1-cas', 'Les cas', '📐'], ['2-phrase', 'La phrase', '🧱'], ['3-verbe', 'Le verbe', '⚙️'],
+  ['vocab', 'Vocabulaire du Coran', '📖'], ['1-cas', 'Les cas', '📐'], ['2-phrase', 'La phrase', '🧱'], ['3-verbe', 'Le verbe', '⚙️'],
   ['4-lecture', 'Lire et écrire', '✍️'], ['5-tajwid', 'Tajwid (réciter)', '🎙️'], ['mes', 'Mes cartes', '⭐'],
 ];
 const FIRST_DECKS = ['nominatif', 'prepositions', 'genitif', 'accusatif', 'trois-cas'];
@@ -51,7 +51,7 @@ function parseCardDeck(text, path) {
 
 /* tous les paquets : ceux du plugin, puis ceux du coffre (qui remplacent ceux du plugin de même nom) */
 async function loadCardDecks(ctx) {
-  const builtin = ((CONTENT[UI_LANG] || {}).cartes || (CONTENT.fr || {}).cartes || []).map(x => parseCardDeck(x.text, x.path));
+  const builtin = vocabDecks(ctx.data).concat(((CONTENT[UI_LANG] || {}).cartes || (CONTENT.fr || {}).cartes || []).map(x => parseCardDeck(x.text, x.path)));
   const byId = new Map(builtin.map(d => [d.id, d]));
   let mine = [];
   try { mine = ctx.vaultCardNotes ? await ctx.vaultCardNotes() : []; } catch (e) { mine = []; }
@@ -65,7 +65,7 @@ async function loadCardDecks(ctx) {
   const all = [...byId.values()];
   const gi = g => CARD_GROUPS.findIndex(x => x[0] === g);
   const fi = d => { const k = FIRST_DECKS.indexOf(d.id.split('/').pop()); return k < 0 ? 99 : k; };
-  all.sort((a, b) => gi(a.group) - gi(b.group) || fi(a) - fi(b) || a.title.localeCompare(b.title, 'fr'));
+  all.sort((a, b) => gi(a.group) - gi(b.group) || fi(a) - fi(b) || (a.vocab && b.vocab ? +a.id.split('/')[1] - +b.id.split('/')[1] : a.title.localeCompare(b.title, 'fr')));
   return all;
 }
 
@@ -74,8 +74,9 @@ function todayNum() { const d = new Date(); return Math.floor((d.getTime() - d.g
 function srsStore(ctx) {
   const s = ctx.settings.srs || (ctx.settings.srs = { cards: {}, day: 0, newToday: 0, newPerDay: 15 });
   if (!s.cards) s.cards = {};
-  if (!s.newPerDay) s.newPerDay = 15;
-  const t = todayNum(); if (s.day !== t) { s.day = t; s.newToday = 0; s.doneToday = 0; }
+  if (s.newPerDay == null) s.newPerDay = 15;
+  if (s.vocabPerDay == null) s.vocabPerDay = 10;
+  const t = todayNum(); if (s.day !== t) { s.day = t; s.newToday = 0; s.vocabToday = 0; s.doneToday = 0; }
   return s;
 }
 /* état d'une carte : [jour d'échéance, intervalle en jours, facilité ×100, nombre de révisions] */
@@ -90,6 +91,14 @@ function nextState(st, grade, day) {
   else { ease += 15; ivl = Math.max(ivl + 2, Math.round(ivl * ease / 100 * 1.3)); }
   ivl = Math.min(ivl, 3650);
   return [day + ivl, ivl, ease, (reps || 0) + 1];
+}
+function newLeftOf(S) { return { rules: Math.max(0, S.newPerDay - (S.newToday || 0)), voc: Math.max(0, S.vocabPerDay - (S.vocabToday || 0)) }; }
+/* nombre de cartes du jour, sur tous les paquets */
+function todayCounts(S, decks) {
+  let due = 0, freshR = 0, freshV = 0, total = 0;
+  decks.forEach(d => { const c = deckCounts(S, d); due += c.due; total += c.total; if (d.vocab) freshV += c.fresh; else freshR += c.fresh; });
+  const nl = newLeftOf(S);
+  return { due, fresh: Math.min(nl.rules, freshR) + Math.min(nl.voc, freshV), total };
 }
 function ivlLabel(n) { if (n <= 0) return 'aujourd\'hui'; if (n === 1) return '1 jour'; if (n < 30) return n + ' jours'; if (n < 365) return Math.round(n / 30) + ' mois'; return Math.round(n / 365 * 10) / 10 + ' an' + (n >= 730 ? 's' : ''); }
 function deckCounts(S, d) {
@@ -149,29 +158,37 @@ function renderReviewTab(ctx, root, state) {
     loadCardDecks(ctx).then(d => { state.decks = d; go(); }).catch(e => { clear(root); h(root, 'p', 'aa-warn', 'Impossible de charger les cartes : ' + e.message); });
     return;
   }
+  if (state.surahWords) {
+    const n = state.surahWords; state.surahWords = null;
+    h(root, 'p', 'aa-muted', 'Préparation des mots de la sourate…');
+    makeSurahWordsSession(ctx, n, 15).then(ss => { state.session = ss; go(); }).catch(e => { clear(root); h(root, 'p', 'aa-warn', e.message); });
+    return;
+  }
+  if (state.startNow) { state.startNow = false; state.session = makeSession(ctx, state.decks, null); }
   if (state.session) return renderReviewSession(ctx, root, state);
   if (state.deck) { const d = state.decks.find(x => x.id === state.deck); if (d) return renderReviewDeck(ctx, root, state, d); state.deck = null; }
   const S = srsStore(ctx);
   const howto = h(root, 'details', 'aa-howto'); h(howto, 'summary', null, 'ⓘ Comment utiliser cet onglet');
   mdText(howto, 'p', 'aa-help', 'Un **paquet de cartes pour chaque règle**. Chaque jour, l\'atelier te montre les cartes **à revoir** et quelques **nouvelles**. Lis la question, réponds **à voix haute** (la terminaison et la raison), puis retourne la carte et dis honnêtement si c\'était facile. Une carte bien sue revient de plus en plus tard. Tes progrès restent sur cet appareil.');
-  let due = 0, fresh = 0, total = 0;
-  state.decks.forEach(d => { const c = deckCounts(S, d); due += c.due; fresh += c.fresh; total += c.total; });
-  const newLeft = Math.max(0, S.newPerDay - (S.newToday || 0));
+  const { due, fresh: freshToday, total } = todayCounts(S, state.decks);
   const today = h(root, 'div', 'aa-fc-today');
   const nums = h(today, 'div', 'aa-fc-nums');
   const n1 = h(nums, 'div', 'aa-fc-num'); h(n1, 'b', null, String(due)); h(n1, 'span', null, 'à revoir');
-  const n2 = h(nums, 'div', 'aa-fc-num'); h(n2, 'b', null, String(Math.min(newLeft, fresh))); h(n2, 'span', null, 'nouvelles aujourd\'hui');
+  const n2 = h(nums, 'div', 'aa-fc-num'); h(n2, 'b', null, String(freshToday)); h(n2, 'span', null, 'nouvelles aujourd\'hui');
   const n3 = h(nums, 'div', 'aa-fc-num'); h(n3, 'b', null, String(S.doneToday || 0)); h(n3, 'span', null, 'déjà faites');
   const act = h(today, 'div', 'aa-fc-start');
-  if (due + Math.min(newLeft, fresh) > 0) btn(act, '▶  Réviser maintenant', () => { state.session = makeSession(ctx, state.decks, null); go(); }, 'mod-cta aa-fc-big');
+  if (due + freshToday > 0) btn(act, '▶  Réviser maintenant', () => { state.session = makeSession(ctx, state.decks, null); go(); }, 'mod-cta aa-fc-big');
   else h(act, 'div', 'aa-ok', 'Tout est à jour pour aujourd\'hui. Reviens demain, ou choisis un paquet pour t\'entraîner librement.');
   const set = h(today, 'div', 'aa-fc-set aa-muted aa-small');
-  h(set, 'span', null, 'Nouvelles cartes par jour : ');
-  selectEl(set, [5, 10, 15, 20, 30, 50].map(n => [n, String(n)]), S.newPerDay, v => { S.newPerDay = +v; ctx.save(); go(); });
+  h(set, 'span', null, 'Nouvelles cartes de règles par jour : ');
+  selectEl(set, [0, 5, 10, 15, 20, 30, 50].map(n => [n, String(n)]), S.newPerDay, v => { S.newPerDay = +v; ctx.save(); go(); });
+  h(set, 'span', null, '  ·  nouveaux mots par jour : ');
+  selectEl(set, [0, 5, 10, 15, 20, 30].map(n => [n, String(n)]), S.vocabPerDay, v => { S.vocabPerDay = +v; ctx.save(); go(); });
 
   CARD_GROUPS.forEach(([g, label, ic]) => {
     const ds = state.decks.filter(d => d.group === g); if (!ds.length) return;
     h(root, 'h3', 'aa-fc-group', ic + '  ' + label);
+    if (g === 'vocab') mdText(root, 'p', 'aa-muted aa-small', 'Les **300 mots les plus fréquents** du Coran, du plus courant au moins courant. Ils font à eux seuls les **trois quarts** du texte. Les nouveaux mots arrivent dans ta révision du jour (' + S.vocabPerDay + ' par jour). Pour une sourate précise : onglet Coran › « Apprendre les mots de cette sourate ».');
     const grid = h(root, 'div', 'aa-fc-grid');
     ds.forEach(d => {
       const c = deckCounts(S, d);
@@ -180,7 +197,8 @@ function renderReviewTab(ctx, root, state) {
       h(top, 'span', 'aa-fc-deck-title', d.title);
       if (c.due) h(top, 'span', 'aa-fc-pill aa-fc-pill-due', c.due + ' à revoir');
       const bar = h(card, 'div', 'aa-lesson-progress'); const f = h(bar, 'div', 'aa-lesson-fill'); f.style.width = Math.round(100 * (c.total - c.fresh) / Math.max(1, c.total)) + '%';
-      h(card, 'div', 'aa-muted aa-small', (c.total - c.fresh) + ' / ' + c.total + ' cartes vues' + (c.known ? ' · ' + c.known + ' bien sues' : ''));
+      h(card, 'div', 'aa-muted aa-small', (c.total - c.fresh) + ' / ' + c.total + (d.vocab ? ' mots vus' : ' cartes vues') + (c.known ? ' · ' + c.known + ' bien su' + (d.vocab ? 's' : 'es') : ''));
+      if (d.vocab) h(card, 'div', 'aa-muted aa-small', (d.id === 'vocab/1' ? 'ces mots = ' : 'avec les paquets d\'avant : ') + d.cover + ' % du Coran');
       card.addEventListener('click', () => { state.deck = d.id; go(); });
     });
   });
@@ -194,7 +212,8 @@ function renderReviewDeck(ctx, root, state, d) {
   h(root, 'h2', 'aa-fc-title', d.title);
   h(root, 'p', 'aa-muted', c.total + ' cartes · ' + (c.total - c.fresh) + ' déjà vues · ' + c.due + ' à revoir aujourd\'hui');
   const a = h(root, 'div', 'aa-fc-start');
-  const newLeft = Math.max(0, S.newPerDay - (S.newToday || 0));
+  const nl = newLeftOf(S); const newLeft = d.vocab ? nl.voc : nl.rules;
+  if (d.vocab) h(root, 'p', 'aa-muted aa-small', 'Avec les mots jusqu\'à ce paquet, tu reconnais ' + d.cover + ' % des mots du Coran.');
   if (c.due + Math.min(c.fresh, newLeft) > 0) btn(a, '▶  Réviser ce paquet', () => { state.session = makeSession(ctx, [d], null); go(); }, 'mod-cta aa-fc-big');
   btn(a, '🔁  S\'entraîner sur tout le paquet', () => { state.session = makeSession(ctx, [d], 'all'); go(); }, 'aa-fc-big2');
   h(root, 'p', 'aa-muted aa-small', '« S\'entraîner sur tout le paquet » montre toutes les cartes dans le désordre, sans changer tes dates de révision.');
@@ -206,6 +225,7 @@ function renderReviewDeck(ctx, root, state, d) {
     d.cards.forEach(cd => {
       if (cd.s && cd.s !== sec) { sec = cd.s; h(list, 'h4', 'aa-fc-sec', sec); }
       const it = h(list, 'details', 'aa-fc-item');
+      if (cd.voc != null) { const sm = h(it, 'summary', 'aa-voc-sum'); const w = h(sm, 'bdi', 'aa-ari aa-voc-sum-ar'); w.setAttribute('dir', 'rtl'); w.textContent = cd.q; h(sm, 'span', null, '  ' + cd.a); renderVocabBack(ctx, h(it, 'div', 'aa-fc-ans'), cd); return; }
       const sm = h(it, 'summary'); cardInline(sm, cd.q.split('\n')[0]);
       if (cd.q.includes('\n')) renderCardText(it, cd.q.split('\n').slice(1).join('\n'));
       renderCardText(h(it, 'div', 'aa-fc-ans'), cd.a);
@@ -220,8 +240,10 @@ function makeSession(ctx, decks, mode) {
   const all = []; decks.forEach(d => d.cards.forEach(c => all.push({ c, d })));
   if (mode === 'all') return { cram: true, queue: shuffle(all.slice()), done: 0, total: all.length, again: 0 };
   const due = shuffle(all.filter(x => isDue(S, x.c)));
-  const newLeft = Math.max(0, S.newPerDay - (S.newToday || 0));
-  const fresh = all.filter(x => !cardState(S, x.c)).slice(0, newLeft); // les nouvelles dans l'ordre du paquet
+  const nl = newLeftOf(S);
+  const fR = all.filter(x => !x.d.vocab && !cardState(S, x.c)).slice(0, nl.rules); // les nouvelles dans l'ordre du paquet
+  const fV = all.filter(x => x.d.vocab && !cardState(S, x.c)).slice(0, nl.voc);
+  const fresh = []; for (let a = 0, b = 0; a < fR.length || b < fV.length;) { if (a < fR.length) fresh.push(fR[a++]); if (b < fV.length) fresh.push(fV[b++]); }
   const queue = []; let i = 0, j = 0;
   while (i < due.length || j < fresh.length) { // on mélange : environ 1 nouvelle pour 3 à revoir
     for (let k = 0; k < 3 && i < due.length; k++) queue.push(due[i++]);
@@ -251,7 +273,8 @@ function renderReviewSession(ctx, root, state) {
   const meta = h(box, 'div', 'aa-fc-meta');
   h(meta, 'span', null, x.d.title + (c.s ? '  ·  ' + c.s : ''));
   if (!cardState(S, c) && !ss.cram) h(meta, 'span', 'aa-fc-pill', 'nouvelle');
-  renderCardText(h(box, 'div', 'aa-fc-q'), c.q);
+  if (c.voc != null) renderVocabFront(ctx, h(box, 'div', 'aa-fc-q aa-voc-q'), c);
+  else renderCardText(h(box, 'div', 'aa-fc-q'), c.q);
   const bottom = h(root, 'div', 'aa-fc-bottom');
   let shown = false;
   const grade = g => {
@@ -259,7 +282,8 @@ function renderReviewSession(ctx, root, state) {
     ss.done++;
     if (!ss.cram) {
       const was = cardState(S, c);
-      if (!was) S.newToday = (S.newToday || 0) + 1;
+      if (!was) { if (c.voc != null) S.vocabToday = (S.vocabToday || 0) + 1; else S.newToday = (S.newToday || 0) + 1; }
+      if (ctx.markActivity) ctx.markActivity('c');
       S.cards[c.id] = nextState(was, g, S.day);
       S.doneToday = (S.doneToday || 0) + 1;
       ctx.save();
@@ -272,7 +296,8 @@ function renderReviewSession(ctx, root, state) {
     if (shown) return; shown = true;
     clear(bottom);
     h(box, 'div', 'aa-fc-sep');
-    renderCardText(h(box, 'div', 'aa-fc-a'), c.a);
+    if (c.voc != null) renderVocabBack(ctx, h(box, 'div', 'aa-fc-a aa-voc-a'), c);
+    else renderCardText(h(box, 'div', 'aa-fc-a'), c.a);
     const row = h(bottom, 'div', 'aa-fc-grades');
     const st = cardState(S, c);
     [[0, 'À revoir', 'aa-fc-g0'], [1, 'Difficile', 'aa-fc-g1'], [2, 'Bien', 'aa-fc-g2'], [3, 'Facile', 'aa-fc-g3']].forEach(([g, lab, cls]) => {

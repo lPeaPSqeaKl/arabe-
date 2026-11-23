@@ -1,9 +1,9 @@
 {
   "id": "atelier-arabe",
   "name": "Atelier arabe",
-  "version": "2.6.1",
+  "version": "2.7.0",
   "minAppVersion": "1.4.0",
-  "description": "Lire le Coran mot par mot avec un dictionnaire complet, comprendre chaque signe, réviser chaque règle avec des cartes, construire des phrases arabes. Tout en français, hors ligne.",
+  "description": "Lire le Coran mot par mot, apprendre à écrire les lettres, réviser le vocabulaire du Coran et chaque règle avec des cartes, suivre ses progrès. Tout en français, hors ligne.",
   "author": "Dmytro",
   "isDesktopOnly": false
 }

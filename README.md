@@ -2,11 +2,15 @@
 
 Plugin Obsidian en français pour apprendre l'arabe avec le Coran :
 
+- **Accueil** : le tableau de bord du jour (jours d'affilée, cartes à faire, prochaine lettre à écrire, prochaine leçon, part du Coran que tu comprends, sourate par sourate), et les réglages de confort (taille du texte, récitateur, son hors ligne).
+- **Écrire** : un cahier d'écriture en 14 unités. Pour chaque lettre : regarder le geste, tracer sur le modèle, tracer ses formes, puis l'écrire seul ; l'atelier compare le tracé au modèle et donne une note. Puis des mots du Coran, jusqu'à la Fātiḥa. Au doigt, au stylet (Apple Pencil) ou à la souris.
 - **Coran** : les 114 sourates, chaque mot cliquable (morceaux, signes lettre par lettre, cas / mode et pourquoi, autres terminaisons, racine, autres versets), traduction française (Hamidullah), récitation, et **analyse grammaticale complète** de chaque verset (iʿrāb) avec un schéma des liens entre les mots.
 - **Alphabet** : chaque lettre, sa prononciation, ses formes, et un schéma de la bouche et de la gorge qui montre d'où sort chaque son.
 - **Ordre des sourates** : ordre du Coran ou ordre de la révélation.
 - **Couleurs de prononciation** : lettres muettes, voyelles longues, nasalisation, qalqala, arrêt.
 - **Règles** : 36 règles expliquées simplement, chacune avec une explication détaillée (pas à pas, exemples du Coran, pièges, exercice), ouvertes d'un clic depuis les leçons. Chaque explication peut être corrigée dans une note, sans toucher à l'original.
+- **Vocabulaire du Coran** : les 300 mots les plus fréquents (les trois quarts du texte) en cartes, avec le son, la racine et un verset d'exemple ; et pour chaque sourate, « apprendre les mots de cette sourate ».
+- **Hors ligne** : tout marche sans internet après le premier lancement ; le son d'une sourate (ou de toutes les sourates courtes) peut être gardé sur l'appareil.
 - **Révision** : un paquet de cartes pour chaque règle (50 paquets, plus de 450 cartes : nominatif, prépositions, génitif, accusatif, phrase, verbe, lecture, tajwid), avec répétition espacée : chaque jour les cartes à revoir et quelques nouvelles. Les paquets sont inclus dans le plugin (donc aussi sur iPad et iPhone) ; si le coffre contient sa propre version d'un paquet (`5 - Flashcards/Règles/Cartes - …`), c'est elle qui est utilisée.
 - **Leçons** : un parcours de grammaire en 14 leçons à partir de vrais versets, avec exercices.
 - **Dictionnaire** : les 4 776 mots du Coran, recherche en arabe, français ou translittération, par racine, avec toutes les formes et tous les versets.

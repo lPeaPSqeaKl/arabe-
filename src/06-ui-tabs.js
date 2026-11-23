@@ -23,6 +23,21 @@ function renderReciteBar(ctx, root, bar, state, nV) {
   }, 'mod-cta');
   const stop = btn(act, '■ Arrêter', () => { stopAudio(); mark(null); play.style.display = ''; stop.style.display = 'none'; }, 'aa-btn-quiet');
   stop.style.display = 'none';
+  if (ctx.keepSurahAudio) {
+    const off = h(box, 'div', 'aa-offline aa-small');
+    const paint = () => {
+      clear(off); const st = ctx.surahAudioStatus(state.surah);
+      if (st.verses >= st.nV) { h(off, 'span', 'aa-muted', '✓ Son de cette sourate gardé sur l\'appareil : il marche sans internet.'); return; }
+      const b = btn(off, '⬇ Garder le son hors ligne', async () => {
+        b.disabled = true;
+        const r = await ctx.keepSurahAudio(state.surah, true, (d, n) => { b.textContent = 'Téléchargement… ' + d + ' / ' + n; });
+        notify(r.offline ? 'Pas de connexion internet : réessaie plus tard.' : 'Son de la sourate gardé sur l\'appareil.' + (r.failed ? ' (' + r.failed + ' fichiers introuvables)' : ''));
+        paint();
+      }, 'aa-btn-quiet');
+      h(off, 'span', 'aa-muted', ' versets et mots, pour ce récitateur' + (st.nV > 50 ? ' (sourate longue : plusieurs Mo)' : ''));
+    };
+    paint();
+  }
 }
 const rankFr = n => n === 1 ? '1re' : n + 'e';
 function renderQuranTab(ctx, root, state) {
@@ -67,6 +82,14 @@ function renderQuranTab(ctx, root, state) {
     if (mine) { const lk = h(cb, 'a', 'aa-link aa-small', '📝 ouvrir ma note « ' + mine.file.basename + ' »'); lk.addEventListener('click', ev => { ev.preventDefault(); ctx.openNote(mine.file); }); }
   }
   h(root, 'div', 'aa-muted aa-small aa-surah-info', 'Sourate ' + state.surah + ' · ' + info[5] + ' versets · révélée à ' + (info[4] === 'Médine' ? 'Médine' : 'La Mecque') + ' · ' + rankFr(REVELATION_ORDER[state.surah - 1]) + ' dans l\'ordre de la révélation');
+  const kn = h(root, 'div', 'aa-surah-know');
+  surahKnowledge(ctx, state.surah).then(k => {
+    if (!k.total) return;
+    progressBar2(kn, k.known / k.total, k.learning / k.total);
+    const t = h(kn, 'div', 'aa-small aa-muted');
+    t.appendChild(document.createTextNode('Tu connais ' + k.pct + ' % des mots de cette sourate' + (k.pctAll > k.pct ? ', et ' + (k.pctAll - k.pct) + ' % sont en cours d\'apprentissage' : '') + '. '));
+    if (k.unknown.length) { const a = h(t, 'a', 'aa-link', '📖 Apprendre les mots de cette sourate (' + k.unknown.length + ' nouveaux)'); a.addEventListener('click', ev => { ev.preventDefault(); ctx.openTab('review', { surahWords: state.surah, session: null, deck: null }); }); }
+  }).catch(() => {});
   if (ctx.settings.tajwid) renderTajwidLegend(details(root, '🎨 Couleurs de prononciation : ce qu\'on prononce ou pas', true));
   mdText(root, 'p', 'aa-help', '**Clique sur un mot** pour voir ses morceaux, ses signes lettre par lettre, la raison de sa terminaison et les autres formes possibles. Couleurs : bleu = nom, rouge = verbe, gris = particule. Les mots **soulignés en pointillé** sont déjà dans ton vocabulaire.');
   const body = h(root, 'div', 'aa-verses');

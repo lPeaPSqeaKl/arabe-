@@ -117,9 +117,17 @@ function playUrl(urls, fallbackText, onEnd, keepSeq) {
   };
   tryNext();
 }
+/* son gardé sur l'appareil (dossier audio/ du plugin) : utilisé en premier, sans internet */
+const AUDIO_CACHE = { files: new Set(), dir: '', res: null };
+function audioRelVerse(rec, s, v) { return 'audio/' + rec + '/' + pad3(s) + pad3(v) + '.mp3'; }
+function audioRelWord(r) { return 'audio/wbw/' + pad3(r[0]) + '_' + pad3(r[1]) + '_' + pad3(r[2]) + '.mp3'; }
+function cachedUrl(rel) { try { return AUDIO_CACHE.res && AUDIO_CACHE.files.has(rel) ? AUDIO_CACHE.res(AUDIO_CACHE.dir + '/' + rel) : null; } catch (e) { return null; } }
 function verseUrls(s, v) {
   const f = pad3(s) + pad3(v) + '.mp3';
-  const out = ['https://everyayah.com/data/' + (AUDIO.reciter || 'Alafasy_128kbps') + '/' + f];
+  const out = [];
+  const loc = cachedUrl(audioRelVerse(AUDIO.reciter || 'Alafasy_128kbps', s, v)) || cachedUrl(audioRelVerse('Alafasy_128kbps', s, v));
+  if (loc) out.push(loc);
+  out.push('https://everyayah.com/data/' + (AUDIO.reciter || 'Alafasy_128kbps') + '/' + f);
   if (AUDIO.reciter !== 'Alafasy_128kbps') out.push('https://everyayah.com/data/Alafasy_128kbps/' + f);
   out.push('https://verses.quran.com/Alafasy/mp3/' + f);
   return out;
@@ -146,6 +154,8 @@ function playVerses(s, list, onVerse, onDone) {
   return () => { if (my === audioSeq) stopAudio(); };
 }
 function playWord(ref, text, ctx) {
+  const loc = ref && cachedUrl(audioRelWord(ref));
+  if (loc) { playUrl([loc], text); return; }
   if (ctx && ctx.settings.audio === false) { speak(text); return; }
   if (!ref) { speak(text); return; }
   playUrl(['https://audio.qurancdn.com/wbw/' + pad3(ref[0]) + '_' + pad3(ref[1]) + '_' + pad3(ref[2]) + '.mp3'], text);

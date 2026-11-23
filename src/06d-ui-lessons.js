@@ -146,6 +146,7 @@ async function renderLessonQuestion(ctx, box, state, L, root) {
     const all = lessonState(ctx); const prev = all[L.id] || { done: false, best: 0 };
     const passed = pct >= 70;
     all[L.id] = { done: prev.done || passed, best: Math.max(prev.best, pct), date: new Date().toISOString().slice(0, 10) };
+    if (ctx.markActivity) ctx.markActivity('l');
     ctx.save();
     mdText(box, 'div', passed ? 'aa-ok' : 'aa-warn', (passed ? '✓ Leçon validée ! ' : 'Pas encore validée : ') + '**' + run.ok + ' / ' + n + '** (' + pct + ' %).' + (passed ? '' : ' Relis les exemples, puis recommence : il faut 70 %.'));
     const a = h(box, 'div', 'aa-actions');

@@ -1,0 +1,148 @@
+/* ====================================================================
+ * 06l - Onglet Accueil : le tableau de bord du jour
+ * série de jours, cartes du jour, écriture, leçon, ce que tu connais
+ * du Coran, et les réglages de confort.
+ * ==================================================================== */
+const SHORT_SURAHS = [1, 112, 113, 114, 108, 103, 110, 97, 105, 106, 107, 109, 111, 99, 100, 101, 102, 104, 95, 94, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 83, 82, 81, 80, 79, 78, 96, 98];
+function activityDays(ctx) { return ctx.settings.activity || {}; }
+function streakOf(ctx) {
+  const A = activityDays(ctx); let d = todayNum(); if (!A[d]) d--; let n = 0;
+  while (A[d]) { n++; d--; }
+  return n;
+}
+function frDate(d) { try { return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); } catch (e) { return d.toDateString(); } }
+
+function renderHomeTab(ctx, root, state) {
+  clear(root);
+  const go = () => renderHomeTab(ctx, root, state);
+  if (state.view === 'surahs') return renderSurahProgress(ctx, root, state, go);
+  const S = srsStore(ctx); const W = writeState(ctx); const K = lemmaKnowledge(ctx);
+  const head = h(root, 'div', 'aa-home-head');
+  h(head, 'div', 'aa-muted aa-small aa-home-date', frDate(new Date()));
+  h(head, 'h2', null, 'As-salāmu ʿalaykum');
+  // les trois chiffres
+  const tiles = h(root, 'div', 'aa-home-tiles');
+  const tile = (ic, big, lab, sub) => { const t = h(tiles, 'div', 'aa-home-tile'); h(t, 'div', 'aa-home-ic', ic); h(t, 'b', null, big); h(t, 'span', null, lab); if (sub) h(t, 'span', 'aa-muted aa-small', sub); return t; };
+  const streak = streakOf(ctx); const A = activityDays(ctx); const today = A[todayNum()] || {};
+  tile('🔥', String(streak), streak > 1 ? 'jours d\'affilée' : 'jour d\'affilée', today.c || today.w || today.l ? 'aujourd\'hui : fait ✓' : 'fais une révision pour continuer');
+  const cov = quranCoverage(ctx, K);
+  tile('📖', Math.round(100 * cov.known) + ' %', 'des mots du Coran acquis', Math.round(100 * cov.learning) ? '+ ' + Math.round(100 * cov.learning) + ' % en cours' : 'grâce aux cartes de mots');
+  tile('✍️', writeAllLetters().filter(l => letterLearned(W, l)).length + ' / ' + writeAllLetters().length, 'lettres écrites seul');
+
+  // les choses à faire aujourd'hui
+  const todo = h(root, 'div', 'aa-home-todo');
+  const card = (ic, title, line, label, fn, main) => {
+    const c = h(todo, 'div', 'aa-home-card' + (main ? ' aa-home-main' : ''));
+    const t = h(c, 'div', 'aa-home-card-top'); h(t, 'span', 'aa-home-card-ic', ic); h(t, 'b', null, title);
+    if (line) mdText(c, 'div', 'aa-muted aa-small', line);
+    if (label) btn(h(c, 'div', 'aa-home-card-act'), label, fn, main ? 'mod-cta' : '');
+    return c;
+  };
+  const rc = h(todo, 'div', 'aa-home-card aa-home-main');
+  const rt = h(rc, 'div', 'aa-home-card-top'); h(rt, 'span', 'aa-home-card-ic', '🃏'); h(rt, 'b', null, 'Révision du jour');
+  const rl = h(rc, 'div', 'aa-muted aa-small', 'Calcul…');
+  const ra = h(rc, 'div', 'aa-home-card-act');
+  loadCardDecks(ctx).then(decks => {
+    const n = todayCounts(S, decks); clear(rl);
+    if (n.due + n.fresh) { mdText(rl, 'span', null, '**' + n.due + '** carte' + (n.due > 1 ? 's' : '') + ' à revoir · **' + n.fresh + '** nouvelle' + (n.fresh > 1 ? 's' : '') + ' (mots et règles)'); btn(ra, '▶ Réviser maintenant', () => ctx.openTab('review', { startNow: true, session: null, deck: null }), 'mod-cta'); }
+    else { rl.textContent = 'Tout est à jour. ' + (S.doneToday ? S.doneToday + ' cartes faites aujourd\'hui. ' : '') + 'Bravo.'; btn(ra, 'Voir les paquets', () => ctx.openTab('review', { session: null, deck: null })); }
+  }).catch(() => { rl.textContent = ''; });
+  const nx = writeNext(W);
+  if (nx) card('✍️', 'Écriture', nx.letter ? 'Prochaine lettre : **' + nx.letter + '**' + (alphaLetter(nx.letter) ? ' (' + alphaLetter(nx.letter).name + ')' : '') + ' · unité « ' + nx.unit.title + ' »' : 'Prochain mot : **' + nx.unit.words[nx.word][0] + '**', 'Continuer', () => ctx.openTab('write', nx.letter ? { unit: nx.unit.id, letter: nx.letter, step: 0, word: null, free: false } : { unit: nx.unit.id, word: [nx.unit.id, nx.word], step: 0, letter: null, free: false }));
+  const LS = ctx.settings.lessons || {}; const nl = LESSONS.find(l => !(LS[l.id] && LS[l.id].done));
+  const nDone = LESSONS.filter(l => LS[l.id] && LS[l.id].done).length;
+  if (nl) card('🎓', 'Leçon de grammaire', 'Leçon ' + (LESSONS.indexOf(nl) + 1) + ' : **' + nl.title + '** · ' + nDone + ' / ' + LESSONS.length + ' validées', 'Ouvrir la leçon', () => ctx.openLesson(nl.id));
+  else card('🎓', 'Leçons de grammaire', 'Les ' + LESSONS.length + ' leçons sont validées. Revois les règles quand tu veux.', 'Les règles', () => ctx.openTab('rules'));
+
+  // mon Coran
+  const qc = h(root, 'div', 'aa-home-block');
+  const qt = h(qc, 'div', 'aa-home-block-top'); h(qt, 'h3', null, '📖 Ce que tu comprends du Coran');
+  const lk = h(qt, 'a', 'aa-link aa-small', 'Toutes les sourates →'); lk.addEventListener('click', ev => { ev.preventDefault(); state.view = 'surahs'; go(); });
+  progressBar2(qc, cov.known, cov.learning, 'aa-kbar-big');
+  mdText(qc, 'p', 'aa-muted aa-small', 'Sur tous les mots du Coran, tu en reconnais **' + Math.round(100 * cov.known) + ' %** (vert foncé) et tu en apprends ' + Math.round(100 * cov.learning) + ' % (vert clair). Un mot compte comme acquis quand sa carte revient dans 7 jours ou plus.');
+  const list = h(qc, 'div', 'aa-home-surahs');
+  (async () => {
+    const rows = [];
+    for (const n of SHORT_SURAHS) rows.push(await surahKnowledge(ctx, n, K));
+    const best = [rows[0]].concat(rows.slice(1).sort((a, b) => b.pctAll - a.pctAll || a.total - b.total).slice(0, 5));
+    best.forEach(k => surahRow(ctx, list, k));
+  })().catch(() => {});
+
+  // activité des 12 dernières semaines
+  const ac = h(root, 'div', 'aa-home-block');
+  h(ac, 'h3', null, '🗓️ Tes 12 dernières semaines');
+  const grid = h(ac, 'div', 'aa-home-cal'); const t0 = todayNum();
+  const start = t0 - 77 - ((new Date().getDay() + 6) % 7); // 12 semaines, en commençant un lundi
+  for (let d = start; d <= t0; d++) { const e = A[d]; const n = e ? (e.c || 0) + 2 * (e.w || 0) + 5 * (e.l || 0) : 0; const c = h(grid, 'span', 'aa-home-day' + (n ? ' aa-home-day-' + (n >= 40 ? 3 : n >= 15 ? 2 : 1) : '') + (d === t0 ? ' aa-home-today' : '')); c.title = n ? n + ' activités' : 'rien ce jour-là'; }
+  h(ac, 'div', 'aa-muted aa-small', 'Chaque case = un jour (cartes, écriture, leçons). Un peu chaque jour vaut mieux que beaucoup une fois par semaine.');
+
+  renderComfort(ctx, details(root, '⚙️ Confort : taille du texte, récitateur, son hors ligne', false, 'aa-home-comfort'), go);
+}
+
+function surahRow(ctx, parent, k) {
+  const info = ctx.data.surahInfo(k.n);
+  const r = h(parent, 'div', 'aa-home-srow');
+  const nm = h(r, 'div', 'aa-home-sname'); h(nm, 'b', null, k.n + '. ' + info[1]); h(nm, 'span', 'aa-muted aa-small', ' ' + info[2]);
+  const b = h(r, 'div', 'aa-home-sbar'); progressBar2(b, k.known / Math.max(1, k.total), k.learning / Math.max(1, k.total));
+  h(r, 'span', 'aa-home-spct', k.pctAll + ' %');
+  r.title = k.total + ' mots · ' + k.known + ' acquis · ' + k.learning + ' en cours';
+  r.addEventListener('click', () => ctx.openQuran(k.n, 0));
+  return r;
+}
+
+function renderSurahProgress(ctx, root, state, go) {
+  btn(h(root, 'div', 'aa-actions'), '← Accueil', () => { state.view = null; go(); }, 'aa-btn-quiet');
+  h(root, 'h2', null, '📖 Ma progression, sourate par sourate');
+  mdText(root, 'p', 'aa-muted', 'Pour chaque sourate : la part de ses mots que tu connais (vert foncé = acquis, vert clair = en cours). Touche une sourate pour la lire ; dans l\'onglet Coran, « Apprendre les mots de cette sourate » te donne ses mots en cartes.');
+  const bar = h(root, 'div', 'aa-actions');
+  const sort = state.sort || 'mushaf';
+  selectEl(bar, [['mushaf', 'ordre du Coran'], ['best', 'les mieux comprises d\'abord'], ['short', 'les plus courtes d\'abord']], sort, v => { state.sort = v; go(); });
+  const wait = h(root, 'p', 'aa-muted', 'Calcul…');
+  const list = h(root, 'div', 'aa-home-surahs aa-home-surahs-all');
+  const K = lemmaKnowledge(ctx);
+  (async () => {
+    const rows = [];
+    for (let n = 1; n <= 114; n++) { rows.push(await surahKnowledge(ctx, n, K)); if (n % 10 === 0) wait.textContent = 'Calcul… ' + n + ' / 114'; }
+    wait.remove();
+    if (sort === 'best') rows.sort((a, b) => b.pctAll - a.pctAll || a.total - b.total);
+    else if (sort === 'short') rows.sort((a, b) => a.total - b.total);
+    rows.forEach(k => surahRow(ctx, list, k));
+  })().catch(e => { wait.textContent = 'Erreur : ' + e.message; });
+}
+
+/* réglages de confort (aussi dans les réglages du plugin) */
+function renderComfort(ctx, box, go) {
+  const S = ctx.settings;
+  const r1 = h(field(box, 'Taille de l\'arabe'), 'div', 'aa-home-sizer');
+  const m = btn(r1, '−', () => { S.arSize = Math.max(20, (S.arSize || 30) - 2); ctx.save(); ctx.refresh && ctx.refresh(); lab.textContent = S.arSize + ' px'; }, 'aa-btn-quiet');
+  const lab = h(r1, 'span', 'aa-home-size', (S.arSize || 30) + ' px');
+  btn(r1, '+', () => { S.arSize = Math.min(52, (S.arSize || 30) + 2); ctx.save(); ctx.refresh && ctx.refresh(); lab.textContent = S.arSize + ' px'; }, 'aa-btn-quiet');
+  void m;
+  const r2 = field(box, 'Taille de l\'interface');
+  selectEl(r2, [['normal', 'normale'], ['grand', 'grande'], ['tres-grand', 'très grande (téléphone)']], S.uiSize || 'normal', v => { S.uiSize = v; ctx.save(); ctx.refresh && ctx.refresh(); });
+  const r3 = field(box, 'Récitateur');
+  selectEl(r3, RECITERS, S.reciter || 'Alafasy_128kbps', v => { S.reciter = v; AUDIO.reciter = v; ctx.save(); });
+  const r4 = field(box, 'Vitesse du son');
+  selectEl(r4, [['0.5', '0,5× (très lent)'], ['0.6', '0,6×'], ['0.75', '0,75× (lent)'], ['0.85', '0,85×'], ['1', '1× (normal)']], String(S.audioRate || 1), v => { S.audioRate = +v; setAudioRate(+v); ctx.save(); });
+  const r5 = field(box, 'Couleurs des mots');
+  checkbox(r5, 'nom bleu, verbe rouge', S.wordColors !== false, v => { S.wordColors = v; ctx.save(); ctx.refresh && ctx.refresh(); });
+  if (ctx.keepSurahAudio) {
+    h(box, 'h4', null, '🎧 Son hors ligne');
+    mdText(box, 'p', 'aa-muted aa-small', 'Sans internet, le plugin marche déjà entièrement (Coran, traduction, dictionnaire, règles, cartes, écriture). Seul le **son** vient d\'internet. Tu peux garder sur l\'appareil le son d\'une sourate (bouton dans l\'onglet Coran), ou d\'un coup celui des **sourates courtes** (78 à 114, environ 50 Mo par récitateur, avec la prononciation de chaque mot).');
+    const st = h(box, 'div', 'aa-muted aa-small');
+    const paint = () => { const k = ctx.audioSummary(); st.textContent = k.surahs ? 'Gardé sur cet appareil : ' + k.surahs + ' sourate' + (k.surahs > 1 ? 's' : '') + ' (' + k.files + ' fichiers).' : 'Rien n\'est gardé pour l\'instant.'; };
+    paint();
+    const act = h(box, 'div', 'aa-actions');
+    const b = btn(act, '⬇ Garder le son des sourates courtes', async () => {
+      b.disabled = true; let fail = 0;
+      const list = []; for (let n = 78; n <= 114; n++) list.push(n); list.unshift(1);
+      for (let i = 0; i < list.length; i++) {
+        const r = await ctx.keepSurahAudio(list[i], true, (d, n) => { b.textContent = 'Sourate ' + list[i] + ' (' + (i + 1) + ' / ' + list.length + ') : ' + d + ' / ' + n; });
+        fail += r.failed; if (r.offline) { notify('Pas de connexion internet : téléchargement arrêté.'); break; }
+      }
+      b.disabled = false; b.textContent = '⬇ Garder le son des sourates courtes'; paint();
+      notify('Son gardé sur l\'appareil.' + (fail ? ' (' + fail + ' fichiers introuvables)' : ''));
+    }, 'mod-cta');
+    btn(act, '🗑 Effacer le son gardé', async () => { await ctx.dropAudio(); paint(); notify('Son effacé de l\'appareil.'); }, 'aa-btn-quiet');
+  }
+}

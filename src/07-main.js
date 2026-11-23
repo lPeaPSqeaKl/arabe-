@@ -7,11 +7,12 @@ const DEFAULT_SETTINGS = {
   flashFile: '5 - Flashcards/Atelier - mes phrases.md', lastSurah: 1,
   audio: true, tajwid: false, fixFolder: '4 - Références/Atelier - corrections', vocabFile: '4 - Références/Vocabulaire.md', textsFolder: '3 - Textes',
   myWords: {}, progress: null, lessons: {}, surahOrder: 'mushaf', wordColors: true, arFont: 'amiri', cardsFolder: '5 - Flashcards/Règles', srs: null, reciter: 'Alafasy_128kbps', audioRate: 1, audioRepeat: 1,
+  writing: null, activity: null, uiSize: 'normal',
 };
 function emptyProgress() { return { byType: { case: { ok: 0, n: 0 }, mood: { ok: 0, n: 0 }, sens: { ok: 0, n: 0 }, phrase: { ok: 0, n: 0 } }, lem: {} }; }
-const TAB_ICONS = { coran: 'book-open', alphabet: 'a-large-small', lessons: 'graduation-cap', rules: 'book-marked', review: 'layers', dict: 'library', analyse: 'scan-search', build: 'blocks', signs: 'flask-conical', quiz: 'target' };
+const TAB_ICONS = { home: 'home', write: 'pencil', coran: 'book-open', alphabet: 'a-large-small', lessons: 'graduation-cap', rules: 'book-marked', review: 'layers', dict: 'library', analyse: 'scan-search', build: 'blocks', signs: 'flask-conical', quiz: 'target' };
 const TABS = [
-  ['coran', 'Coran', 'Lire une sourate mot par mot'], ['alphabet', 'Alphabet', 'Les lettres et leur prononciation'], ['lessons', 'Leçons', 'Parcours de grammaire guidé'], ['rules', 'Règles', 'Les règles expliquées simplement'], ['review', 'Révision', 'Réviser les cartes de chaque règle'], ['dict', 'Dictionnaire', 'Tous les mots du Coran'], ['analyse', 'Analyser', 'Analyser un texte arabe'],
+  ['home', 'Accueil', 'Ton tableau de bord du jour'], ['coran', 'Coran', 'Lire une sourate mot par mot'], ['alphabet', 'Alphabet', 'Les lettres et leur prononciation'], ['write', 'Écrire', 'Apprendre à écrire les lettres et les mots'], ['lessons', 'Leçons', 'Parcours de grammaire guidé'], ['rules', 'Règles', 'Les règles expliquées simplement'], ['review', 'Révision', 'Réviser les cartes de chaque règle'], ['dict', 'Dictionnaire', 'Tous les mots du Coran'], ['analyse', 'Analyser', 'Analyser un texte arabe'],
   ['build', 'Construire', 'Construire une phrase'], ['signs', 'Signes', 'Laboratoire des signes'], ['quiz', 'Entraînement', 'S\'entraîner'],
 ];
 
@@ -19,8 +20,8 @@ class AtelierView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
-    this.tab = 'coran';
-    this.states = { coran: { surah: plugin.settings.lastSurah || 1, page: 0 }, dict: {}, alphabet: {}, lessons: {}, rules: {}, review: {}, analyse: {}, build: {}, signs: {}, quiz: {} };
+    this.tab = 'home';
+    this.states = { coran: { surah: plugin.settings.lastSurah || 1, page: 0 }, dict: {}, alphabet: {}, home: {}, write: {}, lessons: {}, rules: {}, review: {}, analyse: {}, build: {}, signs: {}, quiz: {} };
   }
   getViewType() { return VIEW_TYPE; }
   getDisplayText() { return 'Atelier arabe'; }
@@ -48,6 +49,9 @@ class AtelierView extends ItemView {
     clear(this.nav);
     this.contentEl.classList.toggle('aa-nocolor', this.plugin.settings.wordColors === false);
     this.contentEl.classList.toggle('aa-font-device', this.plugin.settings.arFont === 'device');
+    this.contentEl.classList.toggle('aa-ui-l', this.plugin.settings.uiSize === 'grand');
+    this.contentEl.classList.toggle('aa-ui-xl', this.plugin.settings.uiSize === 'tres-grand');
+    this.contentEl.style.setProperty('--aa-ar-size', (this.plugin.settings.arSize || 30) + 'px');
     TABS.forEach(([id, label, title]) => {
       const b = h(this.nav, 'button', 'aa-tab' + (this.tab === id ? ' aa-on' : ''));
       if (TAB_ICONS[id] && typeof setIcon === 'function') { try { setIcon(h(b, 'span', 'aa-tab-ic'), TAB_ICONS[id]); } catch (e) { /* */ } }
@@ -58,7 +62,9 @@ class AtelierView extends ItemView {
     const ctx = this.plugin.ctx(this);
     const st = this.states[this.tab];
     clear(this.body);
-    if (this.tab === 'coran') renderQuranTab(ctx, this.body, st);
+    if (this.tab === 'home') renderHomeTab(ctx, this.body, st);
+    else if (this.tab === 'write') renderWriteTab(ctx, this.body, st);
+    else if (this.tab === 'coran') renderQuranTab(ctx, this.body, st);
     else if (this.tab === 'dict') renderDictTab(ctx, this.body, st);
     else if (this.tab === 'alphabet') renderAlphabetTab(ctx, this.body, st);
     else if (this.tab === 'lessons') renderLessonsTab(ctx, this.body, st);
@@ -98,7 +104,11 @@ class AtelierSettingTab extends PluginSettingTab {
     new Setting(el).setName('Couleurs des mots').setDesc('Dans le Coran : bleu = nom, rouge = verbe, gris = particule. Désactivé : texte d\'une seule couleur, plus reposant.')
       .addToggle(t => t.setValue(s.wordColors !== false).onChange(async v => { s.wordColors = v; await p.saveSettings(); }));
     new Setting(el).setName('Taille du texte arabe').setDesc('En pixels (30 par défaut).')
-      .addSlider(sl => sl.setLimits(20, 48, 2).setValue(s.arSize).setDynamicTooltip().onChange(async v => { s.arSize = v; await p.saveSettings(); }));
+      .addSlider(sl => sl.setLimits(20, 52, 2).setValue(s.arSize).setDynamicTooltip().onChange(async v => { s.arSize = v; await p.saveSettings(); }));
+    new Setting(el).setName('Taille de l\'interface').setDesc('« Très grande » est pratique sur téléphone. Chaque appareil garde son propre réglage.')
+      .addDropdown(d => d.addOption('normal', 'normale').addOption('grand', 'grande').addOption('tres-grand', 'très grande').setValue(s.uiSize || 'normal').onChange(async v => { s.uiSize = v; await p.saveSettings(); }));
+    new Setting(el).setName('Son gardé sur l\'appareil').setDesc('Le son des sourates que tu as gardées hors ligne (bouton dans l\'onglet Coran ou l\'Accueil).')
+      .addButton(b => b.setButtonText('Effacer le son gardé').onClick(async () => { await p.dropAudio(); new Notice('Son effacé.'); }));
     new Setting(el).setName('Couleurs de prononciation').setDesc('Colore les lettres muettes, les voyelles longues, la nasalisation (ghunna) et l\'écho (qalqala) dans le Coran et dans les blocs ```coran```.')
       .addToggle(t => t.setValue(!!s.tajwid).onChange(async v => { s.tajwid = v; await p.saveSettings(); }));
     new Setting(el).setName('Son en ligne').setDesc('Récitation (Mishary Alafasy) et prononciation des mots depuis internet, seulement quand tu appuies sur ▶ ou 🔊. Désactivé : voix de l\'appareil uniquement.')
@@ -135,10 +145,13 @@ class AtelierArabePlugin extends Plugin {
     if (!this.settings.lessons) this.settings.lessons = {};
     AUDIO.reciter = this.settings.reciter || 'Alafasy_128kbps'; AUDIO.rate = this.settings.audioRate || 1; AUDIO.repeat = this.settings.audioRepeat || 1;
     this.data = new QuranData(this.app, this.manifest.dir);
+    this.scanAudio();
     notify = (m) => new Notice(m);
     this.registerView(VIEW_TYPE, leaf => new AtelierView(leaf, this));
     this.addRibbonIcon('languages', 'Atelier arabe', () => this.openView());
     this.addCommand({ id: 'ouvrir', name: 'Ouvrir l\'atelier', callback: () => this.openView() });
+    this.addCommand({ id: 'accueil', name: 'Accueil (tableau de bord)', callback: () => this.openView('home') });
+    this.addCommand({ id: 'ecrire', name: 'Apprendre à écrire', callback: () => this.openView('write') });
     this.addCommand({ id: 'alphabet', name: 'Alphabet et prononciation', callback: () => this.openView('alphabet') });
     this.addCommand({ id: 'lecons', name: 'Leçons de grammaire', callback: () => this.openView('lessons') });
     this.addCommand({ id: 'regles', name: 'Règles expliquées simplement', callback: () => this.openView('rules') });
@@ -221,6 +234,17 @@ class AtelierArabePlugin extends Plugin {
       },
       reviewList: () => Object.entries(this.settings.progress.lem).filter(([, x]) => x.ko > x.ok).map(([id, x]) => ({ id: +id, ok: x.ok, ko: x.ko })).sort((a, b) => (b.ko - b.ok) - (a.ko - a.ok)),
       resetProgress: () => { this.settings.progress = emptyProgress(); this.saveData(this.settings); },
+      markActivity: (k) => {
+        const A = this.settings.activity || (this.settings.activity = {}); const d = todayNum();
+        const e = A[d] || (A[d] = {}); e[k] = (e[k] || 0) + 1;
+        Object.keys(A).forEach(x => { if (+x < d - 400) delete A[x]; });
+        this.saveData(this.settings);
+      },
+      refresh: () => this.refreshViews(),
+      keepSurahAudio: (n, words, progress) => this.keepSurahAudio(n, words, progress),
+      surahAudioStatus: (n) => this.surahAudioStatus(n),
+      audioSummary: () => this.audioSummary(),
+      dropAudio: () => this.dropAudio(),
       currentSurah: () => { const l = self.app.workspace.getLeavesOfType(VIEW_TYPE)[0]; return l && l.view.states ? l.view.states.coran.surah : 1; },
     };
   }
@@ -256,6 +280,54 @@ class AtelierArabePlugin extends Plugin {
     const mine = this.app.vault.getAbstractFileByPath(this.settings.flashFile);
     if (mine && mine.extension === 'md') out.push({ path: mine.path, text: await this.app.vault.cachedRead(mine), mine: true });
     return out;
+  }
+  refreshViews() { this.app.workspace.getLeavesOfType(VIEW_TYPE).forEach(l => l.view && l.view.render && l.view.plugin.data.surahs && l.view.render()); }
+  /* ---------- son gardé sur l'appareil (dossier audio/ du plugin) ---------- */
+  async scanAudio() {
+    const ad = this.app.vault.adapter; const dir = this.manifest.dir; const base = dir + '/audio';
+    AUDIO_CACHE.dir = dir; AUDIO_CACHE.res = p => ad.getResourcePath(p); AUDIO_CACHE.files = new Set();
+    try {
+      if (!(await ad.exists(base))) return;
+      const top = await ad.list(base);
+      for (const d of top.folders) { const m = await ad.list(d); m.files.forEach(f => AUDIO_CACHE.files.add(f.slice(dir.length + 1))); }
+    } catch (e) { /* rien */ }
+  }
+  surahAudioStatus(n) {
+    const rec = AUDIO.reciter || 'Alafasy_128kbps'; const nV = this.data.surahInfo(n)[5]; let k = 0;
+    for (let v = 1; v <= nV; v++) if (AUDIO_CACHE.files.has(audioRelVerse(rec, n, v))) k++;
+    return { verses: k, nV };
+  }
+  audioSummary() {
+    const s = new Set(); AUDIO_CACHE.files.forEach(f => { const m = f.match(/\/(\d{3})(\d{3})\.mp3$/); if (m) s.add(+m[1]); });
+    return { surahs: s.size, files: AUDIO_CACHE.files.size };
+  }
+  async keepSurahAudio(n, words, progress) {
+    const ad = this.app.vault.adapter; const dir = this.manifest.dir; const rec = AUDIO.reciter || 'Alafasy_128kbps';
+    const jobs = []; const nV = this.data.surahInfo(n)[5];
+    for (let v = 1; v <= nV; v++) jobs.push([audioRelVerse(rec, n, v), 'https://everyayah.com/data/' + rec + '/' + pad3(n) + pad3(v) + '.mp3']);
+    if (words) { const d = await this.data.surah(n); d.v.forEach((vv, vi) => vv[2].forEach((w, wi) => { const r = [n, vi + 1, wi + 1]; jobs.push([audioRelWord(r), 'https://audio.qurancdn.com/wbw/' + pad3(r[0]) + '_' + pad3(r[1]) + '_' + pad3(r[2]) + '.mp3']); })); }
+    const todo = jobs.filter(j => !AUDIO_CACHE.files.has(j[0]));
+    for (const f of ['audio', 'audio/' + rec, 'audio/wbw']) if (!(await ad.exists(dir + '/' + f))) await ad.mkdir(dir + '/' + f);
+    let done = jobs.length - todo.length, failed = 0, offline = false, errRow = 0;
+    if (progress) progress(done, jobs.length);
+    const worker = async () => {
+      while (todo.length && !offline) {
+        const [rel, url] = todo.shift();
+        try {
+          const r = await requestUrl({ url, throw: false });
+          if (r.status >= 200 && r.status < 300 && r.arrayBuffer && r.arrayBuffer.byteLength > 200) { await ad.writeBinary(dir + '/' + rel, r.arrayBuffer); AUDIO_CACHE.files.add(rel); errRow = 0; }
+          else failed++;
+        } catch (e) { failed++; if (++errRow >= 6) offline = true; }
+        done++; if (progress) progress(done, jobs.length);
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    return { done, failed, offline };
+  }
+  async dropAudio() {
+    const ad = this.app.vault.adapter; const base = this.manifest.dir + '/audio';
+    try { if (await ad.exists(base)) await ad.rmdir(base, true); } catch (e) { new Notice('Impossible d\'effacer : ' + e.message); }
+    await this.scanAudio();
   }
   async addVocab(id, ar, tr, gloss, where) {
     const path = this.settings.vocabFile;

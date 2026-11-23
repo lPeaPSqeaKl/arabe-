@@ -1880,9 +1880,17 @@ function playUrl(urls, fallbackText, onEnd, keepSeq) {
   };
   tryNext();
 }
+/* son gardé sur l'appareil (dossier audio/ du plugin) : utilisé en premier, sans internet */
+const AUDIO_CACHE = { files: new Set(), dir: '', res: null };
+function audioRelVerse(rec, s, v) { return 'audio/' + rec + '/' + pad3(s) + pad3(v) + '.mp3'; }
+function audioRelWord(r) { return 'audio/wbw/' + pad3(r[0]) + '_' + pad3(r[1]) + '_' + pad3(r[2]) + '.mp3'; }
+function cachedUrl(rel) { try { return AUDIO_CACHE.res && AUDIO_CACHE.files.has(rel) ? AUDIO_CACHE.res(AUDIO_CACHE.dir + '/' + rel) : null; } catch (e) { return null; } }
 function verseUrls(s, v) {
   const f = pad3(s) + pad3(v) + '.mp3';
-  const out = ['https://everyayah.com/data/' + (AUDIO.reciter || 'Alafasy_128kbps') + '/' + f];
+  const out = [];
+  const loc = cachedUrl(audioRelVerse(AUDIO.reciter || 'Alafasy_128kbps', s, v)) || cachedUrl(audioRelVerse('Alafasy_128kbps', s, v));
+  if (loc) out.push(loc);
+  out.push('https://everyayah.com/data/' + (AUDIO.reciter || 'Alafasy_128kbps') + '/' + f);
   if (AUDIO.reciter !== 'Alafasy_128kbps') out.push('https://everyayah.com/data/Alafasy_128kbps/' + f);
   out.push('https://verses.quran.com/Alafasy/mp3/' + f);
   return out;
@@ -1909,6 +1917,8 @@ function playVerses(s, list, onVerse, onDone) {
   return () => { if (my === audioSeq) stopAudio(); };
 }
 function playWord(ref, text, ctx) {
+  const loc = ref && cachedUrl(audioRelWord(ref));
+  if (loc) { playUrl([loc], text); return; }
   if (ctx && ctx.settings.audio === false) { speak(text); return; }
   if (!ref) { speak(text); return; }
   playUrl(['https://audio.qurancdn.com/wbw/' + pad3(ref[0]) + '_' + pad3(ref[1]) + '_' + pad3(ref[2]) + '.mp3'], text);
@@ -2302,6 +2312,21 @@ function renderReciteBar(ctx, root, bar, state, nV) {
   }, 'mod-cta');
   const stop = btn(act, '■ Arrêter', () => { stopAudio(); mark(null); play.style.display = ''; stop.style.display = 'none'; }, 'aa-btn-quiet');
   stop.style.display = 'none';
+  if (ctx.keepSurahAudio) {
+    const off = h(box, 'div', 'aa-offline aa-small');
+    const paint = () => {
+      clear(off); const st = ctx.surahAudioStatus(state.surah);
+      if (st.verses >= st.nV) { h(off, 'span', 'aa-muted', '✓ Son de cette sourate gardé sur l\'appareil : il marche sans internet.'); return; }
+      const b = btn(off, '⬇ Garder le son hors ligne', async () => {
+        b.disabled = true;
+        const r = await ctx.keepSurahAudio(state.surah, true, (d, n) => { b.textContent = 'Téléchargement… ' + d + ' / ' + n; });
+        notify(r.offline ? 'Pas de connexion internet : réessaie plus tard.' : 'Son de la sourate gardé sur l\'appareil.' + (r.failed ? ' (' + r.failed + ' fichiers introuvables)' : ''));
+        paint();
+      }, 'aa-btn-quiet');
+      h(off, 'span', 'aa-muted', ' versets et mots, pour ce récitateur' + (st.nV > 50 ? ' (sourate longue : plusieurs Mo)' : ''));
+    };
+    paint();
+  }
 }
 const rankFr = n => n === 1 ? '1re' : n + 'e';
 function renderQuranTab(ctx, root, state) {
@@ -2346,6 +2371,14 @@ function renderQuranTab(ctx, root, state) {
     if (mine) { const lk = h(cb, 'a', 'aa-link aa-small', '📝 ouvrir ma note « ' + mine.file.basename + ' »'); lk.addEventListener('click', ev => { ev.preventDefault(); ctx.openNote(mine.file); }); }
   }
   h(root, 'div', 'aa-muted aa-small aa-surah-info', 'Sourate ' + state.surah + ' · ' + info[5] + ' versets · révélée à ' + (info[4] === 'Médine' ? 'Médine' : 'La Mecque') + ' · ' + rankFr(REVELATION_ORDER[state.surah - 1]) + ' dans l\'ordre de la révélation');
+  const kn = h(root, 'div', 'aa-surah-know');
+  surahKnowledge(ctx, state.surah).then(k => {
+    if (!k.total) return;
+    progressBar2(kn, k.known / k.total, k.learning / k.total);
+    const t = h(kn, 'div', 'aa-small aa-muted');
+    t.appendChild(document.createTextNode('Tu connais ' + k.pct + ' % des mots de cette sourate' + (k.pctAll > k.pct ? ', et ' + (k.pctAll - k.pct) + ' % sont en cours d\'apprentissage' : '') + '. '));
+    if (k.unknown.length) { const a = h(t, 'a', 'aa-link', '📖 Apprendre les mots de cette sourate (' + k.unknown.length + ' nouveaux)'); a.addEventListener('click', ev => { ev.preventDefault(); ctx.openTab('review', { surahWords: state.surah, session: null, deck: null }); }); }
+  }).catch(() => {});
   if (ctx.settings.tajwid) renderTajwidLegend(details(root, '🎨 Couleurs de prononciation : ce qu\'on prononce ou pas', true));
   mdText(root, 'p', 'aa-help', '**Clique sur un mot** pour voir ses morceaux, ses signes lettre par lettre, la raison de sa terminaison et les autres formes possibles. Couleurs : bleu = nom, rouge = verbe, gris = particule. Les mots **soulignés en pointillé** sont déjà dans ton vocabulaire.');
   const body = h(root, 'div', 'aa-verses');
@@ -3490,6 +3523,7 @@ async function renderLessonQuestion(ctx, box, state, L, root) {
     const all = lessonState(ctx); const prev = all[L.id] || { done: false, best: 0 };
     const passed = pct >= 70;
     all[L.id] = { done: prev.done || passed, best: Math.max(prev.best, pct), date: new Date().toISOString().slice(0, 10) };
+    if (ctx.markActivity) ctx.markActivity('l');
     ctx.save();
     mdText(box, 'div', passed ? 'aa-ok' : 'aa-warn', (passed ? '✓ Leçon validée ! ' : 'Pas encore validée : ') + '**' + run.ok + ' / ' + n + '** (' + pct + ' %).' + (passed ? '' : ' Relis les exemples, puis recommence : il faut 70 %.'));
     const a = h(box, 'div', 'aa-actions');
@@ -4262,7 +4296,7 @@ function renderAlphaQuiz(ctx, el, A, state) {
  *   question :: réponse      (une ligne)
  * ==================================================================== */
 const CARD_GROUPS = [
-  ['1-cas', 'Les cas', '📐'], ['2-phrase', 'La phrase', '🧱'], ['3-verbe', 'Le verbe', '⚙️'],
+  ['vocab', 'Vocabulaire du Coran', '📖'], ['1-cas', 'Les cas', '📐'], ['2-phrase', 'La phrase', '🧱'], ['3-verbe', 'Le verbe', '⚙️'],
   ['4-lecture', 'Lire et écrire', '✍️'], ['5-tajwid', 'Tajwid (réciter)', '🎙️'], ['mes', 'Mes cartes', '⭐'],
 ];
 const FIRST_DECKS = ['nominatif', 'prepositions', 'genitif', 'accusatif', 'trois-cas'];
@@ -4305,7 +4339,7 @@ function parseCardDeck(text, path) {
 
 /* tous les paquets : ceux du plugin, puis ceux du coffre (qui remplacent ceux du plugin de même nom) */
 async function loadCardDecks(ctx) {
-  const builtin = ((CONTENT[UI_LANG] || {}).cartes || (CONTENT.fr || {}).cartes || []).map(x => parseCardDeck(x.text, x.path));
+  const builtin = vocabDecks(ctx.data).concat(((CONTENT[UI_LANG] || {}).cartes || (CONTENT.fr || {}).cartes || []).map(x => parseCardDeck(x.text, x.path)));
   const byId = new Map(builtin.map(d => [d.id, d]));
   let mine = [];
   try { mine = ctx.vaultCardNotes ? await ctx.vaultCardNotes() : []; } catch (e) { mine = []; }
@@ -4319,7 +4353,7 @@ async function loadCardDecks(ctx) {
   const all = [...byId.values()];
   const gi = g => CARD_GROUPS.findIndex(x => x[0] === g);
   const fi = d => { const k = FIRST_DECKS.indexOf(d.id.split('/').pop()); return k < 0 ? 99 : k; };
-  all.sort((a, b) => gi(a.group) - gi(b.group) || fi(a) - fi(b) || a.title.localeCompare(b.title, 'fr'));
+  all.sort((a, b) => gi(a.group) - gi(b.group) || fi(a) - fi(b) || (a.vocab && b.vocab ? +a.id.split('/')[1] - +b.id.split('/')[1] : a.title.localeCompare(b.title, 'fr')));
   return all;
 }
 
@@ -4328,8 +4362,9 @@ function todayNum() { const d = new Date(); return Math.floor((d.getTime() - d.g
 function srsStore(ctx) {
   const s = ctx.settings.srs || (ctx.settings.srs = { cards: {}, day: 0, newToday: 0, newPerDay: 15 });
   if (!s.cards) s.cards = {};
-  if (!s.newPerDay) s.newPerDay = 15;
-  const t = todayNum(); if (s.day !== t) { s.day = t; s.newToday = 0; s.doneToday = 0; }
+  if (s.newPerDay == null) s.newPerDay = 15;
+  if (s.vocabPerDay == null) s.vocabPerDay = 10;
+  const t = todayNum(); if (s.day !== t) { s.day = t; s.newToday = 0; s.vocabToday = 0; s.doneToday = 0; }
   return s;
 }
 /* état d'une carte : [jour d'échéance, intervalle en jours, facilité ×100, nombre de révisions] */
@@ -4344,6 +4379,14 @@ function nextState(st, grade, day) {
   else { ease += 15; ivl = Math.max(ivl + 2, Math.round(ivl * ease / 100 * 1.3)); }
   ivl = Math.min(ivl, 3650);
   return [day + ivl, ivl, ease, (reps || 0) + 1];
+}
+function newLeftOf(S) { return { rules: Math.max(0, S.newPerDay - (S.newToday || 0)), voc: Math.max(0, S.vocabPerDay - (S.vocabToday || 0)) }; }
+/* nombre de cartes du jour, sur tous les paquets */
+function todayCounts(S, decks) {
+  let due = 0, freshR = 0, freshV = 0, total = 0;
+  decks.forEach(d => { const c = deckCounts(S, d); due += c.due; total += c.total; if (d.vocab) freshV += c.fresh; else freshR += c.fresh; });
+  const nl = newLeftOf(S);
+  return { due, fresh: Math.min(nl.rules, freshR) + Math.min(nl.voc, freshV), total };
 }
 function ivlLabel(n) { if (n <= 0) return 'aujourd\'hui'; if (n === 1) return '1 jour'; if (n < 30) return n + ' jours'; if (n < 365) return Math.round(n / 30) + ' mois'; return Math.round(n / 365 * 10) / 10 + ' an' + (n >= 730 ? 's' : ''); }
 function deckCounts(S, d) {
@@ -4403,29 +4446,37 @@ function renderReviewTab(ctx, root, state) {
     loadCardDecks(ctx).then(d => { state.decks = d; go(); }).catch(e => { clear(root); h(root, 'p', 'aa-warn', 'Impossible de charger les cartes : ' + e.message); });
     return;
   }
+  if (state.surahWords) {
+    const n = state.surahWords; state.surahWords = null;
+    h(root, 'p', 'aa-muted', 'Préparation des mots de la sourate…');
+    makeSurahWordsSession(ctx, n, 15).then(ss => { state.session = ss; go(); }).catch(e => { clear(root); h(root, 'p', 'aa-warn', e.message); });
+    return;
+  }
+  if (state.startNow) { state.startNow = false; state.session = makeSession(ctx, state.decks, null); }
   if (state.session) return renderReviewSession(ctx, root, state);
   if (state.deck) { const d = state.decks.find(x => x.id === state.deck); if (d) return renderReviewDeck(ctx, root, state, d); state.deck = null; }
   const S = srsStore(ctx);
   const howto = h(root, 'details', 'aa-howto'); h(howto, 'summary', null, 'ⓘ Comment utiliser cet onglet');
   mdText(howto, 'p', 'aa-help', 'Un **paquet de cartes pour chaque règle**. Chaque jour, l\'atelier te montre les cartes **à revoir** et quelques **nouvelles**. Lis la question, réponds **à voix haute** (la terminaison et la raison), puis retourne la carte et dis honnêtement si c\'était facile. Une carte bien sue revient de plus en plus tard. Tes progrès restent sur cet appareil.');
-  let due = 0, fresh = 0, total = 0;
-  state.decks.forEach(d => { const c = deckCounts(S, d); due += c.due; fresh += c.fresh; total += c.total; });
-  const newLeft = Math.max(0, S.newPerDay - (S.newToday || 0));
+  const { due, fresh: freshToday, total } = todayCounts(S, state.decks);
   const today = h(root, 'div', 'aa-fc-today');
   const nums = h(today, 'div', 'aa-fc-nums');
   const n1 = h(nums, 'div', 'aa-fc-num'); h(n1, 'b', null, String(due)); h(n1, 'span', null, 'à revoir');
-  const n2 = h(nums, 'div', 'aa-fc-num'); h(n2, 'b', null, String(Math.min(newLeft, fresh))); h(n2, 'span', null, 'nouvelles aujourd\'hui');
+  const n2 = h(nums, 'div', 'aa-fc-num'); h(n2, 'b', null, String(freshToday)); h(n2, 'span', null, 'nouvelles aujourd\'hui');
   const n3 = h(nums, 'div', 'aa-fc-num'); h(n3, 'b', null, String(S.doneToday || 0)); h(n3, 'span', null, 'déjà faites');
   const act = h(today, 'div', 'aa-fc-start');
-  if (due + Math.min(newLeft, fresh) > 0) btn(act, '▶  Réviser maintenant', () => { state.session = makeSession(ctx, state.decks, null); go(); }, 'mod-cta aa-fc-big');
+  if (due + freshToday > 0) btn(act, '▶  Réviser maintenant', () => { state.session = makeSession(ctx, state.decks, null); go(); }, 'mod-cta aa-fc-big');
   else h(act, 'div', 'aa-ok', 'Tout est à jour pour aujourd\'hui. Reviens demain, ou choisis un paquet pour t\'entraîner librement.');
   const set = h(today, 'div', 'aa-fc-set aa-muted aa-small');
-  h(set, 'span', null, 'Nouvelles cartes par jour : ');
-  selectEl(set, [5, 10, 15, 20, 30, 50].map(n => [n, String(n)]), S.newPerDay, v => { S.newPerDay = +v; ctx.save(); go(); });
+  h(set, 'span', null, 'Nouvelles cartes de règles par jour : ');
+  selectEl(set, [0, 5, 10, 15, 20, 30, 50].map(n => [n, String(n)]), S.newPerDay, v => { S.newPerDay = +v; ctx.save(); go(); });
+  h(set, 'span', null, '  ·  nouveaux mots par jour : ');
+  selectEl(set, [0, 5, 10, 15, 20, 30].map(n => [n, String(n)]), S.vocabPerDay, v => { S.vocabPerDay = +v; ctx.save(); go(); });
 
   CARD_GROUPS.forEach(([g, label, ic]) => {
     const ds = state.decks.filter(d => d.group === g); if (!ds.length) return;
     h(root, 'h3', 'aa-fc-group', ic + '  ' + label);
+    if (g === 'vocab') mdText(root, 'p', 'aa-muted aa-small', 'Les **300 mots les plus fréquents** du Coran, du plus courant au moins courant. Ils font à eux seuls les **trois quarts** du texte. Les nouveaux mots arrivent dans ta révision du jour (' + S.vocabPerDay + ' par jour). Pour une sourate précise : onglet Coran › « Apprendre les mots de cette sourate ».');
     const grid = h(root, 'div', 'aa-fc-grid');
     ds.forEach(d => {
       const c = deckCounts(S, d);
@@ -4434,7 +4485,8 @@ function renderReviewTab(ctx, root, state) {
       h(top, 'span', 'aa-fc-deck-title', d.title);
       if (c.due) h(top, 'span', 'aa-fc-pill aa-fc-pill-due', c.due + ' à revoir');
       const bar = h(card, 'div', 'aa-lesson-progress'); const f = h(bar, 'div', 'aa-lesson-fill'); f.style.width = Math.round(100 * (c.total - c.fresh) / Math.max(1, c.total)) + '%';
-      h(card, 'div', 'aa-muted aa-small', (c.total - c.fresh) + ' / ' + c.total + ' cartes vues' + (c.known ? ' · ' + c.known + ' bien sues' : ''));
+      h(card, 'div', 'aa-muted aa-small', (c.total - c.fresh) + ' / ' + c.total + (d.vocab ? ' mots vus' : ' cartes vues') + (c.known ? ' · ' + c.known + ' bien su' + (d.vocab ? 's' : 'es') : ''));
+      if (d.vocab) h(card, 'div', 'aa-muted aa-small', (d.id === 'vocab/1' ? 'ces mots = ' : 'avec les paquets d\'avant : ') + d.cover + ' % du Coran');
       card.addEventListener('click', () => { state.deck = d.id; go(); });
     });
   });
@@ -4448,7 +4500,8 @@ function renderReviewDeck(ctx, root, state, d) {
   h(root, 'h2', 'aa-fc-title', d.title);
   h(root, 'p', 'aa-muted', c.total + ' cartes · ' + (c.total - c.fresh) + ' déjà vues · ' + c.due + ' à revoir aujourd\'hui');
   const a = h(root, 'div', 'aa-fc-start');
-  const newLeft = Math.max(0, S.newPerDay - (S.newToday || 0));
+  const nl = newLeftOf(S); const newLeft = d.vocab ? nl.voc : nl.rules;
+  if (d.vocab) h(root, 'p', 'aa-muted aa-small', 'Avec les mots jusqu\'à ce paquet, tu reconnais ' + d.cover + ' % des mots du Coran.');
   if (c.due + Math.min(c.fresh, newLeft) > 0) btn(a, '▶  Réviser ce paquet', () => { state.session = makeSession(ctx, [d], null); go(); }, 'mod-cta aa-fc-big');
   btn(a, '🔁  S\'entraîner sur tout le paquet', () => { state.session = makeSession(ctx, [d], 'all'); go(); }, 'aa-fc-big2');
   h(root, 'p', 'aa-muted aa-small', '« S\'entraîner sur tout le paquet » montre toutes les cartes dans le désordre, sans changer tes dates de révision.');
@@ -4460,6 +4513,7 @@ function renderReviewDeck(ctx, root, state, d) {
     d.cards.forEach(cd => {
       if (cd.s && cd.s !== sec) { sec = cd.s; h(list, 'h4', 'aa-fc-sec', sec); }
       const it = h(list, 'details', 'aa-fc-item');
+      if (cd.voc != null) { const sm = h(it, 'summary', 'aa-voc-sum'); const w = h(sm, 'bdi', 'aa-ari aa-voc-sum-ar'); w.setAttribute('dir', 'rtl'); w.textContent = cd.q; h(sm, 'span', null, '  ' + cd.a); renderVocabBack(ctx, h(it, 'div', 'aa-fc-ans'), cd); return; }
       const sm = h(it, 'summary'); cardInline(sm, cd.q.split('\n')[0]);
       if (cd.q.includes('\n')) renderCardText(it, cd.q.split('\n').slice(1).join('\n'));
       renderCardText(h(it, 'div', 'aa-fc-ans'), cd.a);
@@ -4474,8 +4528,10 @@ function makeSession(ctx, decks, mode) {
   const all = []; decks.forEach(d => d.cards.forEach(c => all.push({ c, d })));
   if (mode === 'all') return { cram: true, queue: shuffle(all.slice()), done: 0, total: all.length, again: 0 };
   const due = shuffle(all.filter(x => isDue(S, x.c)));
-  const newLeft = Math.max(0, S.newPerDay - (S.newToday || 0));
-  const fresh = all.filter(x => !cardState(S, x.c)).slice(0, newLeft); // les nouvelles dans l'ordre du paquet
+  const nl = newLeftOf(S);
+  const fR = all.filter(x => !x.d.vocab && !cardState(S, x.c)).slice(0, nl.rules); // les nouvelles dans l'ordre du paquet
+  const fV = all.filter(x => x.d.vocab && !cardState(S, x.c)).slice(0, nl.voc);
+  const fresh = []; for (let a = 0, b = 0; a < fR.length || b < fV.length;) { if (a < fR.length) fresh.push(fR[a++]); if (b < fV.length) fresh.push(fV[b++]); }
   const queue = []; let i = 0, j = 0;
   while (i < due.length || j < fresh.length) { // on mélange : environ 1 nouvelle pour 3 à revoir
     for (let k = 0; k < 3 && i < due.length; k++) queue.push(due[i++]);
@@ -4505,7 +4561,8 @@ function renderReviewSession(ctx, root, state) {
   const meta = h(box, 'div', 'aa-fc-meta');
   h(meta, 'span', null, x.d.title + (c.s ? '  ·  ' + c.s : ''));
   if (!cardState(S, c) && !ss.cram) h(meta, 'span', 'aa-fc-pill', 'nouvelle');
-  renderCardText(h(box, 'div', 'aa-fc-q'), c.q);
+  if (c.voc != null) renderVocabFront(ctx, h(box, 'div', 'aa-fc-q aa-voc-q'), c);
+  else renderCardText(h(box, 'div', 'aa-fc-q'), c.q);
   const bottom = h(root, 'div', 'aa-fc-bottom');
   let shown = false;
   const grade = g => {
@@ -4513,7 +4570,8 @@ function renderReviewSession(ctx, root, state) {
     ss.done++;
     if (!ss.cram) {
       const was = cardState(S, c);
-      if (!was) S.newToday = (S.newToday || 0) + 1;
+      if (!was) { if (c.voc != null) S.vocabToday = (S.vocabToday || 0) + 1; else S.newToday = (S.newToday || 0) + 1; }
+      if (ctx.markActivity) ctx.markActivity('c');
       S.cards[c.id] = nextState(was, g, S.day);
       S.doneToday = (S.doneToday || 0) + 1;
       ctx.save();
@@ -4526,7 +4584,8 @@ function renderReviewSession(ctx, root, state) {
     if (shown) return; shown = true;
     clear(bottom);
     h(box, 'div', 'aa-fc-sep');
-    renderCardText(h(box, 'div', 'aa-fc-a'), c.a);
+    if (c.voc != null) renderVocabBack(ctx, h(box, 'div', 'aa-fc-a aa-voc-a'), c);
+    else renderCardText(h(box, 'div', 'aa-fc-a'), c.a);
     const row = h(bottom, 'div', 'aa-fc-grades');
     const st = cardState(S, c);
     [[0, 'À revoir', 'aa-fc-g0'], [1, 'Difficile', 'aa-fc-g1'], [2, 'Bien', 'aa-fc-g2'], [3, 'Facile', 'aa-fc-g3']].forEach(([g, lab, cls]) => {
@@ -4548,6 +4607,676 @@ function renderReviewSession(ctx, root, state) {
   document.addEventListener('keydown', state._keys);
 }
 /* ====================================================================
+ * 06i - Vocabulaire du Coran : cartes des mots les plus fréquents,
+ * et ce que tu connais de chaque sourate.
+ * Une carte de mot = un lemme du dictionnaire (data/lemmas.json).
+ * Elle est « en cours » dès qu'elle a été vue, « acquise » quand elle
+ * revient dans 7 jours ou plus.
+ * ==================================================================== */
+const VOCAB_TOP = 300, VOCAB_DECK = 50;
+function vocabCardId(l) { return 'voc|' + cardHash(l[0] + '|' + l[1] + '|' + l[2]); }
+/* lemmes triés du plus fréquent au moins fréquent */
+function vocabRank(data) {
+  if (!data._vocRank) data._vocRank = data.lemmas.map((l, i) => i).sort((a, b) => data.lemmas[b][5] - data.lemmas[a][5]);
+  return data._vocRank;
+}
+function vocabTotal(data) { if (!data._vocTot) data._vocTot = data.lemmas.reduce((s, l) => s + (l[5] || 0), 0); return data._vocTot; }
+function vocabCard(data, li) { const l = data.lemmas[li]; return { id: vocabCardId(l), s: '', q: l[0], a: l[4], voc: li }; }
+function vocabDecks(data) {
+  if (!data || !data.lemmas) return [];
+  const r = vocabRank(data).slice(0, VOCAB_TOP); const out = []; const tot = vocabTotal(data); let cum = 0;
+  for (let k = 0; k < r.length; k += VOCAB_DECK) {
+    const part = r.slice(k, k + VOCAB_DECK);
+    part.forEach(li => { cum += data.lemmas[li][5]; });
+    out.push({ id: 'vocab/' + (k / VOCAB_DECK + 1), group: 'vocab', vocab: true, title: 'Mots ' + (k + 1) + ' à ' + (k + part.length), cover: Math.round(100 * cum / tot), cards: part.map(li => vocabCard(data, li)) });
+  }
+  return out;
+}
+/* état de chaque lemme : 2 = acquis, 1 = en cours (vu, ou dans « mon vocabulaire ») */
+function lemmaKnowledge(ctx) {
+  const data = ctx.data; const S = srsStore(ctx);
+  const out = new Map();
+  for (let i = 0; i < data.lemmas.length; i++) {
+    const st = S.cards[vocabCardId(data.lemmas[i])];
+    if (st) out.set(i, st[1] >= 7 ? 2 : 1);
+  }
+  Object.keys(ctx.settings.myWords || {}).forEach(k => { const i = +k; if (!out.has(i)) out.set(i, 1); });
+  return out;
+}
+/* part du Coran (en nombre de mots) que couvrent les lemmes connus */
+function quranCoverage(ctx, K) {
+  K = K || lemmaKnowledge(ctx); const L = ctx.data.lemmas; let a = 0, b = 0;
+  K.forEach((v, i) => { if (v === 2) a += L[i][5]; else b += L[i][5]; });
+  const t = vocabTotal(ctx.data);
+  return { known: a / t, learning: b / t };
+}
+/* les lemmes de chaque mot d'une sourate (le cœur du mot, sans préfixe ni suffixe) */
+async function surahLemmas(data, n) {
+  if (!data._sl) data._sl = new Map();
+  if (data._sl.has(n)) return data._sl.get(n);
+  const d = await data.surah(n); const out = [];
+  d.v.forEach((v, vi) => v[2].forEach((w, wi) => { const id = stemOf(w).seg[3]; out.push(id >= 0 ? id : -1); }));
+  data._sl.set(n, out);
+  return out;
+}
+async function surahKnowledge(ctx, n, K) {
+  K = K || lemmaKnowledge(ctx);
+  const ids = await surahLemmas(ctx.data, n);
+  let total = 0, known = 0, learning = 0; const freq = new Map();
+  ids.forEach(id => {
+    if (id < 0) return; total++;
+    const k = K.get(id); if (k === 2) known++; else if (k === 1) learning++;
+    else freq.set(id, (freq.get(id) || 0) + 1);
+  });
+  const unknown = [...freq.entries()].sort((a, b) => b[1] - a[1] || ctx.data.lemmas[b[0]][5] - ctx.data.lemmas[a[0]][5]).map(x => x[0]);
+  return { n, total, known, learning, unknown, pct: total ? Math.round(100 * known / total) : 0, pctAll: total ? Math.round(100 * (known + learning) / total) : 0 };
+}
+/* une séance « mots de cette sourate » : ceux à revoir, puis les nouveaux les plus utiles */
+async function makeSurahWordsSession(ctx, n, max) {
+  const data = ctx.data; const S = srsStore(ctx);
+  const ids = [...new Set((await surahLemmas(data, n)).filter(i => i >= 0))];
+  const d = { title: 'Mots de la sourate ' + data.surahInfo(n)[1], vocab: true };
+  const due = shuffle(ids.map(i => vocabCard(data, i)).filter(c => isDue(S, c)).map(c => ({ c, d })));
+  const k = await surahKnowledge(ctx, n);
+  const fresh = k.unknown.slice(0, max || 15).map(i => ({ c: vocabCard(data, i), d, extra: true }));
+  const queue = []; let i = 0, j = 0;
+  while (i < due.length || j < fresh.length) { for (let q = 0; q < 3 && i < due.length; q++) queue.push(due[i++]); if (j < fresh.length) queue.push(fresh[j++]); }
+  return { queue, done: 0, total: queue.length, again: 0 };
+}
+function progressBar2(parent, a, b, cls) {
+  const bar = h(parent, 'div', 'aa-kbar' + (cls ? ' ' + cls : ''));
+  const f1 = h(bar, 'div', 'aa-kbar-a'); f1.style.width = Math.round(100 * a) + '%';
+  const f2 = h(bar, 'div', 'aa-kbar-b'); f2.style.width = Math.round(100 * b) + '%';
+  return bar;
+}
+
+/* ---------- affichage d'une carte de mot ---------- */
+function vocabExampleRef(l) {
+  const refs = (l[6] || '').split(',').filter(Boolean).map(r => r.split(':').map(Number));
+  if (!refs.length) return null;
+  return refs.find(r => r[0] === 1) || refs.filter(r => r[0] >= 78).pop() || refs[0];
+}
+function renderVocabFront(ctx, el, c) {
+  const l = ctx.data.lemmas[c.voc];
+  const w = h(el, 'div', 'aa-voc-word'); w.setAttribute('dir', 'rtl'); w.textContent = l[0];
+  const row = h(el, 'div', 'aa-voc-hint');
+  h(row, 'span', 'aa-muted aa-small', lemmaType(l));
+  const ref = vocabExampleRef(l);
+  if (ctx.settings.audio !== false) soundBtn(row, ev => { ev && ev.stopPropagation && ev.stopPropagation(); playWord(ref, l[0], ctx); }, 'Écouter ce mot dans le Coran');
+}
+function renderVocabBack(ctx, el, c) {
+  const data = ctx.data; const l = data.lemmas[c.voc];
+  h(el, 'div', 'aa-voc-gloss', l[4]);
+  const meta = h(el, 'div', 'aa-voc-meta aa-muted');
+  const tr = lemmaTranslit(c.voc, data.lemmas); if (tr) h(meta, 'span', 'aa-tr', tr);
+  if (l[3]) { const r = h(meta, 'span', null, 'racine '); const b = h(r, 'bdi', 'aa-ari'); b.setAttribute('dir', 'rtl'); b.textContent = l[3].split('').join(' '); }
+  h(meta, 'span', null, l[5] + ' fois dans le Coran');
+  if (l[7]) { const def = h(el, 'div', 'aa-voc-def'); cardInline(def, l[7].length > 260 ? l[7].slice(0, 260).replace(/\s+\S*$/, '') + '…' : l[7]); }
+  const ref = vocabExampleRef(l);
+  if (ref) {
+    const ex = h(el, 'div', 'aa-voc-ex');
+    data.surah(ref[0]).then(d => {
+      const vv = d.v[ref[1] - 1]; if (!vv) return;
+      const line = h(ex, 'div', 'aa-voc-ex-ar'); line.setAttribute('dir', 'rtl');
+      vv[2].forEach((w, wi) => { arSpan(line, wordText(w), wi + 1 === ref[2] ? 'aa-voc-hl' : ''); line.appendChild(document.createTextNode(' ')); });
+      const fr = h(ex, 'div', 'aa-voc-ex-fr aa-small'); fr.appendChild(document.createTextNode(vv[0] + ' '));
+      const a = h(fr, 'a', 'aa-link', '(' + ref[0] + ':' + ref[1] + ')'); a.addEventListener('click', ev => { ev.preventDefault(); ctx.openQuran(ref[0], ref[1]); });
+    }).catch(() => {});
+  }
+}
+/* ====================================================================
+ * 06j - Données de l'onglet Écrire : comment tracer chaque lettre,
+ * et les unités du parcours (lettres groupées par famille de formes).
+ * steps : les gestes dans l'ordre · tip : le piège à éviter
+ * join : false = la lettre ne s'attache jamais à la lettre suivante
+ * ==================================================================== */
+const WRITE_LETTERS = {
+  'ب': { steps: ['Pars de la droite, un peu au-dessus de la ligne.', 'Descends doucement et trace un long trait **plat** vers la gauche, posé sur la ligne : un petit bateau.', 'Remonte un peu à gauche pour fermer le bateau.', 'À la fin seulement, ajoute **un point dessous**.'], tip: 'Le corps est large et plat. Le point vient toujours **après** le corps.' },
+  'ت': { steps: ['Trace le même bateau que ب.', 'Ajoute **deux points au-dessus**, côte à côte, de droite à gauche.'], tip: 'Les deux points sont au milieu du bateau, pas au bout.' },
+  'ث': { steps: ['Trace le même bateau que ب.', 'Ajoute **trois points au-dessus** : deux en bas, un au-dessus d\'eux (comme un petit triangle).'], tip: 'Sur papier, on écrit souvent les 3 points comme un petit « chapeau » ^.' },
+  'ن': { steps: ['Pars en haut à droite.', 'Descends **sous la ligne** en arrondi, comme un bol.', 'Remonte à gauche.', 'Ajoute **un point au-dessus**, au milieu du bol.'], tip: 'Isolée ou à la fin, ن est plus **ronde et plus profonde** que ب. Au début et au milieu, elle ressemble à ب (point dessus).' },
+  'ي': { steps: ['Pars en haut à droite, fais une petite vague vers la gauche.', 'Redescends en arrière vers la droite, sous la ligne.', 'Finis par une grande courbe vers la gauche (comme un s couché).', 'Ajoute **deux points dessous**.'], tip: 'Au début et au milieu, ي est une petite dent avec deux points dessous : يـ ـيـ.' },
+  'ا': { steps: ['Pars **du haut** et trace un trait droit **vers le bas**, jusqu\'à la ligne.'], tip: 'Le alif est la lettre **la plus haute**. Il ne s\'attache **jamais** à la lettre qui suit.', join: false },
+  'ل': { steps: ['Pars du haut, comme un alif.', 'Descends **sous la ligne**.', 'Tourne en arrondi vers la gauche et remonte un peu : un crochet.'], tip: 'Ne confonds pas avec ا : le lām descend sous la ligne et se termine par un crochet.' },
+  'ك': { steps: ['Trace d\'abord le grand corps : un trait du haut vers le bas, puis un long trait plat vers la gauche, et remonte au bout.', 'Ajoute le **petit signe ء** à l\'intérieur (en fin de mot) ; au début et au milieu, on trace plutôt une barre en haut : كـ.'], tip: 'Au début et au milieu, le kāf a une **barre penchée en haut** : كـ ـكـ.' },
+  'م': { steps: ['Fais une **petite boucle** ronde, sur la ligne (sens contraire des aiguilles d\'une montre).', 'Isolée ou à la fin : laisse tomber une **queue droite** sous la ligne.'], tip: 'La boucle est petite et bien fermée. Pas de point.' },
+  'ج': { steps: ['Trace un petit trait en haut, de droite à gauche.', 'Repars en arrière et descends en grande courbe **sous la ligne**, comme un grand C ouvert à gauche.', 'Ajoute **un point** au milieu du ventre.'], tip: 'ج ح خ ont le même corps : seul le point change (dedans, rien, au-dessus).' },
+  'ح': { steps: ['Même corps que ج : petit trait en haut, puis grande courbe sous la ligne.', '**Pas de point.**'], tip: 'Au début : حـ, juste la « tête » du corps, sans le grand ventre.' },
+  'خ': { steps: ['Même corps que ج.', 'Ajoute **un point au-dessus**.'], tip: 'Le point est au-dessus de la tête, pas dedans.' },
+  'د': { steps: ['Pars en haut, trace un petit trait penché vers le bas à gauche.', 'Puis un trait plat vers la droite, sur la ligne : un petit angle.'], tip: 'Petit et anguleux. Il ne s\'attache **jamais** à la lettre qui suit.', join: false },
+  'ذ': { steps: ['Trace un د.', 'Ajoute **un point au-dessus**.'], tip: 'Ne s\'attache jamais à la lettre qui suit.', join: false },
+  'ر': { steps: ['Pars sur la ligne et descends **sous la ligne** en courbe vers la gauche, comme une virgule.'], tip: 'ر plonge sous la ligne ; د reste posé dessus. Ne s\'attache jamais à la lettre qui suit.', join: false },
+  'ز': { steps: ['Trace un ر.', 'Ajoute **un point au-dessus**.'], tip: 'Ne s\'attache jamais à la lettre qui suit.', join: false },
+  'و': { steps: ['Fais une **petite boucle** sur la ligne.', 'Descends **sous la ligne** en courbe, comme un ر.'], tip: 'Une boucle + une queue de ر. Ne s\'attache jamais à la lettre qui suit.', join: false },
+  'س': { steps: ['Trace **trois petites dents** de droite à gauche, sur la ligne.', 'Isolée ou à la fin : finis par un **grand bol** sous la ligne, comme ن.'], tip: 'Les dents sont petites et régulières. Au début : سـ, seulement les trois dents.' },
+  'ش': { steps: ['Trace un س.', 'Ajoute **trois points au-dessus** (petit triangle).'], tip: 'Les 3 points sont au-dessus des dents.' },
+  'ص': { steps: ['Fais une **boucle allongée** couchée vers la droite, comme un œuf posé sur la ligne.', 'Ajoute une petite dent à gauche.', 'Isolée ou à la fin : finis par le grand bol sous la ligne.'], tip: 'La boucle est fermée et allongée. Ne pas oublier la petite dent.' },
+  'ض': { steps: ['Trace un ص.', 'Ajoute **un point au-dessus** de la boucle.'], tip: 'ض est la lettre qu\'on dit « propre à l\'arabe ».' },
+  'ط': { steps: ['Fais la **boucle allongée** posée sur la ligne (comme ص, sans la dent).', 'Ajoute un **grand trait vertical** qui descend du haut sur la boucle, à gauche.'], tip: 'Trace d\'abord la boucle, puis le trait vertical.' },
+  'ظ': { steps: ['Trace un ط.', 'Ajoute **un point** à droite du trait vertical.'], tip: 'Le point est dans l\'angle, au-dessus de la boucle.' },
+  'ع': { steps: ['Trace une **petite tête ouverte**, comme un c, en haut.', 'Repars vers la droite puis descends en grande courbe **sous la ligne**, comme pour ج.'], tip: 'Au milieu d\'un mot, la tête devient un petit triangle plein : ـعـ.' },
+  'غ': { steps: ['Trace un ع.', 'Ajoute **un point au-dessus** de la tête.'], tip: 'Même forme que ع, avec un point.' },
+  'ف': { steps: ['Fais une **petite boucle** ronde.', 'Puis un long trait plat vers la gauche sur la ligne, et remonte au bout.', 'Ajoute **un point au-dessus** de la boucle.'], tip: 'ف a un point, ق en a deux et descend plus bas.' },
+  'ق': { steps: ['Fais une **petite boucle** ronde.', 'Isolée ou à la fin : descends en **bol profond** sous la ligne.', 'Ajoute **deux points au-dessus**.'], tip: 'Le bol de ق est rond et profond, comme celui de ن.' },
+  'ه': { steps: ['Isolée : trace un **petit rond**, un peu aplati, sur la ligne.'], tip: 'ه change beaucoup : هـ au début (deux petites boucles), ـهـ au milieu, ـه à la fin.' },
+  'ة': { steps: ['Trace un ه.', 'Ajoute **deux points au-dessus**.'], tip: 'Le tā marbūṭa n\'existe qu\'à la **fin** d\'un mot (ـة après une lettre attachée).', join: false, forms: ['ة', 'ـة'] },
+  'ء': { steps: ['Trace une petite forme comme un **2 à l\'envers**, flottante, au-dessus de la ligne.'], tip: 'La hamza est petite. Elle est souvent posée sur un support : أ إ ؤ ئ.', join: false, forms: ['ء', 'أ', 'إ', 'ؤ', 'ئ'] },
+  'لا': { steps: ['Trace le **lām** du haut vers le bas.', 'Au lieu de continuer, croise vers la droite, puis trace le **alif** penché qui remonte : une sorte de V.'], tip: 'ل + ا ne s\'écrivent jamais côte à côte : on fait toujours cette ligature لا.', join: false, forms: ['لا', 'ـلا'] },
+};
+/* le parcours : on avance par familles de lettres. words = mots à écrire (seulement avec les lettres déjà vues) */
+const WRITE_UNITS = [
+  { id: 'u1', title: 'Le petit bateau', letters: ['ب', 'ت', 'ث'], words: [['تَبَّتْ', 'tabbat', 'qu\'elles périssent (111:1)'], ['ثَبَّتَ', 'thabbata', 'il a affermi']] },
+  { id: 'u2', title: 'Le bol et la vague', letters: ['ن', 'ي'], words: [['بَيْت', 'bayt', 'maison'], ['بَيْنَ', 'bayna', 'entre'], ['نَبِيّ', 'nabiyy', 'prophète']] },
+  { id: 'u3', title: 'Les lettres hautes', letters: ['ا', 'ل', 'ك'], words: [['لَا', 'lā', 'non'], ['بَاب', 'bāb', 'porte'], ['كِتَاب', 'kitāb', 'livre'], ['تِلْكَ', 'tilka', 'celle-là']] },
+  { id: 'u4', title: 'La petite boucle', letters: ['م'], words: [['مِنْ', 'min', 'de'], ['كَمَا', 'kamā', 'comme'], ['مَلِك', 'malik', 'roi'], ['لَمْ', 'lam', 'ne… pas']] },
+  { id: 'u5', title: 'Le grand ventre', letters: ['ج', 'ح', 'خ'], words: [['جَنَّات', 'jannāt', 'jardins'], ['حَكِيم', 'ḥakīm', 'sage'], ['نَجْم', 'najm', 'étoile'], ['خَلِيل', 'khalīl', 'ami intime']] },
+  { id: 'u6', title: 'Les petits angles', letters: ['د', 'ذ'], words: [['مُحَمَّد', 'muḥammad', 'Muhammad'], ['دِين', 'dīn', 'religion, jugement'], ['حَمْد', 'ḥamd', 'louange'], ['ذَلِكَ', 'dhālika', 'cela']] },
+  { id: 'u7', title: 'Les lettres qui plongent', letters: ['ر', 'ز', 'و'], words: [['رَبّ', 'rabb', 'Seigneur'], ['رَحِيم', 'raḥīm', 'très miséricordieux'], ['نُور', 'nūr', 'lumière'], ['يَوْم', 'yawm', 'jour']] },
+  { id: 'u8', title: 'Les dents', letters: ['س', 'ش'], words: [['بِسْمِ', 'bismi', 'au nom de'], ['نَاس', 'nās', 'les gens'], ['رَسُول', 'rasūl', 'messager'], ['شَمْس', 'shams', 'soleil']] },
+  { id: 'u9', title: 'Les boucles couchées', letters: ['ص', 'ض', 'ط', 'ظ'], words: [['صِرَاط', 'ṣirāṭ', 'chemin'], ['صَبْر', 'ṣabr', 'patience'], ['ظُلْم', 'ẓulm', 'injustice'], ['ضَالِّين', 'ḍāllīn', 'égarés']] },
+  { id: 'u10', title: 'L\'œil', letters: ['ع', 'غ'], words: [['عَلِيم', 'ʿalīm', 'qui sait tout'], ['عَالَمِين', 'ʿālamīn', 'les mondes'], ['غَيْب', 'ghayb', 'l\'invisible'], ['غَضَب', 'ghaḍab', 'colère']] },
+  { id: 'u11', title: 'Les boucles rondes', letters: ['ف', 'ق'], words: [['قُلْ', 'qul', 'dis !'], ['فِي', 'fī', 'dans'], ['قَلْب', 'qalb', 'cœur'], ['فَلَق', 'falaq', 'aube']] },
+  { id: 'u12', title: 'Le hā et le tā marbūṭa', letters: ['ه', 'ة'], words: [['اللَّه', 'allāh', 'Allah'], ['هُوَ', 'huwa', 'il, lui'], ['جَنَّة', 'janna', 'paradis'], ['رَحْمَة', 'raḥma', 'miséricorde']] },
+  { id: 'u13', title: 'La hamza et lām-alif', letters: ['ء', 'لا'], words: [['أَحَد', 'aḥad', 'un, unique'], ['الْأَرْض', 'al-arḍ', 'la terre'], ['سَلَام', 'salām', 'paix'], ['مُؤْمِن', 'muʾmin', 'croyant']] },
+  { id: 'u14', title: 'Écrire la Fātiḥa', letters: [], words: [['بِسْمِ اللَّهِ', 'bismi llāhi', 'au nom d\'Allah'], ['الرَّحْمَنِ الرَّحِيمِ', 'ar-raḥmāni r-raḥīm', 'le Tout Miséricordieux, le Très Miséricordieux'], ['الْحَمْدُ لِلَّهِ', 'al-ḥamdu lillāhi', 'la louange est à Allah'], ['رَبِّ الْعَالَمِينَ', 'rabbi l-ʿālamīn', 'Seigneur des mondes'], ['مَالِكِ يَوْمِ الدِّينِ', 'māliki yawmi d-dīn', 'Maître du jour du Jugement'], ['إِيَّاكَ نَعْبُدُ', 'iyyāka naʿbudu', 'c\'est Toi que nous adorons'], ['وَإِيَّاكَ نَسْتَعِينُ', 'wa-iyyāka nastaʿīn', 'et c\'est Toi dont nous implorons le secours'], ['اهْدِنَا الصِّرَاطَ', 'ihdinā ṣ-ṣirāṭa', 'guide-nous sur le chemin'], ['الْمُسْتَقِيمَ', 'al-mustaqīm', 'droit'], ['صِرَاطَ الَّذِينَ', 'ṣirāṭa lladhīna', 'le chemin de ceux'], ['أَنْعَمْتَ عَلَيْهِمْ', 'anʿamta ʿalayhim', 'que Tu as comblés'], ['غَيْرِ الْمَغْضُوبِ عَلَيْهِمْ', 'ghayri l-maghḍūbi ʿalayhim', 'non pas de ceux qui ont encouru Ta colère'], ['وَلَا الضَّالِّينَ', 'wa-lā ḍ-ḍāllīn', 'ni des égarés']] },
+];
+const WRITE_BASICS = [
+  'On écrit **de droite à gauche**, sur une **ligne de base** (le trait en pointillé).',
+  'Dans chaque lettre, trace d\'abord **le corps**, puis les **points**, et à la toute fin les **voyelles** (petits signes).',
+  'Les lettres d\'un mot **s\'attachent** entre elles par un trait sur la ligne. Six lettres ne s\'attachent **jamais à la suivante** : ا د ذ ر ز و.',
+  'Chaque lettre a jusqu\'à **4 formes** : seule, au début, au milieu, à la fin. Le cœur de la lettre reste le même.',
+  'Certaines lettres **montent** (ا ل ك ط), d\'autres **plongent sous la ligne** (ر ز و ن ي ج ح خ ع غ م ق س ش ص ض).',
+  'Sur iPad, utilise de préférence l\'**Apple Pencil**. Sur téléphone, le doigt suffit : écris grand.',
+];
+/* les 4 formes d'une lettre, avec le trait d'union arabe (ـ) pour montrer les liaisons */
+function writeForms(l) {
+  const W = WRITE_LETTERS[l] || {};
+  if (W.forms) return W.forms.map((f, i) => [f, i === 0 ? 'seule' : (W.forms.length === 2 ? 'à la fin' : 'sur un support')]);
+  if (W.join === false) return [[l, 'seule'], ['ـ' + l, 'à la fin']];
+  return [[l, 'seule'], [l + 'ـ', 'au début'], ['ـ' + l + 'ـ', 'au milieu'], ['ـ' + l, 'à la fin']];
+}
+/* ====================================================================
+ * 06k - Onglet Écrire : apprendre à tracer les lettres et les mots
+ * Un cahier d'écriture : on regarde, on trace sur le modèle, puis on
+ * écrit seul. L'atelier compare ton tracé au modèle et donne une note.
+ * Tout se passe sur l'appareil (aucune connexion nécessaire).
+ * ==================================================================== */
+const WR_FONT = '"Atelier Amiri Quran", "Amiri Quran", "Amiri", "Geeza Pro", serif';
+function writeState(ctx) { const W = ctx.settings.writing || (ctx.settings.writing = {}); if (!W.l) W.l = {}; if (!W.w) W.w = {}; return W; }
+function letterLearned(W, l) { return !!(W.l[l] && W.l[l].s >= 60); }
+function writeAllLetters() { const out = []; WRITE_UNITS.forEach(u => u.letters.forEach(l => out.push(l))); return out; }
+function writeNext(W) {
+  for (const u of WRITE_UNITS) for (const l of u.letters) if (!letterLearned(W, l)) return { unit: u, letter: l };
+  for (const u of WRITE_UNITS) for (let i = 0; i < u.words.length; i++) if (!(W.w[u.words[i][0]] >= 60)) return { unit: u, word: i };
+  return null;
+}
+function alphaLetter(l) { return (((CONTENT[UI_LANG] || CONTENT.fr || {}).alphabet || {}).letters || []).find(x => x.l === l) || null; }
+function starsOf(score) { return score >= 80 ? '★★★' : score >= 60 ? '★★☆' : score >= 40 ? '★☆☆' : '☆☆☆'; }
+
+/* ---------- le cahier : une zone où l'on écrit au doigt, au stylet ou à la souris ---------- */
+function wrGrid(cv, cell) {
+  const w = cv.width, hh = cv.height; const d = cv.getContext('2d').getImageData(0, 0, w, hh).data;
+  const gw = Math.ceil(w / cell), gh = Math.ceil(hh / cell); const g = new Uint8Array(gw * gh);
+  for (let y = 0; y < hh; y += 2) for (let x = 0; x < w; x += 2) if (d[(y * w + x) * 4 + 3] > 90) g[((y / cell) | 0) * gw + ((x / cell) | 0)] = 1;
+  return { g, gw, gh };
+}
+function wrDilate(G, r) {
+  if (r <= 0) return G;
+  const { gw, gh } = G; const a = new Uint8Array(gw * gh), b = new Uint8Array(gw * gh);
+  for (let y = 0; y < gh; y++) { let last = -1e9; for (let x = 0; x < gw; x++) { if (G.g[y * gw + x]) last = x; if (x - last <= r) a[y * gw + x] = 1; } last = 1e9; for (let x = gw - 1; x >= 0; x--) { if (G.g[y * gw + x]) last = x; if (last - x <= r) a[y * gw + x] = 1; } }
+  for (let x = 0; x < gw; x++) { let last = -1e9; for (let y = 0; y < gh; y++) { if (a[y * gw + x]) last = y; if (y - last <= r) b[y * gw + x] = 1; } last = 1e9; for (let y = gh - 1; y >= 0; y--) { if (a[y * gw + x]) last = y; if (last - y <= r) b[y * gw + x] = 1; } }
+  return { g: b, gw, gh };
+}
+function wrBox(G) {
+  let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+  for (let y = 0; y < G.gh; y++) for (let x = 0; x < G.gw; x++) if (G.g[y * G.gw + x]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  return x1 < 0 ? null : { x0, y0, x1, y1 };
+}
+/* note sur 100 : la part du modèle que ton tracé recouvre, et la part de ton tracé qui tombe sur le modèle */
+function wrCompare(model, ink, rCover, rTol) {
+  const id = wrDilate(ink, rCover), md = wrDilate(model, rTol);
+  let m = 0, mc = 0, k = 0, kc = 0;
+  for (let i = 0; i < model.g.length; i++) { if (model.g[i]) { m++; if (id.g[i]) mc++; } if (ink.g[i]) { k++; if (md.g[i]) kc++; } }
+  if (!m || !k) return { score: 0, cover: 0, prec: 0 };
+  const cover = mc / m, prec = kc / k; let f = 2 * cover * prec / Math.max(1e-6, cover + prec);
+  const area = k / m; if (area > 1.6) f *= 1.6 / area; // trop d'encre : un gribouillis n'est pas une lettre
+  return { score: Math.round(100 * Math.max(0, Math.min(1, (f - 0.35) / 0.55))), cover, prec, area };
+}
+
+function makeWritePad(ctx, parent, opts) {
+  const pad = { strokes: [], text: opts.text || '', mode: opts.mode || 'trace', checked: false };
+  const wrap = h(parent, 'div', 'aa-wr-pad aa-wr-' + pad.mode);
+  const cv = h(wrap, 'canvas', 'aa-wr-canvas');
+  const tools = h(parent, 'div', 'aa-wr-tools');
+  const res = h(parent, 'div', 'aa-wr-res');
+  let W = 0, H = 0, dpr = 1, lay = null, demoT = null;
+  const g2 = () => cv.getContext('2d');
+  const colors = () => { const cs = getComputedStyle(wrap); return { ink: cs.color || '#222', model: cs.getPropertyValue('--aa-wr-model').trim() || 'rgba(120,120,130,.22)', good: cs.getPropertyValue('--aa-acc').trim() || '#1f9a55', line: cs.getPropertyValue('--aa-wr-line').trim() || 'rgba(120,120,130,.45)' }; };
+  function layout() {
+    W = Math.max(240, Math.round(wrap.clientWidth || parent.clientWidth || 600));
+    H = Math.round(Math.max(190, Math.min(320, W * (pad.text.length > 4 ? 0.42 : 0.55))));
+    dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.height = H + 'px';
+    lay = null;
+    if (!pad.text) return;
+    const c = document.createElement('canvas').getContext('2d');
+    const fit = fs => { c.font = fs + 'px ' + WR_FONT; c.direction = 'rtl'; c.textAlign = 'left'; const m = c.measureText(pad.text); return { m, bw: m.actualBoundingBoxLeft + m.actualBoundingBoxRight, bh: m.actualBoundingBoxAscent + m.actualBoundingBoxDescent }; };
+    let fs = H * 0.5; let r = fit(fs);
+    const s = Math.min((W * 0.86) / Math.max(1, r.bw), (H * 0.74) / Math.max(1, r.bh), 1.7);
+    fs = Math.max(20, fs * s); r = fit(fs);
+    const x = W / 2 + (r.m.actualBoundingBoxLeft - r.m.actualBoundingBoxRight) / 2;
+    const y = H / 2 + (r.m.actualBoundingBoxAscent - r.m.actualBoundingBoxDescent) / 2;
+    lay = { fs, x, y, lw: Math.max(5, fs * 0.055), left: x - r.m.actualBoundingBoxLeft, right: x + r.m.actualBoundingBoxRight };
+  }
+  function drawText(c, color, clipFrom) {
+    if (!lay) return;
+    c.save();
+    if (clipFrom != null) { c.beginPath(); c.rect(clipFrom, 0, W, H); c.clip(); }
+    c.font = lay.fs + 'px ' + WR_FONT; c.direction = 'rtl'; c.textAlign = 'left'; c.fillStyle = color; c.fillText(pad.text, lay.x, lay.y);
+    c.restore();
+  }
+  function drawStrokes(c, color, strokes, lw) {
+    c.save(); c.strokeStyle = color; c.fillStyle = color; c.lineWidth = lw; c.lineCap = 'round'; c.lineJoin = 'round';
+    for (const s of strokes) {
+      if (s.length === 1) { c.beginPath(); c.arc(s[0][0], s[0][1], lw / 2, 0, 7); c.fill(); continue; }
+      c.beginPath(); c.moveTo(s[0][0], s[0][1]); for (let i = 1; i < s.length; i++) c.lineTo(s[i][0], s[i][1]); c.stroke();
+    }
+    c.restore();
+  }
+  function redraw(o) {
+    o = o || {};
+    const c = g2(); const col = colors();
+    c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
+    const base = lay ? lay.y : H * 0.62;
+    c.save(); c.strokeStyle = col.line; c.lineWidth = 1; c.setLineDash([6, 6]); c.beginPath(); c.moveTo(10, base); c.lineTo(W - 10, base); c.stroke(); c.restore();
+    if (o.demo != null) drawText(c, col.ink, o.demo);
+    else if (o.result) drawText(c, col.good, null);
+    else if (pad.mode === 'trace' || pad.mode === 'view') drawText(c, col.model, null);
+    c.save(); if (o.result) c.globalAlpha = .85;
+    drawStrokes(c, col.ink, o.strokes || pad.strokes, lay ? lay.lw : 6);
+    c.restore();
+  }
+  /* démonstration : la lettre apparaît de droite à gauche, dans le sens de l'écriture */
+  pad.demo = () => {
+    if (!lay) return; if (demoT) cancelAnimationFrame(demoT);
+    const t0 = performance.now(); const from = lay.right + 4, to = lay.left - 4; const dur = 1800;
+    const step = now => { const t = Math.min(1, (now - t0) / dur); redraw({ demo: from - (from - to) * t }); if (t < 1) demoT = requestAnimationFrame(step); else { demoT = null; if (pad.mode !== 'view') setTimeout(() => { if (!pad.strokes.length && !pad.checked) redraw(); }, 700); } };
+    demoT = requestAnimationFrame(step);
+  };
+  const pt = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * H / r.height]; };
+  let cur = null, penSeen = false;
+  if (pad.mode !== 'view') {
+    cv.addEventListener('pointerdown', e => {
+      if (e.pointerType === 'pen') penSeen = true;
+      if (penSeen && e.pointerType === 'touch') return; // la paume posée sur l'iPad
+      if (pad.checked) { pad.checked = false; pad.strokes = []; clear(res); }
+      e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+      cur = [pt(e)]; pad.strokes.push(cur); redraw();
+    });
+    cv.addEventListener('pointermove', e => {
+      if (!cur) return; e.preventDefault();
+      const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+      (evs.length ? evs : [e]).forEach(x => cur.push(pt(x)));
+      redraw();
+    });
+    const end = () => { cur = null; };
+    cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end); cv.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') end(); });
+    btn(tools, '↶ Annuler le trait', () => { pad.strokes.pop(); pad.checked = false; clear(res); redraw(); }, 'aa-btn-quiet');
+    btn(tools, '✕ Effacer', () => { pad.strokes = []; pad.checked = false; clear(res); redraw(); }, 'aa-btn-quiet');
+  }
+  if (pad.text) btn(tools, '▶ Voir le geste', () => { pad.strokes = []; pad.checked = false; clear(res); pad.demo(); }, 'aa-btn-quiet');
+  if (pad.text && pad.mode !== 'view' && opts.onScore) btn(tools, '✓ Vérifier', () => pad.check(), 'mod-cta');
+  pad.check = () => {
+    if (!lay) return;
+    if (!pad.strokes.length) { clear(res); h(res, 'div', 'aa-muted', 'Écris d\'abord dans le cadre.'); return; }
+    const mk = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
+    const mc = mk(); drawText(mc.getContext('2d'), '#000', null);
+    const cell = 3; const model = wrGrid(mc, cell);
+    let strokes = pad.strokes;
+    if (pad.mode === 'alone') { // écrit sans modèle : on remet ton tracé à la taille et à la place du modèle
+      const c0 = mk(); drawStrokes(c0.getContext('2d'), '#000', strokes, lay.lw);
+      const ib = wrBox(wrGrid(c0, cell)), mb = wrBox(model);
+      if (mb && ib) {
+        const mw = (mb.x1 - mb.x0 + 1) * cell, mh = (mb.y1 - mb.y0 + 1) * cell, iw = (ib.x1 - ib.x0 + 1) * cell, ih = (ib.y1 - ib.y0 + 1) * cell;
+        // largeur et hauteur ajustées séparément, sans trop déformer (rapport limité à 1,6)
+        const g = Math.sqrt((mw / iw) * (mh / ih)); const lim = v => Math.max(g / 1.6, Math.min(g * 1.6, v));
+        const sx = Math.max(0.3, Math.min(4, lim(mw / iw))), sy = Math.max(0.3, Math.min(4, lim(mh / ih)));
+        const cx = (ib.x0 + ib.x1 + 1) * cell / 2, cy = (ib.y0 + ib.y1 + 1) * cell / 2, mx = (mb.x0 + mb.x1 + 1) * cell / 2, my = (mb.y0 + mb.y1 + 1) * cell / 2;
+        strokes = strokes.map(st => st.map(([x, y]) => [mx + (x - cx) * sx, my + (y - cy) * sy]));
+      }
+    }
+    const ic = mk(); drawStrokes(ic.getContext('2d'), '#000', strokes, lay.lw);
+    const ink = wrGrid(ic, cell);
+    const r = wrCompare(model, ink, Math.max(1, Math.round(lay.fs * 0.035 / cell)), Math.max(1, Math.round(lay.fs * (pad.mode === 'alone' ? 0.055 : 0.045) / cell)));
+    pad.checked = true;
+    redraw({ result: true, strokes });
+    clear(res);
+    const row = h(res, 'div', 'aa-wr-score ' + (r.score >= 60 ? 'aa-wr-good' : r.score >= 40 ? 'aa-wr-mid' : 'aa-wr-low'));
+    h(row, 'span', 'aa-wr-stars', starsOf(r.score)); h(row, 'b', null, r.score + ' / 100');
+    let msg = r.score >= 80 ? 'Très bien tracé.' : r.score >= 60 ? 'Bien. La forme est reconnaissable.' : r.score >= 40 ? 'Presque : compare avec le modèle en vert.' : 'Pas encore : regarde le geste, puis réessaie.';
+    if (r.score < 80 && r.cover < 0.6) msg += ' Il manque une partie de la lettre (un point ? la fin du trait ?).';
+    else if (r.score < 80 && r.prec < 0.6) msg += ' Une partie de ton tracé sort du modèle.';
+    h(row, 'span', 'aa-muted', msg);
+    if (ctx.markActivity) ctx.markActivity('w');
+    if (opts.onScore) opts.onScore(r.score, r);
+  };
+  pad.info = () => ({ lay, W, H });
+  pad.setText = t => { pad.text = t; pad.strokes = []; pad.checked = false; clear(res); layout(); redraw(); };
+  const start = () => { layout(); redraw(); if (opts.autoDemo) setTimeout(() => pad.demo(), 300); };
+  if (document.fonts && document.fonts.load) document.fonts.load('40px ' + WR_FONT, pad.text || 'ب').then(start, start); else start();
+  return pad;
+}
+
+/* ---------- l'onglet ---------- */
+function renderWriteTab(ctx, root, state) {
+  clear(root);
+  const go = () => renderWriteTab(ctx, root, state);
+  if (state.letter) return renderWriteLetter(ctx, root, state, go);
+  if (state.word) return renderWriteWord(ctx, root, state, go);
+  if (state.unit) { const u = WRITE_UNITS.find(x => x.id === state.unit); if (u) return renderWriteUnit(ctx, root, state, u, go); state.unit = null; }
+  if (state.free) return renderWriteFree(ctx, root, state, go);
+  const W = writeState(ctx);
+  const all = writeAllLetters(); const nL = all.filter(l => letterLearned(W, l)).length;
+  const head = h(root, 'div', 'aa-wr-head');
+  h(head, 'h2', null, '✍️ Apprendre à écrire');
+  mdText(head, 'p', 'aa-muted', 'Un vrai cahier d\'écriture : pour chaque lettre, tu **regardes le geste**, tu **traces sur le modèle**, puis tu l\'**écris seul**. L\'atelier compare ton tracé au modèle et te donne une note. Une lettre est apprise quand tu l\'écris seul avec au moins **60 / 100**.');
+  const bar = h(head, 'div', 'aa-lesson-progress'); const f = h(bar, 'div', 'aa-lesson-fill'); f.style.width = Math.round(100 * nL / all.length) + '%';
+  h(head, 'div', 'aa-muted aa-small', nL + ' / ' + all.length + ' lettres apprises');
+  const nx = writeNext(W);
+  const act = h(head, 'div', 'aa-fc-start');
+  if (nx && nx.letter) btn(act, '▶  Continuer : la lettre ' + nx.letter + (alphaLetter(nx.letter) ? ' (' + alphaLetter(nx.letter).name + ')' : ''), () => { state.unit = nx.unit.id; state.letter = nx.letter; state.step = 0; go(); }, 'mod-cta aa-fc-big');
+  else if (nx) btn(act, '▶  Continuer : écrire « ' + nx.unit.words[nx.word][0] + ' »', () => { state.unit = nx.unit.id; state.word = [nx.unit.id, nx.word]; state.step = 0; go(); }, 'mod-cta aa-fc-big');
+  else h(act, 'div', 'aa-ok', 'Tu as fait tout le parcours. Continue avec l\'écriture libre, ou refais les lettres pour améliorer tes notes.');
+  btn(act, '✏️  Écriture libre', () => { state.free = true; go(); }, 'aa-fc-big2');
+  const bas = details(root, '📏 Les règles de base de l\'écriture arabe', nL === 0);
+  const ul = h(bas, 'ul', 'aa-wr-basics'); WRITE_BASICS.forEach(t => mdText(ul, 'li', null, t));
+  const grid = h(root, 'div', 'aa-wr-units');
+  WRITE_UNITS.forEach((u, k) => {
+    const done = u.letters.filter(l => letterLearned(W, l)).length; const wd = u.words.filter(w => W.w[w[0]] >= 60).length;
+    const c = h(grid, 'div', 'aa-wr-unit' + (u.letters.length && done === u.letters.length ? ' aa-wr-unit-done' : '') + (nx && nx.unit === u ? ' aa-wr-unit-next' : ''));
+    const top = h(c, 'div', 'aa-lesson-top'); h(top, 'span', 'aa-lesson-num', String(k + 1)); if (nx && nx.unit === u) h(top, 'span', 'aa-tag', '→ maintenant');
+    h(c, 'div', 'aa-lesson-title', u.title);
+    const ls = h(c, 'div', 'aa-wr-chips'); ls.setAttribute('dir', 'rtl');
+    (u.letters.length ? u.letters : u.words.slice(0, 2).map(w => w[0])).forEach(l => h(ls, 'span', 'aa-wr-chip' + (letterLearned(W, l) ? ' aa-wr-chip-ok' : ''), l));
+    h(c, 'div', 'aa-muted aa-small', (u.letters.length ? done + ' / ' + u.letters.length + ' lettres · ' : '') + wd + ' / ' + u.words.length + ' mots');
+    c.addEventListener('click', () => { state.unit = u.id; go(); });
+  });
+}
+
+function renderWriteUnit(ctx, root, state, u, go) {
+  const W = writeState(ctx);
+  btn(h(root, 'div', 'aa-actions'), '← Toutes les unités', () => { state.unit = null; go(); }, 'aa-btn-quiet');
+  h(root, 'h2', null, u.title);
+  if (u.letters.length) {
+    h(root, 'h3', 'aa-fc-group', 'Les lettres');
+    const grid = h(root, 'div', 'aa-wr-letters');
+    u.letters.forEach(l => {
+      const A = alphaLetter(l); const st = W.l[l];
+      const c = h(grid, 'div', 'aa-wr-lcard' + (letterLearned(W, l) ? ' aa-wr-lcard-ok' : ''));
+      const g = h(c, 'div', 'aa-wr-lbig'); g.setAttribute('dir', 'rtl'); g.textContent = l;
+      h(c, 'div', null, A ? A.name : (l === 'لا' ? 'lām-alif' : l === 'ة' ? 'tā marbūṭa' : l === 'ء' ? 'hamza' : ''));
+      h(c, 'div', 'aa-muted aa-small', st ? (letterLearned(W, l) ? '✓ apprise · ' : '') + 'seul : ' + (st.s || 0) + ' / 100' : 'pas encore faite');
+      c.addEventListener('click', () => { state.letter = l; state.step = 0; go(); });
+    });
+  }
+  h(root, 'h3', 'aa-fc-group', u.letters.length ? 'Des mots avec ces lettres' : 'Les mots');
+  const list = h(root, 'div', 'aa-wr-words');
+  u.words.forEach((w, i) => {
+    const r = h(list, 'div', 'aa-wr-wrow');
+    const a = h(r, 'span', 'aa-wr-war'); a.setAttribute('dir', 'rtl'); a.textContent = w[0];
+    const t = h(r, 'span', 'aa-wr-wtxt'); h(t, 'span', 'aa-tr', w[1]); h(t, 'span', 'aa-muted', ' · ' + w[2]);
+    h(r, 'span', 'aa-muted aa-small', W.w[w[0]] != null ? (W.w[w[0]] >= 60 ? '✓ ' : '') + W.w[w[0]] + ' / 100' : '');
+    r.addEventListener('click', () => { state.word = [u.id, i]; state.step = 0; go(); });
+  });
+  if (u.id === 'u14') h(root, 'p', 'aa-muted aa-small', 'On écrit ici l\'orthographe courante (الرَّحْمَنِ). Dans le Coran, le ā de الرَّحْمَٰنِ est noté par un petit alif ٰ au-dessus.');
+}
+
+/* une lettre : regarder, tracer, tracer ses formes, l'écrire seul */
+function renderWriteLetter(ctx, root, state, go) {
+  const l = state.letter; const Wd = WRITE_LETTERS[l] || { steps: [], tip: '' }; const A = alphaLetter(l); const W = writeState(ctx);
+  const forms = writeForms(l);
+  const ex = [{ t: l, m: 'trace', lab: 'Trace la lettre en suivant le modèle gris.' }, { t: l, m: 'trace', lab: 'Encore une fois, plus régulier.' }];
+  forms.slice(1).forEach(([f, where]) => ex.push({ t: f, m: 'trace', lab: 'Trace la forme ' + where + ' : ' + f }));
+  ex.push({ t: l, m: 'alone', lab: 'Maintenant, écris la lettre **seul**, sans modèle. Ensuite, appuie sur « Vérifier ».' });
+  const n = ex.length; const step = state.step || 0;
+  const top = h(root, 'div', 'aa-fc-head');
+  btn(top, '← Retour', () => { state.letter = null; go(); }, 'aa-btn-quiet');
+  h(top, 'span', 'aa-muted aa-small', 'La lettre ' + (A ? A.name : l));
+  h(top, 'span', 'aa-muted aa-small aa-fc-left', step === 0 ? 'Regarder' : 'Exercice ' + step + ' / ' + n);
+  const bar = h(root, 'div', 'aa-lesson-progress'); const fl = h(bar, 'div', 'aa-lesson-fill'); fl.style.width = Math.round(100 * step / (n + 1)) + '%';
+  if (step === 0) {
+    const box = h(root, 'div', 'aa-wr-look');
+    const big = h(box, 'div', 'aa-wr-look-pad');
+    const pad = makeWritePad(ctx, big, { text: l, mode: 'view', autoDemo: true });
+    const info = h(box, 'div', 'aa-wr-look-info');
+    const nm = h(info, 'div', 'aa-wr-name'); h(nm, 'b', null, A ? A.name : l); if (A) { const s = h(nm, 'span', 'aa-ari'); s.setAttribute('dir', 'rtl'); s.textContent = '  ' + A.nameAr; }
+    if (A) { const snd = h(info, 'div', 'aa-actions'); btn(snd, '🔊 Le nom', () => speak(A.nameAr), 'aa-btn-quiet'); h(snd, 'span', 'aa-muted aa-small', 'son : ' + A.son); }
+    h(info, 'h4', null, 'Le geste');
+    const ol = h(info, 'ol', 'aa-wr-steps'); Wd.steps.forEach(s => mdText(ol, 'li', null, s));
+    if (Wd.tip) mdText(info, 'p', 'aa-wr-tip', '💡 ' + Wd.tip);
+    h(root, 'h4', null, 'Ses formes dans un mot');
+    const fr = h(root, 'div', 'aa-wr-forms');
+    forms.forEach(([f, where]) => { const c = h(fr, 'div', 'aa-wr-form'); const a = h(c, 'div', 'aa-wr-form-ar'); a.setAttribute('dir', 'rtl'); a.textContent = f; h(c, 'div', 'aa-muted aa-small', where); });
+    if (A && A.ex) { const e = h(root, 'p', 'aa-muted'); e.appendChild(document.createTextNode('Exemple : ')); const s = h(e, 'bdi', 'aa-ari aa-wr-exw'); s.setAttribute('dir', 'rtl'); s.textContent = A.ex[0]; e.appendChild(document.createTextNode('  ' + A.ex[1] + ' · ' + A.ex[2])); }
+    btn(h(root, 'div', 'aa-fc-start'), 'Je m\'entraîne →', () => { state.step = 1; go(); }, 'mod-cta aa-fc-big');
+    return pad;
+  }
+  if (step > n) {
+    const st = W.l[l] || {};
+    const end = h(root, 'div', 'aa-fc-end');
+    h(end, 'div', 'aa-fc-end-ic', letterLearned(W, l) ? '🌿' : '✍️');
+    h(end, 'h3', null, letterLearned(W, l) ? 'Lettre apprise' : 'Continue à t\'entraîner');
+    h(end, 'p', 'aa-muted', 'Meilleure note en traçant : ' + (st.t || 0) + ' / 100 · écrite seul : ' + (st.s || 0) + ' / 100.' + (letterLearned(W, l) ? '' : ' Il faut au moins 60 seul pour la valider.'));
+    const a = h(end, 'div', 'aa-fc-start');
+    const nx = writeNext(W);
+    if (nx && nx.letter && nx.letter !== l) btn(a, 'Lettre suivante : ' + nx.letter + ' →', () => { state.unit = nx.unit.id; state.letter = nx.letter; state.step = 0; go(); }, 'mod-cta aa-fc-big');
+    btn(a, '↻ Refaire cette lettre', () => { state.step = 1; go(); }, 'aa-fc-big2');
+    btn(a, 'Retour à l\'unité', () => { state.letter = null; go(); }, 'aa-btn-quiet');
+    return;
+  }
+  const e = ex[step - 1];
+  mdText(root, 'p', 'aa-wr-ask', e.lab);
+  if (e.m === 'alone') { const nm = h(root, 'div', 'aa-muted aa-small'); nm.textContent = 'La lettre ' + (A ? A.name : l) + ', forme seule. Si tu bloques : « Voir le geste ».'; }
+  const pad = makeWritePad(ctx, root, { text: e.t, mode: e.m, autoDemo: step === 1, onScore: sc => {
+    const st = W.l[l] || (W.l[l] = { t: 0, s: 0, n: 0 });
+    st.n++; if (e.m === 'alone') st.s = Math.max(st.s || 0, sc); else st.t = Math.max(st.t || 0, sc); st.d = todayNum();
+    ctx.save();
+    nav.style.display = '';
+  } });
+  const nav = h(root, 'div', 'aa-fc-start'); nav.style.display = 'none';
+  btn(nav, step < n ? 'Exercice suivant →' : 'Terminer →', () => { state.step = step + 1; go(); }, 'mod-cta aa-fc-big');
+  btn(nav, '↻ Réessayer', () => { pad.setText(e.t); nav.style.display = 'none'; }, 'aa-fc-big2');
+  if (step < n) { const skip = h(root, 'p', 'aa-small'); const sk = h(skip, 'a', 'aa-link aa-muted', 'passer cet exercice'); sk.addEventListener('click', ev => { ev.preventDefault(); state.step = step + 1; go(); }); }
+}
+
+function renderWriteWord(ctx, root, state, go) {
+  const [uid, i] = state.word; const u = WRITE_UNITS.find(x => x.id === uid); const w = u && u.words[i];
+  if (!w) { state.word = null; return go(); }
+  const W = writeState(ctx); const step = state.step || 0;
+  const top = h(root, 'div', 'aa-fc-head');
+  btn(top, '← Retour', () => { state.word = null; go(); }, 'aa-btn-quiet');
+  h(top, 'span', 'aa-muted aa-small', u.title);
+  h(top, 'span', 'aa-muted aa-small aa-fc-left', 'Mot ' + (i + 1) + ' / ' + u.words.length);
+  const head = h(root, 'div', 'aa-wr-wordhead');
+  const a = h(head, 'span', 'aa-wr-war'); a.setAttribute('dir', 'rtl'); a.textContent = w[0];
+  h(head, 'span', 'aa-tr', w[1]); h(head, 'span', 'aa-muted', ' · ' + w[2]);
+  soundBtn(head, () => speak(w[0]));
+  mdText(root, 'p', 'aa-wr-ask', step === 0 ? 'Trace le mot sur le modèle : les lettres **attachées d\'un seul trait**, puis les points, puis les voyelles.' : 'Écris le mot **seul**, sans modèle (tu peux le lire en haut), puis « Vérifier ».');
+  const nav = h(document.createElement('div'), 'div', 'aa-fc-start');
+  const pad = makeWritePad(ctx, root, { text: w[0], mode: step === 0 ? 'trace' : 'alone', autoDemo: step === 0, onScore: sc => {
+    if (step === 1) { W.w[w[0]] = Math.max(W.w[w[0]] || 0, sc); ctx.save(); }
+    nav.style.display = '';
+  } });
+  root.appendChild(nav); nav.style.display = 'none';
+  if (step === 0) btn(nav, 'Maintenant seul →', () => { state.step = 1; go(); }, 'mod-cta aa-fc-big');
+  else if (i + 1 < u.words.length) btn(nav, 'Mot suivant →', () => { state.word = [uid, i + 1]; state.step = 0; go(); }, 'mod-cta aa-fc-big');
+  else btn(nav, 'Retour à l\'unité', () => { state.word = null; go(); }, 'mod-cta aa-fc-big');
+  btn(nav, '↻ Réessayer', () => { pad.setText(w[0]); nav.style.display = 'none'; }, 'aa-fc-big2');
+  if (step === 0) { const s = h(root, 'p', 'aa-small'); const k = h(s, 'a', 'aa-link aa-muted', 'passer au tracé seul'); k.addEventListener('click', ev => { ev.preventDefault(); state.step = 1; go(); }); }
+}
+
+function renderWriteFree(ctx, root, state, go) {
+  btn(h(root, 'div', 'aa-actions'), '← Retour', () => { state.free = false; go(); }, 'aa-btn-quiet');
+  h(root, 'h2', null, '✏️ Écriture libre');
+  mdText(root, 'p', 'aa-muted', 'Tape un mot arabe (ou choisis-en un) pour avoir un modèle, puis entraîne-toi. Laisse vide pour écrire sans modèle.');
+  const row = h(root, 'div', 'aa-actions');
+  const inp = h(row, 'input', 'aa-input aa-wr-input'); inp.type = 'text'; inp.setAttribute('dir', 'rtl'); inp.value = state.freeText != null ? state.freeText : 'بِسْمِ اللَّهِ';
+  const modeSel = selectEl(row, [['trace', 'modèle visible'], ['alone', 'sans modèle']], state.freeMode || 'trace', v => { state.freeMode = v; go(); });
+  const sug = h(root, 'div', 'aa-wr-chips aa-wr-sugg'); sug.setAttribute('dir', 'rtl');
+  ['اللَّه', 'رَبّ', 'الرَّحِيم', 'قُلْ هُوَ اللَّهُ أَحَدٌ', 'سُبْحَانَ اللَّه', 'الْحَمْدُ لِلَّه'].forEach(t => { const c = h(sug, 'span', 'aa-wr-chip', t); c.addEventListener('click', () => { state.freeText = t; go(); }); });
+  const pad = makeWritePad(ctx, root, { text: inp.value.trim(), mode: state.freeMode || 'trace', onScore: () => {} });
+  inp.addEventListener('change', () => { state.freeText = inp.value; go(); });
+  void modeSel; void pad;
+}
+/* ====================================================================
+ * 06l - Onglet Accueil : le tableau de bord du jour
+ * série de jours, cartes du jour, écriture, leçon, ce que tu connais
+ * du Coran, et les réglages de confort.
+ * ==================================================================== */
+const SHORT_SURAHS = [1, 112, 113, 114, 108, 103, 110, 97, 105, 106, 107, 109, 111, 99, 100, 101, 102, 104, 95, 94, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 83, 82, 81, 80, 79, 78, 96, 98];
+function activityDays(ctx) { return ctx.settings.activity || {}; }
+function streakOf(ctx) {
+  const A = activityDays(ctx); let d = todayNum(); if (!A[d]) d--; let n = 0;
+  while (A[d]) { n++; d--; }
+  return n;
+}
+function frDate(d) { try { return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); } catch (e) { return d.toDateString(); } }
+
+function renderHomeTab(ctx, root, state) {
+  clear(root);
+  const go = () => renderHomeTab(ctx, root, state);
+  if (state.view === 'surahs') return renderSurahProgress(ctx, root, state, go);
+  const S = srsStore(ctx); const W = writeState(ctx); const K = lemmaKnowledge(ctx);
+  const head = h(root, 'div', 'aa-home-head');
+  h(head, 'div', 'aa-muted aa-small aa-home-date', frDate(new Date()));
+  h(head, 'h2', null, 'As-salāmu ʿalaykum');
+  // les trois chiffres
+  const tiles = h(root, 'div', 'aa-home-tiles');
+  const tile = (ic, big, lab, sub) => { const t = h(tiles, 'div', 'aa-home-tile'); h(t, 'div', 'aa-home-ic', ic); h(t, 'b', null, big); h(t, 'span', null, lab); if (sub) h(t, 'span', 'aa-muted aa-small', sub); return t; };
+  const streak = streakOf(ctx); const A = activityDays(ctx); const today = A[todayNum()] || {};
+  tile('🔥', String(streak), streak > 1 ? 'jours d\'affilée' : 'jour d\'affilée', today.c || today.w || today.l ? 'aujourd\'hui : fait ✓' : 'fais une révision pour continuer');
+  const cov = quranCoverage(ctx, K);
+  tile('📖', Math.round(100 * cov.known) + ' %', 'des mots du Coran acquis', Math.round(100 * cov.learning) ? '+ ' + Math.round(100 * cov.learning) + ' % en cours' : 'grâce aux cartes de mots');
+  tile('✍️', writeAllLetters().filter(l => letterLearned(W, l)).length + ' / ' + writeAllLetters().length, 'lettres écrites seul');
+
+  // les choses à faire aujourd'hui
+  const todo = h(root, 'div', 'aa-home-todo');
+  const card = (ic, title, line, label, fn, main) => {
+    const c = h(todo, 'div', 'aa-home-card' + (main ? ' aa-home-main' : ''));
+    const t = h(c, 'div', 'aa-home-card-top'); h(t, 'span', 'aa-home-card-ic', ic); h(t, 'b', null, title);
+    if (line) mdText(c, 'div', 'aa-muted aa-small', line);
+    if (label) btn(h(c, 'div', 'aa-home-card-act'), label, fn, main ? 'mod-cta' : '');
+    return c;
+  };
+  const rc = h(todo, 'div', 'aa-home-card aa-home-main');
+  const rt = h(rc, 'div', 'aa-home-card-top'); h(rt, 'span', 'aa-home-card-ic', '🃏'); h(rt, 'b', null, 'Révision du jour');
+  const rl = h(rc, 'div', 'aa-muted aa-small', 'Calcul…');
+  const ra = h(rc, 'div', 'aa-home-card-act');
+  loadCardDecks(ctx).then(decks => {
+    const n = todayCounts(S, decks); clear(rl);
+    if (n.due + n.fresh) { mdText(rl, 'span', null, '**' + n.due + '** carte' + (n.due > 1 ? 's' : '') + ' à revoir · **' + n.fresh + '** nouvelle' + (n.fresh > 1 ? 's' : '') + ' (mots et règles)'); btn(ra, '▶ Réviser maintenant', () => ctx.openTab('review', { startNow: true, session: null, deck: null }), 'mod-cta'); }
+    else { rl.textContent = 'Tout est à jour. ' + (S.doneToday ? S.doneToday + ' cartes faites aujourd\'hui. ' : '') + 'Bravo.'; btn(ra, 'Voir les paquets', () => ctx.openTab('review', { session: null, deck: null })); }
+  }).catch(() => { rl.textContent = ''; });
+  const nx = writeNext(W);
+  if (nx) card('✍️', 'Écriture', nx.letter ? 'Prochaine lettre : **' + nx.letter + '**' + (alphaLetter(nx.letter) ? ' (' + alphaLetter(nx.letter).name + ')' : '') + ' · unité « ' + nx.unit.title + ' »' : 'Prochain mot : **' + nx.unit.words[nx.word][0] + '**', 'Continuer', () => ctx.openTab('write', nx.letter ? { unit: nx.unit.id, letter: nx.letter, step: 0, word: null, free: false } : { unit: nx.unit.id, word: [nx.unit.id, nx.word], step: 0, letter: null, free: false }));
+  const LS = ctx.settings.lessons || {}; const nl = LESSONS.find(l => !(LS[l.id] && LS[l.id].done));
+  const nDone = LESSONS.filter(l => LS[l.id] && LS[l.id].done).length;
+  if (nl) card('🎓', 'Leçon de grammaire', 'Leçon ' + (LESSONS.indexOf(nl) + 1) + ' : **' + nl.title + '** · ' + nDone + ' / ' + LESSONS.length + ' validées', 'Ouvrir la leçon', () => ctx.openLesson(nl.id));
+  else card('🎓', 'Leçons de grammaire', 'Les ' + LESSONS.length + ' leçons sont validées. Revois les règles quand tu veux.', 'Les règles', () => ctx.openTab('rules'));
+
+  // mon Coran
+  const qc = h(root, 'div', 'aa-home-block');
+  const qt = h(qc, 'div', 'aa-home-block-top'); h(qt, 'h3', null, '📖 Ce que tu comprends du Coran');
+  const lk = h(qt, 'a', 'aa-link aa-small', 'Toutes les sourates →'); lk.addEventListener('click', ev => { ev.preventDefault(); state.view = 'surahs'; go(); });
+  progressBar2(qc, cov.known, cov.learning, 'aa-kbar-big');
+  mdText(qc, 'p', 'aa-muted aa-small', 'Sur tous les mots du Coran, tu en reconnais **' + Math.round(100 * cov.known) + ' %** (vert foncé) et tu en apprends ' + Math.round(100 * cov.learning) + ' % (vert clair). Un mot compte comme acquis quand sa carte revient dans 7 jours ou plus.');
+  const list = h(qc, 'div', 'aa-home-surahs');
+  (async () => {
+    const rows = [];
+    for (const n of SHORT_SURAHS) rows.push(await surahKnowledge(ctx, n, K));
+    const best = [rows[0]].concat(rows.slice(1).sort((a, b) => b.pctAll - a.pctAll || a.total - b.total).slice(0, 5));
+    best.forEach(k => surahRow(ctx, list, k));
+  })().catch(() => {});
+
+  // activité des 12 dernières semaines
+  const ac = h(root, 'div', 'aa-home-block');
+  h(ac, 'h3', null, '🗓️ Tes 12 dernières semaines');
+  const grid = h(ac, 'div', 'aa-home-cal'); const t0 = todayNum();
+  const start = t0 - 77 - ((new Date().getDay() + 6) % 7); // 12 semaines, en commençant un lundi
+  for (let d = start; d <= t0; d++) { const e = A[d]; const n = e ? (e.c || 0) + 2 * (e.w || 0) + 5 * (e.l || 0) : 0; const c = h(grid, 'span', 'aa-home-day' + (n ? ' aa-home-day-' + (n >= 40 ? 3 : n >= 15 ? 2 : 1) : '') + (d === t0 ? ' aa-home-today' : '')); c.title = n ? n + ' activités' : 'rien ce jour-là'; }
+  h(ac, 'div', 'aa-muted aa-small', 'Chaque case = un jour (cartes, écriture, leçons). Un peu chaque jour vaut mieux que beaucoup une fois par semaine.');
+
+  renderComfort(ctx, details(root, '⚙️ Confort : taille du texte, récitateur, son hors ligne', false, 'aa-home-comfort'), go);
+}
+
+function surahRow(ctx, parent, k) {
+  const info = ctx.data.surahInfo(k.n);
+  const r = h(parent, 'div', 'aa-home-srow');
+  const nm = h(r, 'div', 'aa-home-sname'); h(nm, 'b', null, k.n + '. ' + info[1]); h(nm, 'span', 'aa-muted aa-small', ' ' + info[2]);
+  const b = h(r, 'div', 'aa-home-sbar'); progressBar2(b, k.known / Math.max(1, k.total), k.learning / Math.max(1, k.total));
+  h(r, 'span', 'aa-home-spct', k.pctAll + ' %');
+  r.title = k.total + ' mots · ' + k.known + ' acquis · ' + k.learning + ' en cours';
+  r.addEventListener('click', () => ctx.openQuran(k.n, 0));
+  return r;
+}
+
+function renderSurahProgress(ctx, root, state, go) {
+  btn(h(root, 'div', 'aa-actions'), '← Accueil', () => { state.view = null; go(); }, 'aa-btn-quiet');
+  h(root, 'h2', null, '📖 Ma progression, sourate par sourate');
+  mdText(root, 'p', 'aa-muted', 'Pour chaque sourate : la part de ses mots que tu connais (vert foncé = acquis, vert clair = en cours). Touche une sourate pour la lire ; dans l\'onglet Coran, « Apprendre les mots de cette sourate » te donne ses mots en cartes.');
+  const bar = h(root, 'div', 'aa-actions');
+  const sort = state.sort || 'mushaf';
+  selectEl(bar, [['mushaf', 'ordre du Coran'], ['best', 'les mieux comprises d\'abord'], ['short', 'les plus courtes d\'abord']], sort, v => { state.sort = v; go(); });
+  const wait = h(root, 'p', 'aa-muted', 'Calcul…');
+  const list = h(root, 'div', 'aa-home-surahs aa-home-surahs-all');
+  const K = lemmaKnowledge(ctx);
+  (async () => {
+    const rows = [];
+    for (let n = 1; n <= 114; n++) { rows.push(await surahKnowledge(ctx, n, K)); if (n % 10 === 0) wait.textContent = 'Calcul… ' + n + ' / 114'; }
+    wait.remove();
+    if (sort === 'best') rows.sort((a, b) => b.pctAll - a.pctAll || a.total - b.total);
+    else if (sort === 'short') rows.sort((a, b) => a.total - b.total);
+    rows.forEach(k => surahRow(ctx, list, k));
+  })().catch(e => { wait.textContent = 'Erreur : ' + e.message; });
+}
+
+/* réglages de confort (aussi dans les réglages du plugin) */
+function renderComfort(ctx, box, go) {
+  const S = ctx.settings;
+  const r1 = h(field(box, 'Taille de l\'arabe'), 'div', 'aa-home-sizer');
+  const m = btn(r1, '−', () => { S.arSize = Math.max(20, (S.arSize || 30) - 2); ctx.save(); ctx.refresh && ctx.refresh(); lab.textContent = S.arSize + ' px'; }, 'aa-btn-quiet');
+  const lab = h(r1, 'span', 'aa-home-size', (S.arSize || 30) + ' px');
+  btn(r1, '+', () => { S.arSize = Math.min(52, (S.arSize || 30) + 2); ctx.save(); ctx.refresh && ctx.refresh(); lab.textContent = S.arSize + ' px'; }, 'aa-btn-quiet');
+  void m;
+  const r2 = field(box, 'Taille de l\'interface');
+  selectEl(r2, [['normal', 'normale'], ['grand', 'grande'], ['tres-grand', 'très grande (téléphone)']], S.uiSize || 'normal', v => { S.uiSize = v; ctx.save(); ctx.refresh && ctx.refresh(); });
+  const r3 = field(box, 'Récitateur');
+  selectEl(r3, RECITERS, S.reciter || 'Alafasy_128kbps', v => { S.reciter = v; AUDIO.reciter = v; ctx.save(); });
+  const r4 = field(box, 'Vitesse du son');
+  selectEl(r4, [['0.5', '0,5× (très lent)'], ['0.6', '0,6×'], ['0.75', '0,75× (lent)'], ['0.85', '0,85×'], ['1', '1× (normal)']], String(S.audioRate || 1), v => { S.audioRate = +v; setAudioRate(+v); ctx.save(); });
+  const r5 = field(box, 'Couleurs des mots');
+  checkbox(r5, 'nom bleu, verbe rouge', S.wordColors !== false, v => { S.wordColors = v; ctx.save(); ctx.refresh && ctx.refresh(); });
+  if (ctx.keepSurahAudio) {
+    h(box, 'h4', null, '🎧 Son hors ligne');
+    mdText(box, 'p', 'aa-muted aa-small', 'Sans internet, le plugin marche déjà entièrement (Coran, traduction, dictionnaire, règles, cartes, écriture). Seul le **son** vient d\'internet. Tu peux garder sur l\'appareil le son d\'une sourate (bouton dans l\'onglet Coran), ou d\'un coup celui des **sourates courtes** (78 à 114, environ 50 Mo par récitateur, avec la prononciation de chaque mot).');
+    const st = h(box, 'div', 'aa-muted aa-small');
+    const paint = () => { const k = ctx.audioSummary(); st.textContent = k.surahs ? 'Gardé sur cet appareil : ' + k.surahs + ' sourate' + (k.surahs > 1 ? 's' : '') + ' (' + k.files + ' fichiers).' : 'Rien n\'est gardé pour l\'instant.'; };
+    paint();
+    const act = h(box, 'div', 'aa-actions');
+    const b = btn(act, '⬇ Garder le son des sourates courtes', async () => {
+      b.disabled = true; let fail = 0;
+      const list = []; for (let n = 78; n <= 114; n++) list.push(n); list.unshift(1);
+      for (let i = 0; i < list.length; i++) {
+        const r = await ctx.keepSurahAudio(list[i], true, (d, n) => { b.textContent = 'Sourate ' + list[i] + ' (' + (i + 1) + ' / ' + list.length + ') : ' + d + ' / ' + n; });
+        fail += r.failed; if (r.offline) { notify('Pas de connexion internet : téléchargement arrêté.'); break; }
+      }
+      b.disabled = false; b.textContent = '⬇ Garder le son des sourates courtes'; paint();
+      notify('Son gardé sur l\'appareil.' + (fail ? ' (' + fail + ' fichiers introuvables)' : ''));
+    }, 'mod-cta');
+    btn(act, '🗑 Effacer le son gardé', async () => { await ctx.dropAudio(); paint(); notify('Son effacé de l\'appareil.'); }, 'aa-btn-quiet');
+  }
+}
+/* ====================================================================
  * 07 - Le plugin Obsidian : vue, commandes, blocs de code, réglages
  * ==================================================================== */
 const VIEW_TYPE = 'atelier-arabe-view';
@@ -4556,11 +5285,12 @@ const DEFAULT_SETTINGS = {
   flashFile: '5 - Flashcards/Atelier - mes phrases.md', lastSurah: 1,
   audio: true, tajwid: false, fixFolder: '4 - Références/Atelier - corrections', vocabFile: '4 - Références/Vocabulaire.md', textsFolder: '3 - Textes',
   myWords: {}, progress: null, lessons: {}, surahOrder: 'mushaf', wordColors: true, arFont: 'amiri', cardsFolder: '5 - Flashcards/Règles', srs: null, reciter: 'Alafasy_128kbps', audioRate: 1, audioRepeat: 1,
+  writing: null, activity: null, uiSize: 'normal',
 };
 function emptyProgress() { return { byType: { case: { ok: 0, n: 0 }, mood: { ok: 0, n: 0 }, sens: { ok: 0, n: 0 }, phrase: { ok: 0, n: 0 } }, lem: {} }; }
-const TAB_ICONS = { coran: 'book-open', alphabet: 'a-large-small', lessons: 'graduation-cap', rules: 'book-marked', review: 'layers', dict: 'library', analyse: 'scan-search', build: 'blocks', signs: 'flask-conical', quiz: 'target' };
+const TAB_ICONS = { home: 'home', write: 'pencil', coran: 'book-open', alphabet: 'a-large-small', lessons: 'graduation-cap', rules: 'book-marked', review: 'layers', dict: 'library', analyse: 'scan-search', build: 'blocks', signs: 'flask-conical', quiz: 'target' };
 const TABS = [
-  ['coran', 'Coran', 'Lire une sourate mot par mot'], ['alphabet', 'Alphabet', 'Les lettres et leur prononciation'], ['lessons', 'Leçons', 'Parcours de grammaire guidé'], ['rules', 'Règles', 'Les règles expliquées simplement'], ['review', 'Révision', 'Réviser les cartes de chaque règle'], ['dict', 'Dictionnaire', 'Tous les mots du Coran'], ['analyse', 'Analyser', 'Analyser un texte arabe'],
+  ['home', 'Accueil', 'Ton tableau de bord du jour'], ['coran', 'Coran', 'Lire une sourate mot par mot'], ['alphabet', 'Alphabet', 'Les lettres et leur prononciation'], ['write', 'Écrire', 'Apprendre à écrire les lettres et les mots'], ['lessons', 'Leçons', 'Parcours de grammaire guidé'], ['rules', 'Règles', 'Les règles expliquées simplement'], ['review', 'Révision', 'Réviser les cartes de chaque règle'], ['dict', 'Dictionnaire', 'Tous les mots du Coran'], ['analyse', 'Analyser', 'Analyser un texte arabe'],
   ['build', 'Construire', 'Construire une phrase'], ['signs', 'Signes', 'Laboratoire des signes'], ['quiz', 'Entraînement', 'S\'entraîner'],
 ];
 
@@ -4568,8 +5298,8 @@ class AtelierView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
-    this.tab = 'coran';
-    this.states = { coran: { surah: plugin.settings.lastSurah || 1, page: 0 }, dict: {}, alphabet: {}, lessons: {}, rules: {}, review: {}, analyse: {}, build: {}, signs: {}, quiz: {} };
+    this.tab = 'home';
+    this.states = { coran: { surah: plugin.settings.lastSurah || 1, page: 0 }, dict: {}, alphabet: {}, home: {}, write: {}, lessons: {}, rules: {}, review: {}, analyse: {}, build: {}, signs: {}, quiz: {} };
   }
   getViewType() { return VIEW_TYPE; }
   getDisplayText() { return 'Atelier arabe'; }
@@ -4597,6 +5327,9 @@ class AtelierView extends ItemView {
     clear(this.nav);
     this.contentEl.classList.toggle('aa-nocolor', this.plugin.settings.wordColors === false);
     this.contentEl.classList.toggle('aa-font-device', this.plugin.settings.arFont === 'device');
+    this.contentEl.classList.toggle('aa-ui-l', this.plugin.settings.uiSize === 'grand');
+    this.contentEl.classList.toggle('aa-ui-xl', this.plugin.settings.uiSize === 'tres-grand');
+    this.contentEl.style.setProperty('--aa-ar-size', (this.plugin.settings.arSize || 30) + 'px');
     TABS.forEach(([id, label, title]) => {
       const b = h(this.nav, 'button', 'aa-tab' + (this.tab === id ? ' aa-on' : ''));
       if (TAB_ICONS[id] && typeof setIcon === 'function') { try { setIcon(h(b, 'span', 'aa-tab-ic'), TAB_ICONS[id]); } catch (e) { /* */ } }
@@ -4607,7 +5340,9 @@ class AtelierView extends ItemView {
     const ctx = this.plugin.ctx(this);
     const st = this.states[this.tab];
     clear(this.body);
-    if (this.tab === 'coran') renderQuranTab(ctx, this.body, st);
+    if (this.tab === 'home') renderHomeTab(ctx, this.body, st);
+    else if (this.tab === 'write') renderWriteTab(ctx, this.body, st);
+    else if (this.tab === 'coran') renderQuranTab(ctx, this.body, st);
     else if (this.tab === 'dict') renderDictTab(ctx, this.body, st);
     else if (this.tab === 'alphabet') renderAlphabetTab(ctx, this.body, st);
     else if (this.tab === 'lessons') renderLessonsTab(ctx, this.body, st);
@@ -4647,7 +5382,11 @@ class AtelierSettingTab extends PluginSettingTab {
     new Setting(el).setName('Couleurs des mots').setDesc('Dans le Coran : bleu = nom, rouge = verbe, gris = particule. Désactivé : texte d\'une seule couleur, plus reposant.')
       .addToggle(t => t.setValue(s.wordColors !== false).onChange(async v => { s.wordColors = v; await p.saveSettings(); }));
     new Setting(el).setName('Taille du texte arabe').setDesc('En pixels (30 par défaut).')
-      .addSlider(sl => sl.setLimits(20, 48, 2).setValue(s.arSize).setDynamicTooltip().onChange(async v => { s.arSize = v; await p.saveSettings(); }));
+      .addSlider(sl => sl.setLimits(20, 52, 2).setValue(s.arSize).setDynamicTooltip().onChange(async v => { s.arSize = v; await p.saveSettings(); }));
+    new Setting(el).setName('Taille de l\'interface').setDesc('« Très grande » est pratique sur téléphone. Chaque appareil garde son propre réglage.')
+      .addDropdown(d => d.addOption('normal', 'normale').addOption('grand', 'grande').addOption('tres-grand', 'très grande').setValue(s.uiSize || 'normal').onChange(async v => { s.uiSize = v; await p.saveSettings(); }));
+    new Setting(el).setName('Son gardé sur l\'appareil').setDesc('Le son des sourates que tu as gardées hors ligne (bouton dans l\'onglet Coran ou l\'Accueil).')
+      .addButton(b => b.setButtonText('Effacer le son gardé').onClick(async () => { await p.dropAudio(); new Notice('Son effacé.'); }));
     new Setting(el).setName('Couleurs de prononciation').setDesc('Colore les lettres muettes, les voyelles longues, la nasalisation (ghunna) et l\'écho (qalqala) dans le Coran et dans les blocs ```coran```.')
       .addToggle(t => t.setValue(!!s.tajwid).onChange(async v => { s.tajwid = v; await p.saveSettings(); }));
     new Setting(el).setName('Son en ligne').setDesc('Récitation (Mishary Alafasy) et prononciation des mots depuis internet, seulement quand tu appuies sur ▶ ou 🔊. Désactivé : voix de l\'appareil uniquement.')
@@ -4684,10 +5423,13 @@ class AtelierArabePlugin extends Plugin {
     if (!this.settings.lessons) this.settings.lessons = {};
     AUDIO.reciter = this.settings.reciter || 'Alafasy_128kbps'; AUDIO.rate = this.settings.audioRate || 1; AUDIO.repeat = this.settings.audioRepeat || 1;
     this.data = new QuranData(this.app, this.manifest.dir);
+    this.scanAudio();
     notify = (m) => new Notice(m);
     this.registerView(VIEW_TYPE, leaf => new AtelierView(leaf, this));
     this.addRibbonIcon('languages', 'Atelier arabe', () => this.openView());
     this.addCommand({ id: 'ouvrir', name: 'Ouvrir l\'atelier', callback: () => this.openView() });
+    this.addCommand({ id: 'accueil', name: 'Accueil (tableau de bord)', callback: () => this.openView('home') });
+    this.addCommand({ id: 'ecrire', name: 'Apprendre à écrire', callback: () => this.openView('write') });
     this.addCommand({ id: 'alphabet', name: 'Alphabet et prononciation', callback: () => this.openView('alphabet') });
     this.addCommand({ id: 'lecons', name: 'Leçons de grammaire', callback: () => this.openView('lessons') });
     this.addCommand({ id: 'regles', name: 'Règles expliquées simplement', callback: () => this.openView('rules') });
@@ -4770,6 +5512,17 @@ class AtelierArabePlugin extends Plugin {
       },
       reviewList: () => Object.entries(this.settings.progress.lem).filter(([, x]) => x.ko > x.ok).map(([id, x]) => ({ id: +id, ok: x.ok, ko: x.ko })).sort((a, b) => (b.ko - b.ok) - (a.ko - a.ok)),
       resetProgress: () => { this.settings.progress = emptyProgress(); this.saveData(this.settings); },
+      markActivity: (k) => {
+        const A = this.settings.activity || (this.settings.activity = {}); const d = todayNum();
+        const e = A[d] || (A[d] = {}); e[k] = (e[k] || 0) + 1;
+        Object.keys(A).forEach(x => { if (+x < d - 400) delete A[x]; });
+        this.saveData(this.settings);
+      },
+      refresh: () => this.refreshViews(),
+      keepSurahAudio: (n, words, progress) => this.keepSurahAudio(n, words, progress),
+      surahAudioStatus: (n) => this.surahAudioStatus(n),
+      audioSummary: () => this.audioSummary(),
+      dropAudio: () => this.dropAudio(),
       currentSurah: () => { const l = self.app.workspace.getLeavesOfType(VIEW_TYPE)[0]; return l && l.view.states ? l.view.states.coran.surah : 1; },
     };
   }
@@ -4805,6 +5558,54 @@ class AtelierArabePlugin extends Plugin {
     const mine = this.app.vault.getAbstractFileByPath(this.settings.flashFile);
     if (mine && mine.extension === 'md') out.push({ path: mine.path, text: await this.app.vault.cachedRead(mine), mine: true });
     return out;
+  }
+  refreshViews() { this.app.workspace.getLeavesOfType(VIEW_TYPE).forEach(l => l.view && l.view.render && l.view.plugin.data.surahs && l.view.render()); }
+  /* ---------- son gardé sur l'appareil (dossier audio/ du plugin) ---------- */
+  async scanAudio() {
+    const ad = this.app.vault.adapter; const dir = this.manifest.dir; const base = dir + '/audio';
+    AUDIO_CACHE.dir = dir; AUDIO_CACHE.res = p => ad.getResourcePath(p); AUDIO_CACHE.files = new Set();
+    try {
+      if (!(await ad.exists(base))) return;
+      const top = await ad.list(base);
+      for (const d of top.folders) { const m = await ad.list(d); m.files.forEach(f => AUDIO_CACHE.files.add(f.slice(dir.length + 1))); }
+    } catch (e) { /* rien */ }
+  }
+  surahAudioStatus(n) {
+    const rec = AUDIO.reciter || 'Alafasy_128kbps'; const nV = this.data.surahInfo(n)[5]; let k = 0;
+    for (let v = 1; v <= nV; v++) if (AUDIO_CACHE.files.has(audioRelVerse(rec, n, v))) k++;
+    return { verses: k, nV };
+  }
+  audioSummary() {
+    const s = new Set(); AUDIO_CACHE.files.forEach(f => { const m = f.match(/\/(\d{3})(\d{3})\.mp3$/); if (m) s.add(+m[1]); });
+    return { surahs: s.size, files: AUDIO_CACHE.files.size };
+  }
+  async keepSurahAudio(n, words, progress) {
+    const ad = this.app.vault.adapter; const dir = this.manifest.dir; const rec = AUDIO.reciter || 'Alafasy_128kbps';
+    const jobs = []; const nV = this.data.surahInfo(n)[5];
+    for (let v = 1; v <= nV; v++) jobs.push([audioRelVerse(rec, n, v), 'https://everyayah.com/data/' + rec + '/' + pad3(n) + pad3(v) + '.mp3']);
+    if (words) { const d = await this.data.surah(n); d.v.forEach((vv, vi) => vv[2].forEach((w, wi) => { const r = [n, vi + 1, wi + 1]; jobs.push([audioRelWord(r), 'https://audio.qurancdn.com/wbw/' + pad3(r[0]) + '_' + pad3(r[1]) + '_' + pad3(r[2]) + '.mp3']); })); }
+    const todo = jobs.filter(j => !AUDIO_CACHE.files.has(j[0]));
+    for (const f of ['audio', 'audio/' + rec, 'audio/wbw']) if (!(await ad.exists(dir + '/' + f))) await ad.mkdir(dir + '/' + f);
+    let done = jobs.length - todo.length, failed = 0, offline = false, errRow = 0;
+    if (progress) progress(done, jobs.length);
+    const worker = async () => {
+      while (todo.length && !offline) {
+        const [rel, url] = todo.shift();
+        try {
+          const r = await requestUrl({ url, throw: false });
+          if (r.status >= 200 && r.status < 300 && r.arrayBuffer && r.arrayBuffer.byteLength > 200) { await ad.writeBinary(dir + '/' + rel, r.arrayBuffer); AUDIO_CACHE.files.add(rel); errRow = 0; }
+          else failed++;
+        } catch (e) { failed++; if (++errRow >= 6) offline = true; }
+        done++; if (progress) progress(done, jobs.length);
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    return { done, failed, offline };
+  }
+  async dropAudio() {
+    const ad = this.app.vault.adapter; const base = this.manifest.dir + '/audio';
+    try { if (await ad.exists(base)) await ad.rmdir(base, true); } catch (e) { new Notice('Impossible d\'effacer : ' + e.message); }
+    await this.scanAudio();
   }
   async addVocab(id, ar, tr, gloss, where) {
     const path = this.settings.vocabFile;
