@@ -67,7 +67,7 @@ function details(parent, title, open, cls) {
   return d;
 }
 function copyText(t) {
-  try { navigator.clipboard.writeText(t); notify('Copié dans le presse-papiers'); } catch (e) { notify('Impossible de copier'); }
+  try { navigator.clipboard.writeText(t).then(() => notify('Copié dans le presse-papiers'), () => notify('Impossible de copier')); } catch (e) { notify('Impossible de copier'); }
 }
 let notify = (msg) => { try { console.log(msg); } catch (e) { /* */ } };
 

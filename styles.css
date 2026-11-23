@@ -730,3 +730,18 @@ li.aa-rule-inline { list-style: none; border: none; background: none; }
   .aa-home-srow { grid-template-columns: minmax(0, 1fr) 30% 3em; }
 }
 .aa-home-sizer { display: flex; align-items: center; gap: 6px; } .aa-home-sizer button { width: auto !important; min-width: 2.6em; }
+
+/* ---------- Le cadre ne bouge plus de gauche à droite (iPhone / iPad) ---------- */
+.aa-root { overflow-x: hidden; overscroll-behavior-x: none; }
+.aa-body { box-sizing: border-box; max-width: min(860px, 100%); min-width: 0; overflow-x: clip; overflow-wrap: break-word; touch-action: pan-y pinch-zoom; }
+.aa-body select, .aa-body input, .aa-body textarea, .aa-body img, .aa-body svg, .aa-body canvas { max-width: 100%; box-sizing: border-box; }
+.aa-body .aa-field { max-width: 100%; }
+.aa-body textarea.aa-input { width: 100%; }
+.aa-body table.aa-table { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; }
+.aa-body table.aa-table > tbody, .aa-body table.aa-table > thead { display: table; width: 100%; }
+.aa-irab-wrap, .aa-tabs { touch-action: pan-x pan-y; }
+.aa-wr-canvas { touch-action: none !important; }
+@media (max-width: 600px) {
+  .aa-body { padding-left: 12px; padding-right: 12px; }
+  .aa-doc-table, .aa-table { font-size: .88em; }
+}

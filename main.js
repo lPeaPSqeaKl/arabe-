@@ -1830,7 +1830,7 @@ function details(parent, title, open, cls) {
   return d;
 }
 function copyText(t) {
-  try { navigator.clipboard.writeText(t); notify('Copié dans le presse-papiers'); } catch (e) { notify('Impossible de copier'); }
+  try { navigator.clipboard.writeText(t).then(() => notify('Copié dans le presse-papiers'), () => notify('Impossible de copier')); } catch (e) { notify('Impossible de copier'); }
 }
 let notify = (msg) => { try { console.log(msg); } catch (e) { /* */ } };
 
@@ -4962,7 +4962,20 @@ function makeWritePad(ctx, parent, opts) {
   };
   pad.info = () => ({ lay, W, H });
   pad.setText = t => { pad.text = t; pad.strokes = []; pad.checked = false; clear(res); layout(); redraw(); };
-  const start = () => { layout(); redraw(); if (opts.autoDemo) setTimeout(() => pad.demo(), 300); };
+  const start = () => {
+    layout(); redraw(); if (opts.autoDemo) setTimeout(() => pad.demo(), 300);
+    // l'iPad tourne, la fenêtre change de taille : on garde le tracé à sa place
+    if (window.ResizeObserver) {
+      const ro = new ResizeObserver(() => {
+        if (!wrap.isConnected) { ro.disconnect(); return; }
+        const w0 = W, h0 = H; const nw = Math.round(wrap.clientWidth || 0);
+        if (!nw || Math.abs(nw - w0) < 8) return;
+        layout(); const kx = W / w0, ky = H / h0;
+        pad.strokes = pad.strokes.map(s => s.map(([x, y]) => [x * kx, y * ky])); pad.checked = false; clear(res); redraw();
+      });
+      ro.observe(wrap);
+    }
+  };
   if (document.fonts && document.fonts.load) document.fonts.load('40px ' + WR_FONT, pad.text || 'ب').then(start, start); else start();
   return pad;
 }
