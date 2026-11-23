@@ -5826,9 +5826,9 @@ class AtelierView extends ItemView {
       b.title = title;
       b.addEventListener('click', () => { this.back = []; this.setTab(id); });
     });
-    const gear = h(this.nav, 'button', 'aa-tab aa-tab-gear' + (this.tab === 'settings' ? ' aa-on' : ''));
-    if (typeof setIcon === 'function') { try { setIcon(h(gear, 'span', 'aa-tab-ic'), 'settings'); } catch (e) { /* */ } }
-    h(gear, 'span', 'aa-tab-lab', 'Réglages'); gear.title = 'Réglages de l\'atelier (police, taille, son, couleurs…)';
+    const gear = document.createElement('button'); gear.className = 'aa-tab aa-tab-gear' + (this.tab === 'settings' ? ' aa-on' : '');
+    this.nav.insertBefore(gear, this.nav.firstChild);
+    h(gear, 'span', 'aa-tab-lab', '⚙'); gear.setAttribute('aria-label', 'Réglages'); gear.title = 'Réglages de l\'atelier (police, taille, son, couleurs…)';
     gear.addEventListener('click', () => { if (this.tab !== 'settings') { this.pushBack(); this.setTab('settings'); } else this.goBack(); });
     const ctx = this.plugin.ctx(this);
     const st = this.states[this.tab];
