@@ -853,3 +853,22 @@ li.aa-rule-inline { list-style: none; border: none; background: none; }
 .aa-subtabs-row .aa-subtabs { margin-bottom: 0; }
 .aa-root.aa-reading .aa-subtabs-row { display: none; }
 @media (max-width: 600px)  { .aa-subtabs-row { padding-left: 12px; padding-right: 12px; } }
+
+/* 2.18 : longs versets en morceaux, et mot à mot */
+.aa-chunks { display: flex; flex-direction: column; gap: 4px; }
+.aa-chunk { padding: 6px 0 8px; border-bottom: 1px dashed var(--background-modifier-border); }
+.aa-chunk:last-child { border-bottom: none; }
+.aa-chunk .aa-verse-ar { margin: 0; }
+.aa-chunk .aa-verse-tr { margin-top: 2px; }
+.aa-ilin { display: flex; flex-wrap: wrap; gap: 6px 4px; align-items: stretch; margin: 4px 0 8px; }
+.aa-ic { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 4px 8px 6px; border-radius: 10px; cursor: pointer; max-width: 11em; }
+.aa-ic:hover { background: var(--background-secondary); }
+.aa-ic .aa-w { font-size: var(--aa-ar-size, 30px); line-height: 1.9; }
+.aa-ic-tr { font-size: .85em; margin-top: 0; line-height: 1.3; }
+.aa-ic-fr { font-size: .78em; color: var(--text-muted); line-height: 1.25; margin-top: 2px; overflow-wrap: anywhere; }
+.aa-ic-sep { width: 1px; align-self: stretch; background: var(--background-modifier-border); margin: 6px 6px; }
+.aa-ilin .aa-vnum { align-self: center; font-size: var(--aa-ar-size, 30px); }
+.aa-layout-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; font-size: .92em; }
+.aa-layout-sel { max-width: 100%; }
+.aa-practice .aa-verse:not(.aa-revealed) .aa-ic-tr, .aa-practice .aa-verse:not(.aa-revealed) .aa-ic-fr { filter: blur(5px); user-select: none; }
+@media (max-width: 600px) { .aa-ic { padding: 3px 5px 5px; max-width: 8.5em; } }

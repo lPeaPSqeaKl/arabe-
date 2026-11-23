@@ -381,6 +381,32 @@ async function renderOccurrences(ctx, box, lemId, curRef) {
 /* ====================================================================
  * Affichage de versets (onglet Coran et bloc ```coran```)
  * ==================================================================== */
+/* Affichage des versets : 'auto' = les longs versets en morceaux, 'ligne', 'morceaux', 'mot' (mot à mot) */
+const LONG_VERSE = 16;
+/* Sens court d'un mot pour le « mot à mot ». Les petits mots (ما, لا, إن…) changent de sens selon leur rôle. */
+const PART_GLOSS = { PRO: 'ne… pas (défense)', PREV: '(petit mot de liaison)', SUB: 'que, ce que', SUP: '(renforce)', NEG: 'ne… pas', EXP: 'sauf', INT: 'à savoir', INC: 'jusqu’à, même', EXH: 'pourquoi ne… pas ?', EXL: 'soit… soit', CERT: 'certes', CONJ: 'mais', RES: 'seulement', COND: 'si' };
+function shortGloss(data, w) {
+  const st = stemOf(w); const lid = st.seg[3]; const lem = lid >= 0 ? data.lemmas[lid] : null;
+  if (!lem) return '';
+  const sub = String(st.seg[2] || '').split('|')[0];
+  if (lem[1] === 'P' && st.seg[1] === 'P' && lem[2] && sub && sub !== lem[2]) return PART_GLOSS[sub] || '';
+  return lem[4] ? String(lem[4]).split(/[;,]/)[0].trim() : '';
+}
+const VERSE_LAYOUTS = [['auto', 'longs versets en morceaux (conseillé)'], ['ligne', 'tout sur une ligne'], ['morceaux', 'toujours en morceaux'], ['mot', 'mot à mot (arabe, transcription, sens)']];
+function verseLayout(S, n) {
+  const m = S.verseLayout || 'auto';
+  if (m === 'auto') return n >= LONG_VERSE ? 'morceaux' : 'ligne';
+  return m;
+}
+/* Découpe un verset aux signes de pause du mushaf (ۖ ۗ ۚ ۘ) ; les morceaux trop courts sont réunis */
+function verseSegments(s, v, n) {
+  const marks = (typeof PAUSES !== 'undefined' && PAUSES[s + ':' + v]) || [];
+  const cuts = marks.filter(m => 'ۖۗۚۘ'.includes(m[1])).map(m => m[0]).filter(c => c > 0 && c < n);
+  const segs = []; let start = 0;
+  cuts.forEach(c => { if (c - start >= 3) { segs.push([start, c]); start = c; } });
+  if (n - start < 3 && segs.length) segs[segs.length - 1][1] = n; else segs.push([start, n]);
+  return segs;
+}
 async function renderVerses(ctx, container, surahN, from, to, opts) {
   opts = opts || {};
   const data = ctx.data; const S = ctx.settings;
@@ -398,14 +424,16 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
   for (let vn = from; vn <= to; vn++) {
     const v = d.v[vn - 1]; const words = v[2];
     const box = h(container, 'div', 'aa-verse'); box.dataset.ref = surahN + ':' + vn;
-    const line = h(box, 'div', 'aa-verse-ar' + (S.tajwid ? ' aa-tj-on' : '')); line.setAttribute('dir', 'rtl'); line.style.fontSize = S.arSize + 'px';
     const tokens = translitTokens(words, S.style);
     const tj = S.tajwid ? tajwidVerse(words) : null;
     const detail = h(document.createElement('div'), 'div', 'aa-detail');
     const spans = [];
-    words.forEach((w, wi) => {
-      const st = stemOf(w);
-      const sp = arSpan(line, wordText(w), 'aa-w ' + (POS_CLASS[st.f.pos] || '') + (isInitials(w) ? ' aa-pos-inl' : '') + (st.seg[3] >= 0 && ctx.isMine(st.seg[3]) ? ' aa-mine' : ''));
+    const layout = verseLayout(S, words.length);
+    const segs = layout === 'ligne' ? [[0, words.length]] : verseSegments(surahN, vn, words.length);
+    const mkLine = parent => { const l = h(parent, 'div', 'aa-verse-ar' + (S.tajwid ? ' aa-tj-on' : '')); l.setAttribute('dir', 'rtl'); l.style.fontSize = S.arSize + 'px'; return l; };
+    const mkWord = (parent, wi) => {
+      const w = words[wi]; const st = stemOf(w);
+      const sp = arSpan(parent, wordText(w), 'aa-w ' + (POS_CLASS[st.f.pos] || '') + (isInitials(w) ? ' aa-pos-inl' : '') + (st.seg[3] >= 0 && ctx.isMine(st.seg[3]) ? ' aa-mine' : ''));
       sp.title = tokens[wi];
       if (tj) { sp.textContent = ''; fillTajwid(sp, tj[wi]); }
       else if (S.noVowels) sp.textContent = noVowels(wordText(w));
@@ -414,13 +442,46 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
         renderWordDetail(ctx, detail, words, wi, [surahN, vn, wi + 1], v);
         detail.scrollIntoView && detail.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       });
-      spans.push(sp);
-      line.appendChild(document.createTextNode(' '));
-    });
-    arSpan(line, '﴿' + arNum(vn) + '﴾', 'aa-vnum');
-    if (S.showTr) {
-      const trl = h(box, 'div', 'aa-tr aa-verse-tr'); trl.addEventListener('click', () => box.classList.add('aa-revealed'), true);
-      tokens.forEach((t, i) => { const s = h(trl, 'span', 'aa-trw', t); s.addEventListener('click', () => { if (box.closest('.aa-practice')) return; spans[i].click(); }); trl.appendChild(document.createTextNode(' ')); });
+      spans[wi] = sp;
+      return sp;
+    };
+    const mkTr = (parent, from, to) => {
+      const trl = h(parent, 'div', 'aa-tr aa-verse-tr'); trl.addEventListener('click', () => box.classList.add('aa-revealed'), true);
+      for (let i = from; i < to; i++) { const s = h(trl, 'span', 'aa-trw', tokens[i]); s.addEventListener('click', () => { if (box.closest('.aa-practice')) return; spans[i].click(); }); trl.appendChild(document.createTextNode(' ')); }
+      return trl;
+    };
+    const vnum = parent => arSpan(parent, '﴿' + arNum(vn) + '﴾', 'aa-vnum');
+    if (layout === 'mot') {
+      /* mot à mot : chaque mot avec sa transcription et son sens en dessous */
+      const il = h(box, 'div', 'aa-ilin'); il.setAttribute('dir', 'rtl');
+      il.addEventListener('click', () => box.classList.add('aa-revealed'), true);
+      segs.forEach(([f, t], si) => {
+        for (let wi = f; wi < t; wi++) {
+          const c = h(il, 'div', 'aa-ic');
+          const sp = mkWord(c, wi); if (S.tajwid) c.classList.add('aa-tj-on');
+          if (S.showTr) h(c, 'div', 'aa-tr aa-ic-tr', tokens[wi]).setAttribute('dir', 'ltr');
+          const g = isInitials(words[wi]) ? 'lettres' : shortGloss(data, words[wi]);
+          h(c, 'div', 'aa-ic-fr', g || ' ').setAttribute('dir', 'ltr');
+          c.addEventListener('click', ev => { if (ev.target !== sp) sp.click(); });
+        }
+        if (si < segs.length - 1) h(il, 'div', 'aa-ic-sep');
+      });
+      vnum(il);
+    } else if (segs.length > 1) {
+      /* verset long : un morceau par signe de pause, l'arabe et sa transcription l'un sous l'autre */
+      const ch = h(box, 'div', 'aa-chunks');
+      segs.forEach(([f, t], si) => {
+        const c = h(ch, 'div', 'aa-chunk');
+        const l = mkLine(c);
+        for (let wi = f; wi < t; wi++) { mkWord(l, wi); l.appendChild(document.createTextNode(' ')); }
+        if (si === segs.length - 1) vnum(l);
+        if (S.showTr) mkTr(c, f, t);
+      });
+    } else {
+      const line = mkLine(box);
+      words.forEach((w, wi) => { mkWord(line, wi); line.appendChild(document.createTextNode(' ')); });
+      vnum(line);
+      if (S.showTr) mkTr(box, 0, words.length);
     }
     if (S.showFr) { const fr = h(box, 'div', 'aa-verse-fr'); fr.addEventListener('click', () => box.classList.add('aa-revealed')); h(fr, 'span', 'aa-ref', surahN + ':' + vn + ' '); fr.appendChild(document.createTextNode(v[0])); }
     const tools = h(box, 'div', 'aa-verse-tools');

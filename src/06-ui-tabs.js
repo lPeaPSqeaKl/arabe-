@@ -92,6 +92,13 @@ function renderQuranTab(ctx, root, state) {
   checkbox(tg, '🎨 prononciation', !!ctx.settings.tajwid, v => { ctx.settings.tajwid = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'sans voyelles', !!ctx.settings.noVowels, v => { ctx.settings.noVowels = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, '👁 m\'entraîner à lire', !!ctx.settings.practice, v => { ctx.settings.practice = v; ctx.save(); const b = root.querySelector('.aa-verses'); if (b) b.classList.toggle('aa-practice', v); });
+  {
+    const lr = h(opt, 'label', 'aa-layout-row'); h(lr, 'span', null, 'Affichage des versets : ');
+    const sel = h(lr, 'select', 'dropdown aa-layout-sel');
+    VERSE_LAYOUTS.forEach(([k, l]) => { const o = h(sel, 'option', null, l); o.value = k; });
+    sel.value = ctx.settings.verseLayout || 'auto';
+    sel.addEventListener('change', () => { ctx.settings.verseLayout = sel.value; ctx.save(); renderQuranTab(ctx, root, state); });
+  }
   renderBookmarks(ctx, root, state, n => goSurah(n));
   const course = ctx.courseSurahs();
   if (course.length) {

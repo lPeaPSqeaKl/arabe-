@@ -30,3 +30,6 @@ Les récitations (everyayah.com, quran.com) ne sont pas copiées dans le plugin 
 Les explications, leçons, définitions et analyses automatiques (iʿrāb, prononciation) servent à apprendre. Elles peuvent contenir des erreurs : pour le Coran, vérifie toujours auprès d'un enseignant.
 
 Si tu es titulaire de droits sur l'un de ces contenus et souhaites qu'il soit retiré, ouvre une « issue » sur ce dépôt.
+
+## Signes de pause (waqf)
+Position des signes de pause du mushaf de Médine (ۖ ۗ ۚ ۘ), utilisée pour couper les longs versets en morceaux : tirée du texte uthmani du paquet [quran-json](https://github.com/risan/quran-json) (texte de [quranenc.com](https://quranenc.com), licence CC BY-SA 4.0). Fichier généré : `src/04d-pauses.gen.js`.
