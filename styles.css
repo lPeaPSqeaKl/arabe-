@@ -810,3 +810,5 @@ li.aa-rule-inline { list-style: none; border: none; background: none; }
 .aa-root.aa-reading .aa-body { max-width: 900px; margin: 0 auto; padding-bottom: 80px; }
 .aa-reading-bar { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); right: 16px; display: flex; gap: 6px; z-index: 5; padding: 6px; border-radius: 999px; background: var(--background-primary); box-shadow: 0 2px 10px rgba(0,0,0,.18); width: max-content; }
 .aa-root.aa-paper .aa-reading-bar { background: var(--aa-paper-bg); }
+.aa-practice .aa-trw { cursor: default; pointer-events: auto; }
+.aa-practice .aa-trw:hover { background: none; text-decoration: none; }

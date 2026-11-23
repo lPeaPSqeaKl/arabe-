@@ -2185,7 +2185,7 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
     arSpan(line, '﴿' + arNum(vn) + '﴾', 'aa-vnum');
     if (S.showTr) {
       const trl = h(box, 'div', 'aa-tr aa-verse-tr'); trl.addEventListener('click', () => box.classList.add('aa-revealed'), true);
-      tokens.forEach((t, i) => { const s = h(trl, 'span', 'aa-trw', t); s.addEventListener('click', () => spans[i].click()); trl.appendChild(document.createTextNode(' ')); });
+      tokens.forEach((t, i) => { const s = h(trl, 'span', 'aa-trw', t); s.addEventListener('click', () => { if (box.closest('.aa-practice')) return; spans[i].click(); }); trl.appendChild(document.createTextNode(' ')); });
     }
     if (S.showFr) { const fr = h(box, 'div', 'aa-verse-fr'); fr.addEventListener('click', () => box.classList.add('aa-revealed')); h(fr, 'span', 'aa-ref', surahN + ':' + vn + ' '); fr.appendChild(document.createTextNode(v[0])); }
     const tools = h(box, 'div', 'aa-verse-tools');
