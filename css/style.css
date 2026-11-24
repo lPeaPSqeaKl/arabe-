@@ -896,3 +896,5 @@ li.aa-rule-inline { list-style: none; border: none; background: none; }
 .aa-quiz-ref { margin: 2px 0 6px; }
 .aa-quiz-opt { min-height: 44px; font-size: 1.02em; }
 @media (max-width: 600px) { .aa-qp-levels { grid-template-columns: minmax(0, 1fr); } .aa-qp-count { display: none; } }
+/* 2.20.1 : plus de trait sous les mots de mon vocabulaire (demandé par l'utilisateur) */
+.aa-w.aa-mine { text-decoration: none; }

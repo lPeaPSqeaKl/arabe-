@@ -2213,7 +2213,7 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
     const mkWord = (parent, wi) => {
       const w = words[wi]; const st = stemOf(w);
       const sp = arSpan(parent, wordText(w), 'aa-w ' + (POS_CLASS[st.f.pos] || '') + (isInitials(w) ? ' aa-pos-inl' : '') + (st.seg[3] >= 0 && ctx.isMine(st.seg[3]) ? ' aa-mine' : ''));
-      sp.title = tokens[wi];
+      sp.title = tokens[wi] + (sp.classList.contains('aa-mine') ? ' · ✓ dans mon vocabulaire' : '');
       if (tj) { sp.textContent = ''; fillTajwid(sp, tj[wi]); }
       else if (S.noVowels) sp.textContent = noVowels(wordText(w));
       sp.addEventListener('click', () => {
@@ -2523,7 +2523,7 @@ function renderQuranTab(ctx, root, state) {
     if (k.unknown.length) { const a = h(t, 'a', 'aa-link', '📖 Apprendre les mots de cette sourate (' + k.unknown.length + ' nouveaux)'); a.addEventListener('click', ev => { ev.preventDefault(); ctx.openTab('review', { surahWords: state.surah, session: null, deck: null }); }); }
   }).catch(() => {});
   if (ctx.settings.tajwid) renderTajwidLegend(details(root, '🎨 Couleurs de prononciation : ce qu\'on prononce ou pas', true));
-  mdText(root, 'p', 'aa-help', '**Clique sur un mot** pour voir ses morceaux, ses signes lettre par lettre, la raison de sa terminaison et les autres formes possibles. Couleurs : bleu = nom, rouge = verbe, gris = particule. Les mots **soulignés en pointillé** sont déjà dans ton vocabulaire.');
+  mdText(root, 'p', 'aa-help', '**Clique sur un mot** pour voir ses morceaux, ses signes lettre par lettre, la raison de sa terminaison et les autres formes possibles. Couleurs : bleu = nom, rouge = verbe, gris = particule.');
   if (state.searchOpen) renderQuranSearch(ctx, root, state);
   const body = h(root, 'div', 'aa-verses' + (ctx.settings.practice ? ' aa-practice' : ''));
   const from = state.page * PAGE + 1, to = Math.min(nV, from + PAGE - 1);

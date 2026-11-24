@@ -434,7 +434,7 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
     const mkWord = (parent, wi) => {
       const w = words[wi]; const st = stemOf(w);
       const sp = arSpan(parent, wordText(w), 'aa-w ' + (POS_CLASS[st.f.pos] || '') + (isInitials(w) ? ' aa-pos-inl' : '') + (st.seg[3] >= 0 && ctx.isMine(st.seg[3]) ? ' aa-mine' : ''));
-      sp.title = tokens[wi];
+      sp.title = tokens[wi] + (sp.classList.contains('aa-mine') ? ' · ✓ dans mon vocabulaire' : '');
       if (tj) { sp.textContent = ''; fillTajwid(sp, tj[wi]); }
       else if (S.noVowels) sp.textContent = noVowels(wordText(w));
       sp.addEventListener('click', () => {
