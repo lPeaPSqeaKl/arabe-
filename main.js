@@ -5973,6 +5973,15 @@ const AR_FONTS = [
   ['lateef', 'Lateef', 'Naskh simple et aéré.'],
   ['ruqaa', 'Ruqʿa (écriture à la main)', 'Le style qu\'on utilise pour écrire à la main au quotidien. Utile pour lire une écriture manuscrite. Certains petits signes du Coran sont plus simples.'],
   ['maghribi', 'Maghribi (style marocain)', 'Écriture maghrébine, celle des manuscrits et des Corans du Maroc. Attention : dans ce style, le ف a souvent son point en dessous et le ق un seul point au-dessus.'],
+  ['harmattan', 'Harmattan (style d\'Afrique de l\'Ouest)', 'Écriture des manuscrits d\'Afrique de l\'Ouest (Sénégal, Mali…), proche du maghribi mais plus simple à lire. Tous les signes du Coran.'],
+  ['mirza', 'Mirza', 'Naskh aux formes rondes et anciennes, agréable à lire.'],
+  ['kufi', 'Reem Kufi (coufique)', 'Le coufique : écriture anguleuse, la plus ancienne des Corans. Aujourd\'hui surtout pour les titres. Les petits signes du Coran sont pris dans Amiri Quran.'],
+  ['kufam', 'Kufam (coufique moderne)', 'Coufique moderne et géométrique. Pour le plaisir des yeux plus que pour apprendre. Petits signes du Coran pris dans Amiri Quran.'],
+  ['nastaliq', 'Nastaʿlīq (Noto Nastaliq)', 'Le style persan et ourdou : les mots descendent en diagonale. Très beau, plus difficile à lire pour débuter. Petits signes du Coran pris dans Amiri Quran.'],
+  ['gulzar', 'Nastaʿlīq (Gulzar)', 'Un autre nastaʿlīq, plus calligraphique. Petits signes du Coran pris dans Amiri Quran.'],
+  ['katibeh', 'Katibeh (manuscrit ancien)', 'Inspirée des manuscrits anciens, épaisse et décorative.'],
+  ['rakkas', 'Rakkas (affiche)', 'Police d\'affiche, très grasse. Pour les titres, pas pour lire longtemps. Petits signes du Coran pris dans Amiri Quran.'],
+  ['lalezar', 'Lalezar (affiche)', 'Police d\'affiche, ronde et grasse. Pour les titres, pas pour lire longtemps. Petits signes du Coran pris dans Amiri Quran.'],
   ['device', 'Police de l\'appareil', 'La police arabe de ton PC ou de ton iPad.'],
 ];
 const TAB_ICONS = { home: 'home', write: 'pencil', coran: 'book-open', alphabet: 'a-large-small', lessons: 'graduation-cap', rules: 'book-marked', review: 'layers', dict: 'library', analyse: 'scan-search', build: 'blocks', signs: 'flask-conical', quiz: 'target' };
@@ -6151,7 +6160,7 @@ function fillSettings(el, plugin, inObsidian, ctx) {
       .addToggle(t => t.setValue(!!s.tajwid).onChange(async v => { s.tajwid = v; await p.saveSettings(); }));
     new Setting(el).setName('Ouvrir « lettre par lettre » automatiquement').addToggle(t => t.setValue(s.openLetters).onChange(async v => { s.openLetters = v; await p.saveSettings(); }));
     h(el, 'h3', 'aa-set-h', 'Apparence');
-    const fontSet = new Setting(el).setName('Police arabe').setDesc('Toutes ces polices sont incluses dans le plugin : elles marchent sans internet, sur PC comme sur iPad. « Amiri Quran » affiche le mieux les petits signes du Coran.');
+    const fontSet = new Setting(el).setName('Police arabe').setDesc('Toutes ces polices sont incluses dans le plugin : elles marchent sans internet, sur PC, iPad et iPhone. « Amiri Quran » affiche le mieux les petits signes du Coran. Les polices décoratives (coufique, nastaʿlīq, affiche) sont belles mais plus difficiles à lire pour apprendre.');
     const preview = el.createDiv({ cls: 'aa-font-preview aa-root' });
     const showFont = v => { AR_FONTS.forEach(f => preview.classList.toggle('aa-font-' + f[0], v === f[0])); const f = AR_FONTS.find(x => x[0] === v) || AR_FONTS[0]; preview.empty(); preview.createDiv({ text: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ' }); const d = preview.createDiv({ text: f[2] }); d.style.cssText = 'font-size:12px;direction:ltr;text-align:left;color:var(--text-muted);font-family:var(--font-interface)'; };
     fontSet.addDropdown(d => { AR_FONTS.forEach(f => d.addOption(f[0], f[1])); d.setValue(s.arFont || 'amiri').onChange(async v => { s.arFont = v; showFont(v); await p.saveSettings(); p.refreshViews && p.refreshViews(); }); });
@@ -6192,7 +6201,7 @@ function fillSettings(el, plugin, inObsidian, ctx) {
       ['Analyse des mots (racines, cas, formes) : Quranic Arabic Corpus, Kais Dukes, Université de Leeds, licence GNU GPL. Version corrigée par mustafa0x/quran-morphology.', 'https://corpus.quran.com'],
       ['Signes de pause (pour couper les longs versets) : texte uthmani de quranenc.com, via le paquet quran-json (CC BY-SA 4.0).', 'https://github.com/risan/quran-json'],
       ['Traduction française : Muhammad Hamidullah. Utilisée ici à des fins d\'étude, non commerciales ; les droits appartiennent à son auteur et à ses éditeurs.', ''],
-      ['Polices arabes : Amiri et Amiri Quran (Khaled Hosny), Scheherazade New et Lateef (SIL Global), Noto Naskh Arabic (Noto Project), Aref Ruqaa, Bouazzi Maghribi (aleftypefoundry). Toutes sous SIL Open Font License 1.1.', 'https://github.com/aliftype/amiri'],
+      ['Polices arabes : Amiri et Amiri Quran (Khaled Hosny), Scheherazade New et Lateef (SIL Global), Noto Naskh Arabic (Noto Project), Aref Ruqaa, Bouazzi Maghribi (aleftypefoundry), Reem Kufi, Kufam, Harmattan (SIL Global), Mirza, Noto Nastaliq Urdu, Gulzar, Katibeh, Rakkas, Lalezar. Toutes sous SIL Open Font License 1.1.', 'https://github.com/aliftype/amiri'],
       ['Récitations : everyayah.com et quran.com, écoutées en ligne (rien n\'est copié dans le plugin).', 'https://everyayah.com'],
     ].forEach(([t, u]) => { const d = h(src, 'p', 'aa-small'); d.appendChild(document.createTextNode(t + ' ')); if (u) { const a = h(d, 'a', null, u); a.href = u; } });
     h(src, 'p', 'aa-small aa-muted', 'Les définitions, explications, leçons et analyses automatiques (iʿrāb, prononciation) sont un outil d\'apprentissage : elles peuvent contenir des erreurs. Pour le Coran, vérifie toujours auprès d\'un enseignant.');

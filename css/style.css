@@ -898,3 +898,14 @@ li.aa-rule-inline { list-style: none; border: none; background: none; }
 @media (max-width: 600px) { .aa-qp-levels { grid-template-columns: minmax(0, 1fr); } .aa-qp-count { display: none; } }
 /* 2.20.1 : plus de trait sous les mots de mon vocabulaire (demandé par l'utilisateur) */
 .aa-w.aa-mine { text-decoration: none; }
+/* 2.21 : nouvelles polices ; les petits signes du Coran absents sont pris dans Amiri Quran */
+.aa-root.aa-font-kufi { --aa-ar-font: "Atelier Reem Kufi", "Atelier Amiri Quran", serif; }
+.aa-root.aa-font-kufam { --aa-ar-font: "Atelier Kufam", "Atelier Amiri Quran", serif; }
+.aa-root.aa-font-harmattan { --aa-ar-font: "Atelier Harmattan", "Atelier Amiri Quran", serif; }
+.aa-root.aa-font-mirza { --aa-ar-font: "Atelier Mirza", "Atelier Amiri Quran", serif; }
+.aa-root.aa-font-nastaliq { --aa-ar-font: "Atelier Noto Nastaliq", "Atelier Amiri Quran", serif; }
+.aa-root.aa-font-gulzar { --aa-ar-font: "Atelier Gulzar", "Atelier Amiri Quran", serif; }
+.aa-root.aa-font-katibeh { --aa-ar-font: "Atelier Katibeh", "Atelier Amiri Quran", serif; }
+.aa-root.aa-font-rakkas { --aa-ar-font: "Atelier Rakkas", "Atelier Amiri Quran", serif; }
+.aa-root.aa-font-lalezar { --aa-ar-font: "Atelier Lalezar", "Atelier Amiri Quran", serif; }
+.aa-root.aa-font-nastaliq .aa-verse-ar, .aa-root.aa-font-gulzar .aa-verse-ar, .aa-font-preview.aa-font-nastaliq, .aa-font-preview.aa-font-gulzar { line-height: 2.7; }
