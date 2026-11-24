@@ -590,26 +590,120 @@ function renderSignsTab(ctx, root, state) {
 const QUIZ_RANGES = [['review', '⟳ Mes mots à revoir (erreurs)'], ['mine', 'Mon vocabulaire'], ['juz30', 'Juz ʿAmma (sourates 78 à 114)'], ['fatiha', 'Al-Fātiḥa'], ['all', 'Tout le Coran'], ['cur', 'La sourate ouverte dans l\'onglet Coran']];
 const QUIZ_TYPES = [['case', 'Quel est le cas de ce nom ?'], ['mood', 'Quel est le mode de ce verbe ?'], ['sens', 'Que veut dire ce mot ?'], ['role', 'Quel est le rôle de ce mot dans la phrase ?'], ['phrase', 'Quelle est la bonne phrase ?']];
 
+/* ---------- Exercices : un parcours guidé par niveaux (2.20) ---------- */
+const QUIZ_PATHS = [
+  { id: 'sens', ic: '💬', title: 'Le sens des mots', what: 'Un mot du Coran est surligné : choisis ce qu\'il veut dire.', after: null,
+    levels: [['fatiha', 'Al-Fātiḥa'], ['juz30', 'Les petites sourates (Juz ʿAmma)'], ['all', 'Tout le Coran']] },
+  { id: 'case', ic: '📐', title: 'Les trois cas : -u, -a, -i', what: 'Regarde la fin d\'un nom et le mot d\'avant : sujet (-u), complément (-a) ou après une préposition (-i) ?', after: 'cas',
+    levels: [['fatiha', 'Al-Fātiḥa'], ['juz30', 'Les petites sourates (Juz ʿAmma)'], ['all', 'Tout le Coran']] },
+  { id: 'phrase', ic: '🧱', title: 'La bonne phrase', what: 'Une phrase en français : choisis la bonne traduction en arabe.', after: 'nominale',
+    levels: [['p1', 'Série 1'], ['p2', 'Série 2'], ['p3', 'Série 3']] },
+  { id: 'mood', ic: '⚙️', title: 'Les modes du verbe au présent', what: 'Un verbe au présent : normal (-u), après « an, lan » (-a) ou après « lam, lā » (sans voyelle) ?', after: 'present',
+    levels: [['juz30', 'Les petites sourates (Juz ʿAmma)'], ['all', 'Tout le Coran']] },
+  { id: 'role', ic: '🧩', title: 'Le rôle du mot dans la phrase', what: 'Sujet, complément, attribut… : quel est le rôle du mot surligné ?', after: 'irab',
+    levels: [['juz30', 'Les petites sourates (Juz ʿAmma)'], ['all', 'Tout le Coran']] },
+];
+const QUIZ_ROUND = 10, QUIZ_PASS = 7;
+function quizBest(ctx) { return ctx.settings.quizPath || (ctx.settings.quizPath = {}); }
+function lessonNum(id) { const k = LESSONS.findIndex(l => l.id === id); return k >= 0 ? k + 1 : null; }
+
 function renderQuizTab(ctx, root, state) {
   clear(root);
-  state.score = state.score || { ok: 0, n: 0 };
-  state.qtype = state.qtype || 'case'; state.range = state.range || 'juz30';
-  mdText(root, 'p', 'aa-help', 'Entraîne-toi avec de **vrais mots du Coran**. Après chaque réponse, tu vois l\'explication complète.');
-  const bar = h(root, 'div', 'aa-toolbar');
-  selectEl(field(bar, 'Exercice'), QUIZ_TYPES, state.qtype, v => { state.qtype = v; state.q = null; renderQuizTab(ctx, root, state); });
-  if (state.qtype !== 'phrase') selectEl(field(bar, 'Textes'), QUIZ_RANGES, state.range, v => { state.range = v; state.q = null; renderQuizTab(ctx, root, state); });
-  h(bar, 'div', 'aa-score', 'Score : ' + state.score.ok + ' / ' + state.score.n);
-  if (state.notice) { mdText(root, 'p', 'aa-warn', state.notice); state.notice = null; }
-  renderProgress(ctx, details(root, '📈 Mes progrès', false), () => renderQuizTab(ctx, root, state));
+  if (state.round) return renderQuizRound(ctx, root, state);
+  if (state.free) return renderQuizFree(ctx, root, state);
+  mdText(root, 'p', 'aa-help', 'Chaque exercice est un **parcours** en plusieurs niveaux, du plus facile (Al-Fātiḥa) au plus difficile (tout le Coran). Un niveau = **' + QUIZ_ROUND + ' questions** prises dans de vrais versets. Avec **' + QUIZ_PASS + ' bonnes réponses sur ' + QUIZ_ROUND + '**, le niveau est validé ✓. Après chaque réponse, tu vois l\'explication.');
+  const B = quizBest(ctx); const LS = ctx.settings.lessons || {};
+  const go = () => renderQuizTab(ctx, root, state);
+  const start = (path, lv) => { state.round = { path: path.id, lv, i: 0, ok: 0, q: null, wrong: [] }; go(); root.scrollTop = 0; };
+  /* le prochain niveau conseillé */
+  let sug = null;
+  for (const P of QUIZ_PATHS) {
+    const ready = !P.after || (LS[P.after] && LS[P.after].done);
+    const lv = P.levels.findIndex(L => !((B[P.id] || {})[L[0]] >= QUIZ_PASS));
+    if (lv >= 0 && ready) { sug = [P, lv]; break; }
+  }
+  if (sug) {
+    const act = h(root, 'div', 'aa-actions aa-lesson-go');
+    btn(act, '▶ Continuer : ' + sug[0].title + ' · niveau ' + (sug[1] + 1), () => start(sug[0], sug[1]), 'mod-cta');
+  }
+  const grid = h(root, 'div', 'aa-qp-list');
+  QUIZ_PATHS.forEach(P => {
+    const bp = B[P.id] || {};
+    const nOk = P.levels.filter(L => bp[L[0]] >= QUIZ_PASS).length;
+    const c = h(grid, 'div', 'aa-qp' + (sug && sug[0] === P ? ' aa-qp-next' : '') + (nOk === P.levels.length ? ' aa-qp-done' : ''));
+    const top = h(c, 'div', 'aa-qp-top');
+    h(top, 'span', 'aa-qp-ic', P.ic); h(top, 'b', null, P.title);
+    h(top, 'span', 'aa-muted aa-small aa-qp-count', nOk + ' / ' + P.levels.length + ' niveaux');
+    h(c, 'div', 'aa-muted aa-small', P.what);
+    if (P.after && !(LS[P.after] && LS[P.after].done) && lessonNum(P.after)) {
+      const t = h(c, 'div', 'aa-qp-after aa-small');
+      t.appendChild(document.createTextNode('Conseillé après la '));
+      const a = h(t, 'a', 'aa-link', 'leçon ' + lessonNum(P.after)); a.addEventListener('click', ev => { ev.preventDefault(); ctx.openLesson(P.after); });
+      t.appendChild(document.createTextNode(' (tu peux essayer avant).'));
+    }
+    const lv = h(c, 'div', 'aa-qp-levels');
+    P.levels.forEach((L, k) => {
+      const best = bp[L[0]];
+      const b = h(lv, 'button', 'aa-qp-lv' + (best >= QUIZ_PASS ? ' aa-qp-ok' : '') + (sug && sug[0] === P && sug[1] === k ? ' aa-qp-cur' : ''));
+      h(b, 'span', 'aa-qp-lvn', best >= QUIZ_PASS ? '✓' : String(k + 1));
+      const tx = h(b, 'span', 'aa-qp-lvt'); h(tx, 'span', null, L[1]);
+      h(tx, 'span', 'aa-muted aa-small', best != null ? 'meilleur score : ' + best + ' / ' + QUIZ_ROUND : QUIZ_ROUND + ' questions');
+      b.addEventListener('click', () => start(P, k));
+    });
+  });
+  /* s'entraîner sur ses erreurs, son vocabulaire, ou librement */
+  const more = h(root, 'div', 'aa-qp-more');
+  const rv = (ctx.reviewList ? ctx.reviewList() : []).length;
+  btn(more, '⟳ Mes mots à revoir' + (rv ? ' (' + rv + ')' : ''), () => { state.free = true; state.qtype = 'sens'; state.range = 'review'; state.q = null; go(); }, 'aa-btn-quiet');
+  btn(more, '📚 Mon vocabulaire', () => { state.free = true; state.qtype = 'sens'; state.range = 'mine'; state.q = null; go(); }, 'aa-btn-quiet');
+  btn(more, '🎲 Entraînement libre', () => { state.free = true; state.q = null; go(); }, 'aa-btn-quiet');
+  renderProgress(ctx, details(root, '📈 Mes progrès', false), go);
+}
+
+/* une série de 10 questions */
+function renderQuizRound(ctx, root, state) {
+  const R = state.round; const P = QUIZ_PATHS.find(x => x.id === R.path); const L = P.levels[R.lv];
+  const go = () => renderQuizTab(ctx, root, state);
+  const head = h(root, 'div', 'aa-qp-head');
+  btn(head, '← Tous les exercices', () => { state.round = null; go(); }, 'aa-btn-quiet');
+  const tt = h(head, 'div', 'aa-qp-title'); h(tt, 'b', null, P.ic + ' ' + P.title); h(tt, 'span', 'aa-muted aa-small', ' · niveau ' + (R.lv + 1) + ' : ' + L[1]);
+  const dots = h(root, 'div', 'aa-qp-dots');
+  for (let k = 0; k < QUIZ_ROUND; k++) h(dots, 'span', 'aa-qp-dot' + (k < R.i ? (R.res && R.res[k] ? ' aa-qp-dot-ok' : ' aa-qp-dot-bad') : k === R.i ? ' aa-qp-dot-cur' : ''));
+  if (R.i >= QUIZ_ROUND) return renderQuizEnd(ctx, root, state, P);
+  h(root, 'div', 'aa-muted aa-small aa-qp-pos', 'Question ' + (R.i + 1) + ' sur ' + QUIZ_ROUND + ' · ' + R.ok + ' bonne' + (R.ok > 1 ? 's' : '') + ' réponse' + (R.ok > 1 ? 's' : ''));
   const box = h(root, 'div', 'aa-quiz');
-  const next = async () => { state.q = await makeQuestion(ctx, state); renderQuizTab(ctx, root, state); };
-  if (!state.q) { h(box, 'p', 'aa-muted', 'Préparation de la question…'); next(); return; }
-  const q = state.q;
+  const sub = { qtype: P.id, range: L[0] };
+  if (!R.q) { h(box, 'p', 'aa-muted', 'Préparation de la question…'); makeQuestion(ctx, sub).then(q => { R.q = q; if (state.round === R) go(); }); return; }
+  renderQuizQuestion(ctx, box, R.q, P.id, good => {
+    R.res = R.res || []; R.res[R.i] = good; if (good) R.ok++;
+    const d = dots.children[R.i]; if (d) d.className = 'aa-qp-dot ' + (good ? 'aa-qp-dot-ok' : 'aa-qp-dot-bad');
+  }, () => { R.i++; R.q = null; go(); }, R.i + 1 >= QUIZ_ROUND ? 'Voir mon résultat →' : 'Question suivante →');
+}
+
+function renderQuizEnd(ctx, root, state, P) {
+  const R = state.round; const L = P.levels[R.lv]; const go = () => renderQuizTab(ctx, root, state);
+  const B = quizBest(ctx); const bp = B[P.id] || (B[P.id] = {});
+  if (!R.saved) { R.saved = true; if (!(bp[L[0]] >= R.ok)) bp[L[0]] = R.ok; ctx.save(); }
+  const ok = R.ok >= QUIZ_PASS;
+  const box = h(root, 'div', 'aa-quiz aa-qp-end');
+  h(box, 'div', 'aa-qp-big', R.ok + ' / ' + QUIZ_ROUND);
+  mdText(box, 'p', ok ? 'aa-ok' : 'aa-warn', ok ? '✓ **Niveau validé !** ' + (R.ok === QUIZ_ROUND ? 'Parfait, aucune erreur.' : 'Bravo.') : 'Pas encore validé : il faut ' + QUIZ_PASS + ' bonnes réponses. Relis l\'explication des erreurs, puis réessaie : les questions changent à chaque fois.');
+  const act = h(box, 'div', 'aa-actions aa-qp-endact');
+  const nextLv = R.lv + 1 < P.levels.length ? R.lv + 1 : -1;
+  if (ok && nextLv >= 0) btn(act, '▶ Niveau suivant : ' + P.levels[nextLv][1], () => { state.round = { path: P.id, lv: nextLv, i: 0, ok: 0, q: null }; go(); }, 'mod-cta');
+  btn(act, '🔁 Refaire ce niveau', () => { state.round = { path: P.id, lv: R.lv, i: 0, ok: 0, q: null }; go(); }, ok && nextLv >= 0 ? '' : 'mod-cta');
+  btn(act, 'Tous les exercices', () => { state.round = null; go(); }, 'aa-btn-quiet');
+  if (P.after && lessonNum(P.after) && !ok) { const t = h(box, 'p', 'aa-muted aa-small'); t.appendChild(document.createTextNode('Pour revoir la règle : ')); const a = h(t, 'a', 'aa-link', 'leçon ' + lessonNum(P.after)); a.addEventListener('click', ev => { ev.preventDefault(); ctx.openLesson(P.after); }); }
+}
+
+/* une question (partagée par le parcours et l'entraînement libre) */
+function renderQuizQuestion(ctx, box, q, qtype, onAnswer, onNext, nextLabel) {
   h(box, 'div', 'aa-quiz-q', q.prompt);
   if (q.words) {
     const a = h(box, 'div', 'aa-verse-ar'); a.setAttribute('dir', 'rtl'); a.style.fontSize = ctx.settings.arSize + 'px';
     q.words.forEach((w, wi) => { arSpan(a, wordText(w), wi === q.wi ? 'aa-hl' : ''); a.appendChild(document.createTextNode(' ')); });
-    h(box, 'div', 'aa-muted aa-small', q.ref[0] + ':' + q.ref[1] + ' — ' + q.verseFr);
+    if (ctx.settings.showTr) { const tk = translitTokens(q.words, ctx.settings.style); const tr = h(box, 'div', 'aa-tr aa-verse-tr'); tk.forEach((t, i) => { h(tr, 'span', i === q.wi ? 'aa-hl-tr' : null, t); tr.appendChild(document.createTextNode(' ')); }); }
+    h(box, 'div', 'aa-muted aa-small aa-quiz-ref', q.ref[0] + ':' + q.ref[1] + ' — ' + q.verseFr);
     const big = h(box, 'div', 'aa-quiz-word'); arSpan(big, wordText(q.words[q.wi]), 'aa-big');
   } else if (q.fr) {
     h(box, 'div', 'aa-quiz-fr', '« ' + q.fr + ' »');
@@ -619,21 +713,39 @@ function renderQuizTab(ctx, root, state) {
   q.options.forEach((o, i) => {
     const b = btn(opts, '', () => {
       if (q.done) return;
-      q.done = true; state.score.n++;
+      q.done = true;
       const good = i === q.answer;
-      if (good) state.score.ok++;
-      if (q.words) { const lid = stemOf(q.words[q.wi]).seg[3]; if (lid >= 0) ctx.record(lid, good, state.qtype); }
-      else ctx.record(-1, good, state.qtype);
+      if (q.words) { const lid = stemOf(q.words[q.wi]).seg[3]; if (lid >= 0) ctx.record(lid, good, qtype); }
+      else ctx.record(-1, good, qtype);
       opts.querySelectorAll('button').forEach((x, k) => { if (k === q.answer) x.classList.add('aa-good'); else if (k === i) x.classList.add('aa-bad'); });
       mdText(fb, 'div', good ? 'aa-ok' : 'aa-warn', good ? '✓ Bravo !' : '✗ Pas tout à fait : la réponse est « ' + q.options[q.answer].replace(/\*\*/g, '') + ' ».');
+      onAnswer(good);
+      const nb = btn(h(fb, 'div', 'aa-actions aa-quiz-next'), nextLabel || 'Question suivante →', onNext, 'mod-cta');
       (q.explain || []).forEach(x => mdText(fb, 'div', 'aa-why', x));
-      if (q.words) { const det = h(fb, 'div', 'aa-detail'); renderWordDetail(ctx, det, q.words, q.wi, q.ref, null); }
-      const nb = btn(fb, 'Question suivante →', next, 'mod-cta');
-      nb.focus && nb.focus();
-      root.querySelector('.aa-score').textContent = 'Score : ' + state.score.ok + ' / ' + state.score.n;
+      if (q.words) { const det = h(details(fb, '🔎 Tout sur ce mot', !good), 'div', 'aa-detail'); renderWordDetail(ctx, det, q.words, q.wi, q.ref, null); }
+      try { nb.focus({ preventScroll: true }); } catch (e) { /* */ }
+      fb.scrollIntoView && fb.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }, 'aa-quiz-opt');
     if (q.optAr) arSpan(b, o, 'aa-mid'); else b.textContent = o;
   });
+}
+
+function renderQuizFree(ctx, root, state) {
+  state.score = state.score || { ok: 0, n: 0 };
+  state.qtype = state.qtype || 'case'; state.range = state.range || 'juz30';
+  btn(h(root, 'div', 'aa-qp-head'), '← Tous les exercices', () => { state.free = false; state.q = null; renderQuizTab(ctx, root, state); }, 'aa-btn-quiet');
+  const bar = h(root, 'div', 'aa-toolbar');
+  selectEl(field(bar, 'Exercice'), QUIZ_TYPES, state.qtype, v => { state.qtype = v; state.q = null; renderQuizTab(ctx, root, state); });
+  if (state.qtype !== 'phrase') selectEl(field(bar, 'Textes'), QUIZ_RANGES, state.range, v => { state.range = v; state.q = null; renderQuizTab(ctx, root, state); });
+  h(bar, 'div', 'aa-score', 'Score : ' + state.score.ok + ' / ' + state.score.n);
+  if (state.notice) { mdText(root, 'p', 'aa-warn', state.notice); state.notice = null; }
+  const box = h(root, 'div', 'aa-quiz');
+  const next = async () => { state.q = await makeQuestion(ctx, state); renderQuizTab(ctx, root, state); };
+  if (!state.q) { h(box, 'p', 'aa-muted', 'Préparation de la question…'); next(); return; }
+  renderQuizQuestion(ctx, box, state.q, state.qtype, good => {
+    state.score.n++; if (good) state.score.ok++;
+    const sc = root.querySelector('.aa-score'); if (sc) sc.textContent = 'Score : ' + state.score.ok + ' / ' + state.score.n;
+  }, next);
 }
 
 function rnd(n) { return Math.floor(Math.random() * n); }
@@ -695,7 +807,7 @@ function buildWordQuestion(ctx, state, words, wi, ref, v) {
       return Object.assign(base, { prompt: 'Quel est le rôle (la fonction) du mot surligné dans la phrase ?', options: keys.map(k => irabRoleName(k).split(' ‖ ')[0] + ' — ' + IRAB_ROLES[k][2]), answer: keys.indexOf(r.key), explain: [irabSentence(words, res, wi)].concat(r.notes).concat(r.mark ? ['**Marque :** ' + r.mark + '.'] : []) });
     }
     const good = data.lemmas[st.seg[3]][4];
-    const pool = data.lemmas.filter(l => l[5] >= 15 && l[4] && l[4] !== good && l[1] === st.f.pos);
+    const pool = data.lemmas.filter(l => l[5] >= 15 && l[4] && l[4] !== good && l[1] === st.f.pos && (l[2] === 'PN') === (data.lemmas[st.seg[3]][2] === 'PN'));
     const opts = shuffle([good, ...shuffle(pool.slice()).slice(0, 3).map(l => l[4])]);
     return Object.assign(base, { prompt: 'Que veut dire le mot surligné (sens de base) ?', options: opts, answer: opts.indexOf(good), explain: [] });
   }
