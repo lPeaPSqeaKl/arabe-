@@ -300,7 +300,7 @@ function renderAlphaQuiz(ctx, el, A, state) {
   opts.forEach(o => {
     const b = btn(ans, o, () => {
       if (done) return; done = true;
-      const ok = o === good; state.score.n++; if (ok) state.score.ok++;
+      const ok = o === good; state.score.n++; if (ok) { state.score.ok++; ctx.settings.alphaOk = (ctx.settings.alphaOk || 0) + 1; if (ctx.markActivity) ctx.markActivity('l'); else ctx.save(); }
       sc.textContent = 'Score : ' + state.score.ok + ' / ' + state.score.n;
       b.classList.add(ok ? 'aa-good' : 'aa-bad');
       ans.querySelectorAll('button').forEach(x => { if (x.textContent === good) x.classList.add('aa-good'); });

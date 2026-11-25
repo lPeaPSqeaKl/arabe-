@@ -16,16 +16,19 @@ function renderHomeTab(ctx, root, state) {
   clear(root);
   const go = () => renderHomeTab(ctx, root, state);
   if (state.view === 'surahs') return renderSurahProgress(ctx, root, state, go);
+  if (state.welcome || needsWelcome(ctx)) return renderWelcome(ctx, root, state, go);
   const S = srsStore(ctx); const W = writeState(ctx); const K = lemmaKnowledge(ctx);
   const head = h(root, 'div', 'aa-home-head');
   h(head, 'div', 'aa-muted aa-small aa-home-date', frDate(new Date()));
   h(head, 'h2', null, 'As-salāmu ʿalaykum');
+  renderToday(ctx, root);
   renderHomeSearch(ctx, root, state);
+  renderPath(ctx, root, state, go);
   // les trois chiffres
   const tiles = h(root, 'div', 'aa-home-tiles');
   const tile = (ic, big, lab, sub) => { const t = h(tiles, 'div', 'aa-home-tile'); h(t, 'div', 'aa-home-ic', ic); h(t, 'b', null, big); h(t, 'span', null, lab); if (sub) h(t, 'span', 'aa-muted aa-small', sub); return t; };
   const streak = streakOf(ctx); const A = activityDays(ctx); const today = A[todayNum()] || {};
-  tile('🔥', String(streak), streak > 1 ? 'jours d\'affilée' : 'jour d\'affilée', today.c || today.w || today.l ? 'aujourd\'hui : fait ✓' : 'fais une révision pour continuer');
+  tile('🔥', String(streak), streak > 1 ? 'jours d\'affilée' : 'jour d\'affilée', today.c || today.w || today.l || today.r ? 'aujourd\'hui : fait ✓' : 'fais une révision pour continuer');
   const cov = quranCoverage(ctx, K);
   tile('📖', Math.round(100 * cov.known) + ' %', 'des mots du Coran acquis', Math.round(100 * cov.learning) ? '+ ' + Math.round(100 * cov.learning) + ' % en cours' : 'grâce aux cartes de mots');
   tile('✍️', writeAllLetters().filter(l => letterLearned(W, l)).length + ' / ' + writeAllLetters().length, 'lettres écrites seul');
@@ -50,22 +53,6 @@ function renderHomeTab(ctx, root, state) {
       BM.slice(0, 3).forEach(b => { const a = h(bl, 'a', 'aa-link aa-small', b.s + ':' + b.v); a.title = ctx.data.surahInfo(b.s)[1]; a.addEventListener('click', ev => { ev.preventDefault(); ctx.openQuran(b.s, b.v); }); bl.appendChild(document.createTextNode(' ')); });
     }
   }
-  const rc = h(todo, 'div', 'aa-home-card aa-home-main');
-  const rt = h(rc, 'div', 'aa-home-card-top'); h(rt, 'span', 'aa-home-card-ic', '🃏'); h(rt, 'b', null, 'Révision du jour');
-  const rl = h(rc, 'div', 'aa-muted aa-small', 'Calcul…');
-  const ra = h(rc, 'div', 'aa-home-card-act');
-  loadCardDecks(ctx).then(decks => {
-    const n = todayCounts(S, decks); clear(rl);
-    if (n.due + n.fresh) { mdText(rl, 'span', null, '**' + n.due + '** carte' + (n.due > 1 ? 's' : '') + ' à revoir · **' + n.fresh + '** nouvelle' + (n.fresh > 1 ? 's' : '') + ' (mots et règles)'); btn(ra, '▶ Réviser maintenant', () => ctx.openTab('review', { startNow: true, session: null, deck: null }), 'mod-cta'); }
-    else { rl.textContent = 'Tout est à jour. ' + (S.doneToday ? S.doneToday + ' cartes faites aujourd\'hui. ' : '') + 'Bravo.'; btn(ra, 'Voir les paquets', () => ctx.openTab('review', { session: null, deck: null })); }
-  }).catch(() => { rl.textContent = ''; });
-  const nx = writeNext(W);
-  if (nx) card('✍️', 'Écriture', nx.letter ? 'Prochaine lettre : **' + nx.letter + '**' + (alphaLetter(nx.letter) ? ' (' + alphaLetter(nx.letter).name + ')' : '') + ' · unité « ' + nx.unit.title + ' »' : 'Prochain mot : **' + nx.unit.words[nx.word][0] + '**', 'Continuer', () => ctx.openTab('write', nx.letter ? { unit: nx.unit.id, letter: nx.letter, step: 0, word: null, free: false } : { unit: nx.unit.id, word: [nx.unit.id, nx.word], step: 0, letter: null, free: false }));
-  const LS = ctx.settings.lessons || {}; const nl = LESSONS.find(l => !(LS[l.id] && LS[l.id].done));
-  const nDone = LESSONS.filter(l => LS[l.id] && LS[l.id].done).length;
-  if (nl) card('🎓', 'Leçon de grammaire', 'Leçon ' + (LESSONS.indexOf(nl) + 1) + ' : **' + nl.title + '** · ' + nDone + ' / ' + LESSONS.length + ' validées', 'Ouvrir la leçon', () => ctx.openLesson(nl.id));
-  else card('🎓', 'Leçons de grammaire', 'Les ' + LESSONS.length + ' leçons sont validées. Revois les règles quand tu veux.', 'Les règles', () => ctx.openTab('rules'));
-
   // mon Coran
   const qc = h(root, 'div', 'aa-home-block');
   const qt = h(qc, 'div', 'aa-home-block-top'); h(qt, 'h3', null, '📖 Ce que tu comprends du Coran');
@@ -85,7 +72,7 @@ function renderHomeTab(ctx, root, state) {
   h(ac, 'h3', null, '🗓️ Tes 12 dernières semaines');
   const grid = h(ac, 'div', 'aa-home-cal'); const t0 = todayNum();
   const start = t0 - 77 - ((new Date().getDay() + 6) % 7); // 12 semaines, en commençant un lundi
-  for (let d = start; d <= t0; d++) { const e = A[d]; const n = e ? (e.c || 0) + 2 * (e.w || 0) + 5 * (e.l || 0) : 0; const c = h(grid, 'span', 'aa-home-day' + (n ? ' aa-home-day-' + (n >= 40 ? 3 : n >= 15 ? 2 : 1) : '') + (d === t0 ? ' aa-home-today' : '')); c.title = n ? n + ' activités' : 'rien ce jour-là'; }
+  for (let d = start; d <= t0; d++) { const e = A[d]; const n = e ? (e.c || 0) + 2 * (e.w || 0) + 5 * ((e.l || 0) + (e.r || 0)) : 0; const c = h(grid, 'span', 'aa-home-day' + (n ? ' aa-home-day-' + (n >= 40 ? 3 : n >= 15 ? 2 : 1) : '') + (d === t0 ? ' aa-home-today' : '')); c.title = n ? n + ' activités' : 'rien ce jour-là'; }
   h(ac, 'div', 'aa-muted aa-small', 'Chaque case = un jour (cartes, écriture, leçons). Un peu chaque jour vaut mieux que beaucoup une fois par semaine.');
 
   const set = h(root, 'div', 'aa-home-settings');

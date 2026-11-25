@@ -73,7 +73,7 @@ class AtelierView extends ItemView {
       return;
     }
     this.render();
-    if (this.plugin.fresh && !this.plugin.settings.tourDone) setTimeout(() => this.startTour(), 400);
+    if (this.plugin.fresh && !this.plugin.settings.tourDone && this.plugin.settings.path) setTimeout(() => this.startTour(), 400);
     /* ordinateur : flèches ← → dans l'onglet Coran (sourate / versets suivants) */
     this.registerDomEvent(document, 'keydown', ev => {
       if (ev.altKey && ev.key === 'ArrowLeft' && this.back && this.back.length) { const t = ev.target; if (!(t && t.closest && t.closest('input, textarea'))) { ev.preventDefault(); this.goBack(); return; } }
