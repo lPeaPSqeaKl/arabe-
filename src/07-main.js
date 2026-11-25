@@ -289,6 +289,7 @@ function fillSettings(el, plugin, inObsidian, ctx) {
       ['Traduction française : Muhammad Hamidullah. Utilisée ici à des fins d\'étude, non commerciales ; les droits appartiennent à son auteur et à ses éditeurs.', ''],
       ['Polices arabes : Amiri et Amiri Quran (Khaled Hosny), Scheherazade New et Lateef (SIL Global), Noto Naskh Arabic (Noto Project), Aref Ruqaa, Bouazzi Maghribi (aleftypefoundry), Reem Kufi, Kufam, Harmattan (SIL Global), Mirza, Noto Nastaliq Urdu, Gulzar, Katibeh, Rakkas, Lalezar. Toutes sous SIL Open Font License 1.1.', 'https://github.com/aliftype/amiri'],
       ['Récitations : everyayah.com et quran.com, écoutées en ligne (rien n\'est copié dans le plugin).', 'https://everyayah.com'],
+      ['Minutage mot par mot des récitateurs : quran-align (Collin Fair), licence CC BY 4.0.', 'https://github.com/cpfair/quran-align'],
     ].forEach(([t, u]) => { const d = h(src, 'p', 'aa-small'); d.appendChild(document.createTextNode(t + ' ')); if (u) { const a = h(d, 'a', null, u); a.href = u; } });
     h(src, 'p', 'aa-small aa-muted', 'Les définitions, explications, leçons et analyses automatiques (iʿrāb, prononciation) sont un outil d\'apprentissage : elles peuvent contenir des erreurs. Pour le Coran, vérifie toujours auprès d\'un enseignant.');
   }

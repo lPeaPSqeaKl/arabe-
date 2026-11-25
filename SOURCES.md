@@ -25,6 +25,8 @@ Ordre traditionnel de l'édition égyptienne du Coran (1924), vérifié avec le 
 
 Les récitations (everyayah.com, quran.com) ne sont pas copiées dans le plugin : elles sont écoutées en ligne, seulement quand on appuie sur ▶ ou 🔊.
 
+Le minutage mot par mot des récitateurs (data/timing/, pour allumer le mot récité) vient de [quran-align](https://github.com/cpfair/quran-align) de Collin Fair, licence [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Il a été converti par tools/build-timing.js (un nombre par mot, en centièmes de seconde).
+
 ## Avertissement
 
 Les explications, leçons, définitions et analyses automatiques (iʿrāb, prononciation) servent à apprendre. Elles peuvent contenir des erreurs : pour le Coran, vérifie toujours auprès d'un enseignant.

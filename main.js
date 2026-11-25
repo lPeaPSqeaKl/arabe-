@@ -1947,9 +1947,39 @@ const RECITERS = [
   ['Abdul_Basit_Murattal_192kbps', 'ʿAbd al-Bāsiṭ (posé)'],
 ];
 const AUDIO = { reciter: 'Alafasy_128kbps', rate: 1, repeat: 1, follow: true };
-/* Suivre le mot récité : on n'a pas le minutage exact des mots, alors on l'estime d'après la longueur
- * de chaque mot (lettres, voyelles longues, madd ٓ, pauses). C'est approximatif, mais ça suit bien le rythme. */
+/* Suivre le mot récité : on utilise le vrai minutage mot par mot de chaque récitateur
+ * (quran-align, CC BY 4.0, mesuré sur les mêmes fichiers everyayah), dans data/timing/<récitateur>.json,
+ * téléchargé une fois puis gardé hors ligne. Sans ce fichier (pas encore chargé, pas d'internet),
+ * on estime d'après la longueur de chaque mot (lettres, madd ٓ, pauses). */
 let FOLLOW = null;
+const TIMING = new Map(); // récitateur -> promesse ; TIMING_DATA : récitateur -> données
+const TIMING_DATA = new Map();
+function loadTiming(rec) {
+  if (!rec || !FONT_ENV) return Promise.resolve(null);
+  if (TIMING.has(rec)) return TIMING.get(rec);
+  const p = (async () => {
+    const ad = FONT_ENV.app.vault.adapter; const dir = FONT_ENV.dir + '/data/timing'; const f = dir + '/' + rec + '.json';
+    let txt = null;
+    try { txt = await ad.read(f); } catch (e) { /* absent : on le télécharge */ }
+    if (!txt) {
+      const r = await requestUrl({ url: DATA_URL + 'timing/' + rec + '.json' });
+      txt = r.text;
+      try { if (!(await ad.exists(dir))) await ad.mkdir(dir); await ad.write(f, txt); } catch (e) { /* pas de copie locale */ }
+    }
+    const d = JSON.parse(txt); TIMING_DATA.set(rec, d); return d;
+  })();
+  p.catch(() => TIMING.delete(rec));
+  TIMING.set(rec, p);
+  return p;
+}
+/* Quel récitateur joue vraiment ? (le fichier peut venir d'un autre si le premier manque) */
+function reciterOfSrc(src) {
+  let u = src || ''; try { u = decodeURIComponent(u); } catch (e) { /* */ }
+  for (const [k] of RECITERS) if (u.includes('/' + k + '/')) return k;
+  if (/verses\.quran\.com\/Alafasy\//.test(u)) return 'Alafasy_128kbps';
+  return null;
+}
+function verseTiming(rec, s, v) { const d = rec && TIMING_DATA.get(rec); const a = d && d.s && d.s[s]; return a ? a[v - 1] : null; }
 function wordWeight(t) {
   const base = (t.match(/[\u0621-\u064A\u0671-\u06D3]/g) || []).length;
   const madd = (t.match(/\u0653/g) || []).length * 3.5;
@@ -1968,10 +1998,18 @@ function followVerse(s, v) {
   const w = spans.map(sp => wordWeight(sp.textContent || '')); const tot = w.reduce((a, b) => a + b, 0);
   const cum = []; let c = 0; w.forEach(x => { c += x; cum.push(c / tot); });
   const me = { spans, raf: 0, cur: -1 }; FOLLOW = me;
+  loadTiming(AUDIO.reciter || 'Alafasy_128kbps').catch(() => {});
   const tick = () => {
     if (FOLLOW !== me) return;
     const a = currentAudio;
-    if (a && a.duration && isFinite(a.duration) && !a.paused) {
+    const rec = a && !a.paused ? reciterOfSrc(a.currentSrc || a.src) : null;
+    if (rec && !TIMING.has(rec)) loadTiming(rec).catch(() => {}); // fichier de secours d'un autre récitateur
+    const T = verseTiming(rec, s, v);
+    if (T && T.length === spans.length + 1) {
+      const t = a.currentTime * 100 + 8; // un tout petit peu en avance, pour que l'œil suive
+      let i = 0; while (i + 1 < spans.length && T[i + 1] <= t) i++;
+      if (i !== me.cur) { if (me.cur >= 0) spans[me.cur].classList.remove('aa-w-now'); spans[i].classList.add('aa-w-now'); me.cur = i; }
+    } else if (a && a.duration && isFinite(a.duration) && !a.paused) {
       const lead = Math.min(0.4, a.duration * 0.05), tail = Math.min(0.6, a.duration * 0.08);
       const p = Math.max(0, Math.min(1, (a.currentTime - lead) / Math.max(0.1, a.duration - lead - tail)));
       let i = cum.findIndex(x => p <= x); if (i < 0) i = spans.length - 1;
@@ -6729,6 +6767,7 @@ function fillSettings(el, plugin, inObsidian, ctx) {
       ['Traduction française : Muhammad Hamidullah. Utilisée ici à des fins d\'étude, non commerciales ; les droits appartiennent à son auteur et à ses éditeurs.', ''],
       ['Polices arabes : Amiri et Amiri Quran (Khaled Hosny), Scheherazade New et Lateef (SIL Global), Noto Naskh Arabic (Noto Project), Aref Ruqaa, Bouazzi Maghribi (aleftypefoundry), Reem Kufi, Kufam, Harmattan (SIL Global), Mirza, Noto Nastaliq Urdu, Gulzar, Katibeh, Rakkas, Lalezar. Toutes sous SIL Open Font License 1.1.', 'https://github.com/aliftype/amiri'],
       ['Récitations : everyayah.com et quran.com, écoutées en ligne (rien n\'est copié dans le plugin).', 'https://everyayah.com'],
+      ['Minutage mot par mot des récitateurs : quran-align (Collin Fair), licence CC BY 4.0.', 'https://github.com/cpfair/quran-align'],
     ].forEach(([t, u]) => { const d = h(src, 'p', 'aa-small'); d.appendChild(document.createTextNode(t + ' ')); if (u) { const a = h(d, 'a', null, u); a.href = u; } });
     h(src, 'p', 'aa-small aa-muted', 'Les définitions, explications, leçons et analyses automatiques (iʿrāb, prononciation) sont un outil d\'apprentissage : elles peuvent contenir des erreurs. Pour le Coran, vérifie toujours auprès d\'un enseignant.');
   }
