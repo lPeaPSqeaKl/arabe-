@@ -4548,12 +4548,13 @@ function renderAlphabetTab(ctx, root, state) {
   const zoneById = id => A.zones.find(z => z.id === id);
   mdText(root, 'p', 'aa-help', A.intro);
   const bar = h(root, 'div', 'aa-actions');
-  const modes = [['letters', '🔤 Les lettres'], ['mouth', '👄 D\'où vient le son'], ['pairs', '👂 Sons à ne pas confondre'], ['quiz', '🎯 S\'entraîner']];
+  const modes = [['letters', '🔤 Les lettres'], ['mouth', '👄 D\'où vient le son'], ['pairs', '👂 Sons à ne pas confondre'], ['fonts', '🖋 Comparer les polices'], ['quiz', '🎯 S\'entraîner']];
   state.mode = state.mode || 'letters';
   modes.forEach(([m, label]) => btn(bar, label, () => { state.mode = m; renderAlphabetTab(ctx, root, state); }, state.mode === m ? 'mod-cta' : 'aa-btn-quiet'));
   const body = h(root, 'div', 'aa-al-body');
   if (state.mode === 'pairs') return renderAlphaPairs(ctx, body, A);
   if (state.mode === 'quiz') return renderAlphaQuiz(ctx, body, A, state);
+  if (state.mode === 'fonts') return renderAlphaFonts(ctx, body, A, state);
 
   const layout = h(body, 'div', 'aa-al-layout' + (state.mode === 'mouth' ? ' aa-al-mouthfirst' : ''));
   const left = h(layout, 'div', 'aa-al-left');
@@ -4645,6 +4646,7 @@ function renderLetterCard(ctx, parent, L, A, openZone) {
       cell.addEventListener('click', () => speak(e[0]));
     } else h(cell, 'div', 'aa-muted aa-small aa-al-fnone', L.l === 'ء' ? 'au milieu, la hamza se pose sur un support : ـأ ـؤ ـئ' : 'pas d\'exemple simple');
   });
+  { const cf = h(c, 'div', 'aa-actions'); btn(cf, '🖋 Voir cette lettre dans toutes les polices', () => { if (ctx.openTab) ctx.openTab('alphabet', { mode: 'fonts', cmp: L.join ? [L.l, L.l + AL_ZWJ, AL_ZWJ + L.l + AL_ZWJ, AL_ZWJ + L.l].join('   ') : L.l + '   ' + AL_ZWJ + L.l }); }, 'aa-btn-quiet'); }
   if (L.l === 'ي') mdText(c, 'p', 'aa-muted aa-small', 'Dans le Coran, le **ي** à la fin d\'un mot s\'écrit souvent **sans ses deux points** : ى (on l\'appelle alif maqṣūra quand il se prononce ā).');
   // exemple
   const ex = h(c, 'div', 'aa-al-ex');
@@ -4758,6 +4760,47 @@ function renderAlphaQuiz(ctx, el, A, state) {
       btn(nx, 'Suivante →', () => { clear(el); renderAlphaQuiz(ctx, el, A, state); }, 'mod-cta');
     }, 'aa-btn-quiet');
   });
+}
+
+/* ---------- Comparer les polices : le même texte dans toutes les polices ---------- */
+const FONT_GROUPS = [
+  ['learn', '✍️ Pour apprendre et recopier', 'Le naskh : le style des livres et de l\'école. Lettres nettes, points bien placés. C\'est le modèle à recopier.', ['naskh', 'scheherazade', 'amiri', 'amiri-classic', 'lateef', 'mirza', 'harmattan']],
+  ['hand', '🖊 L\'écriture à la main de tous les jours', 'Le ruqʿa : plus rapide et plus simple. Les points se lient souvent en un petit trait.', ['ruqaa']],
+  ['art', '🎨 Pour le plaisir des yeux', 'Des styles d\'art : la forme des lettres change beaucoup. À regarder, pas encore à recopier.', ['maghribi', 'kufi', 'kufam', 'nastaliq', 'gulzar', 'katibeh', 'rakkas', 'lalezar']],
+];
+function renderAlphaFonts(ctx, body, A, state) {
+  const S = ctx.settings;
+  mdText(body, 'p', 'aa-muted', 'Le même texte dans **toutes les polices**. Regarde ce qui **ne change jamais** : le squelette de la lettre, le **nombre et la place des points**, et quelles lettres s\'attachent. Ce qui change : la hauteur, l\'épaisseur, les courbes.');
+  const SAMPLES = [['بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ', 'Bismillāh'], ['كِتَابٌ', 'kitāb (un livre)'], ['سَلَامٌ عَلَيْكُمْ', 'salām'], ['قُلْ هُوَ ٱللَّهُ أَحَدٌ', '112:1'], ['ب ت ث ن ي', 'les lettres à points'], ['ج ح خ ع غ', 'les lettres rondes'], ['ف ق', 'fā et qāf']];
+  const bar = h(body, 'div', 'aa-al-cmpbar');
+  const inp = h(bar, 'input', 'aa-input aa-al-cmpin'); inp.setAttribute('dir', 'rtl'); inp.placeholder = 'Tape un mot arabe…';
+  inp.value = state.cmp || SAMPLES[0][0];
+  const chips = h(body, 'div', 'aa-al-cmpchips');
+  SAMPLES.forEach(([t, lab]) => { const b = btn(chips, lab, () => { inp.value = t; paint(); }, 'aa-btn-quiet'); b.title = t; });
+  const opt = h(body, 'div', 'aa-toggles');
+  let bare = !!state.cmpBare;
+  checkbox(opt, 'sans voyelles (comme on écrit à la main)', bare, v => { bare = state.cmpBare = v; paint(); });
+  const out = h(body, 'div');
+  const paint = () => {
+    state.cmp = inp.value; clear(out);
+    const txt = bare ? noVowels(inp.value) : inp.value;
+    FONT_GROUPS.forEach(([gid, title, what, ids]) => {
+      h(out, 'h4', 'aa-al-cmph', title);
+      h(out, 'p', 'aa-muted aa-small', what);
+      const grid = h(out, 'div', 'aa-al-cmpgrid');
+      ids.forEach(id => {
+        const f = AR_FONTS.find(x => x[0] === id); if (!f) return;
+        const card = h(grid, 'div', 'aa-al-cmpcard aa-root aa-font-' + id + ((S.arFont || 'amiri') === id ? ' aa-al-cmpon' : ''));
+        const top = h(card, 'div', 'aa-al-cmptop'); h(top, 'b', null, f[1].replace(/ \(.*\)$/, ''));
+        if ((S.arFont || 'amiri') === id) h(top, 'span', 'aa-tag', 'ta police');
+        const a = h(card, 'div', 'aa-ar aa-al-cmptxt', txt); a.setAttribute('dir', 'rtl'); a.setAttribute('lang', 'ar');
+        h(card, 'div', 'aa-muted aa-small', f[2]);
+        if ((S.arFont || 'amiri') !== id) btn(card, 'Utiliser cette police', () => { S.arFont = id; ctx.save(); if (ctx.refresh) ctx.refresh(); else paint(); }, 'aa-btn-quiet');
+      });
+    });
+  };
+  inp.addEventListener('input', () => { clearTimeout(inp._t); inp._t = setTimeout(paint, 250); });
+  paint();
 }
 /* Généré : pour chaque lettre, un mot du Coran par forme [seule, début, milieu, fin] = [mot, id du sens] */
 const ALPHA_FORM_EX = {"ء":[["سَوْءٍ",913],["ءَامَنَ",18],null,["شَىْءٍ",38]],"ا":[["إِذَا",23],["إِنَّ",4],["قَالَ",5],["مَا",6]],"ب":[["عَذَابٌ",33],["بَلْ",88],["سَبِيلِ",60],["يُحِبُّ",176]],"ت":[["يَأْتِ",45],["تَجْرِى",194],["مُّسْتَقِيمٍ",298],["كَانَتْ",9]],"ث":[["حَرْثَ",660],["ثُمَّ",31],["أَكْثَرَ",130],["حَيْثُ",342]],"ج":[["حَرَجٌ",615],["جَعَلَ",30],["نَجْزِى",150],["يُولِجُ",822]],"ح":[["جُنَاحَ",411],["رَّحِيمٌ",94],["سِحْرٌ",368],["يُفْلِحُ",387]],"خ":[["أَخٌ",144],["خَيْرٌ",58],["يَخْلُقُ",56],["يُنفَخُ",508]],"د":[["أَرَادَ",78],["دُونِ",76],["يَهْدِى",75],["قَدْ",22]],"ذ":[["إِذْ",35],["إِذًا",346],["عَذَابَ",33],["أَخَذَ",87]],"ر":[["غَفُورٌ",111],["رَبِّ",11],["يُرِيدُ",78],["غَيْرَ",71]],"ز":[["فَازَ",1776],["رِزْقًا",202],["أُنزِلَ",57],["عَزِيزٌ",104]],"س":[["بَأْسٍ",413],["رَسُولٌ",32],["مُّسَمًّى",476],["لَيْسَ",112]],"ش":[["غَوَاشٍ",1864],["أَشَدُّ",343],["بَشَرٌ",305],["تَمْشِ",467]],"ص":[["قِصَاصٌ",1456],["صَبْرًا",596],["بَصِيرٌ",217],["نَقُصُّ",494]],"ض":[["مَّرَضٌ",655],["ضَلَّ",210],["فَضْلُ",122],["بَعْضٍ",66]],"ط":[["أَحَاطَ",545],["طِينٍ",709],["حَبِطَتْ",703],["يَبْسُطُ",577]],"ظ":[["شُوَاظٌ",4294],["أَظْلَمُ",568],["عَظِيمٌ",98],["حَفِيظٌ",717]],"ع":[["تَدْعُ",61],["عَلَى",8],["بَعْدِ",54],["مَعَ",64]],"غ":[["بَاغٍ",1708],["غَيْرُ",71],["بَغْتَةً",680],["بَلَغَ",278]],"ف":[["أَخَافُ",127],["فِى",3],["نَفْسٍ",36],["كَيْفَ",125]],"ق":[["فَوْقَ",265],["قُلْ",5],["يَقُولُ",5],["خَلَقَ",56]],"ك":[["تَرَكَ",271],["كَانَ",9],["حَكِيمٌ",106],["مُلْكُ",234]],"ل":[["أَنزَلَ",57],["لَا",2],["عَلِيمٌ",65],["كُلِّ",28]],"م":[["يَوْمَ",19],["مِن",0],["لَمَّا",70],["لَمْ",29]],"ن":[["أَن",17],["نَذِيرٌ",192],["عِندَ",55],["مِنَ",0]],"ه":[["كَرِهَ",553],["هَلْ",108],["ءَالِهَةً",73],["وَجْهِ",152]],"و":[["أَوْ",39],["وَعْدَ",231],["قَوْمًا",24],["لَوْ",53]],"ي":[["هُدًى",120],["يَعْلَمُ",25],["بَيْنَ",44],["إِلَى",14]]};

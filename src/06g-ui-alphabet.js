@@ -99,12 +99,13 @@ function renderAlphabetTab(ctx, root, state) {
   const zoneById = id => A.zones.find(z => z.id === id);
   mdText(root, 'p', 'aa-help', A.intro);
   const bar = h(root, 'div', 'aa-actions');
-  const modes = [['letters', '🔤 Les lettres'], ['mouth', '👄 D\'où vient le son'], ['pairs', '👂 Sons à ne pas confondre'], ['quiz', '🎯 S\'entraîner']];
+  const modes = [['letters', '🔤 Les lettres'], ['mouth', '👄 D\'où vient le son'], ['pairs', '👂 Sons à ne pas confondre'], ['fonts', '🖋 Comparer les polices'], ['quiz', '🎯 S\'entraîner']];
   state.mode = state.mode || 'letters';
   modes.forEach(([m, label]) => btn(bar, label, () => { state.mode = m; renderAlphabetTab(ctx, root, state); }, state.mode === m ? 'mod-cta' : 'aa-btn-quiet'));
   const body = h(root, 'div', 'aa-al-body');
   if (state.mode === 'pairs') return renderAlphaPairs(ctx, body, A);
   if (state.mode === 'quiz') return renderAlphaQuiz(ctx, body, A, state);
+  if (state.mode === 'fonts') return renderAlphaFonts(ctx, body, A, state);
 
   const layout = h(body, 'div', 'aa-al-layout' + (state.mode === 'mouth' ? ' aa-al-mouthfirst' : ''));
   const left = h(layout, 'div', 'aa-al-left');
@@ -196,6 +197,7 @@ function renderLetterCard(ctx, parent, L, A, openZone) {
       cell.addEventListener('click', () => speak(e[0]));
     } else h(cell, 'div', 'aa-muted aa-small aa-al-fnone', L.l === 'ء' ? 'au milieu, la hamza se pose sur un support : ـأ ـؤ ـئ' : 'pas d\'exemple simple');
   });
+  { const cf = h(c, 'div', 'aa-actions'); btn(cf, '🖋 Voir cette lettre dans toutes les polices', () => { if (ctx.openTab) ctx.openTab('alphabet', { mode: 'fonts', cmp: L.join ? [L.l, L.l + AL_ZWJ, AL_ZWJ + L.l + AL_ZWJ, AL_ZWJ + L.l].join('   ') : L.l + '   ' + AL_ZWJ + L.l }); }, 'aa-btn-quiet'); }
   if (L.l === 'ي') mdText(c, 'p', 'aa-muted aa-small', 'Dans le Coran, le **ي** à la fin d\'un mot s\'écrit souvent **sans ses deux points** : ى (on l\'appelle alif maqṣūra quand il se prononce ā).');
   // exemple
   const ex = h(c, 'div', 'aa-al-ex');
@@ -309,4 +311,45 @@ function renderAlphaQuiz(ctx, el, A, state) {
       btn(nx, 'Suivante →', () => { clear(el); renderAlphaQuiz(ctx, el, A, state); }, 'mod-cta');
     }, 'aa-btn-quiet');
   });
+}
+
+/* ---------- Comparer les polices : le même texte dans toutes les polices ---------- */
+const FONT_GROUPS = [
+  ['learn', '✍️ Pour apprendre et recopier', 'Le naskh : le style des livres et de l\'école. Lettres nettes, points bien placés. C\'est le modèle à recopier.', ['naskh', 'scheherazade', 'amiri', 'amiri-classic', 'lateef', 'mirza', 'harmattan']],
+  ['hand', '🖊 L\'écriture à la main de tous les jours', 'Le ruqʿa : plus rapide et plus simple. Les points se lient souvent en un petit trait.', ['ruqaa']],
+  ['art', '🎨 Pour le plaisir des yeux', 'Des styles d\'art : la forme des lettres change beaucoup. À regarder, pas encore à recopier.', ['maghribi', 'kufi', 'kufam', 'nastaliq', 'gulzar', 'katibeh', 'rakkas', 'lalezar']],
+];
+function renderAlphaFonts(ctx, body, A, state) {
+  const S = ctx.settings;
+  mdText(body, 'p', 'aa-muted', 'Le même texte dans **toutes les polices**. Regarde ce qui **ne change jamais** : le squelette de la lettre, le **nombre et la place des points**, et quelles lettres s\'attachent. Ce qui change : la hauteur, l\'épaisseur, les courbes.');
+  const SAMPLES = [['بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ', 'Bismillāh'], ['كِتَابٌ', 'kitāb (un livre)'], ['سَلَامٌ عَلَيْكُمْ', 'salām'], ['قُلْ هُوَ ٱللَّهُ أَحَدٌ', '112:1'], ['ب ت ث ن ي', 'les lettres à points'], ['ج ح خ ع غ', 'les lettres rondes'], ['ف ق', 'fā et qāf']];
+  const bar = h(body, 'div', 'aa-al-cmpbar');
+  const inp = h(bar, 'input', 'aa-input aa-al-cmpin'); inp.setAttribute('dir', 'rtl'); inp.placeholder = 'Tape un mot arabe…';
+  inp.value = state.cmp || SAMPLES[0][0];
+  const chips = h(body, 'div', 'aa-al-cmpchips');
+  SAMPLES.forEach(([t, lab]) => { const b = btn(chips, lab, () => { inp.value = t; paint(); }, 'aa-btn-quiet'); b.title = t; });
+  const opt = h(body, 'div', 'aa-toggles');
+  let bare = !!state.cmpBare;
+  checkbox(opt, 'sans voyelles (comme on écrit à la main)', bare, v => { bare = state.cmpBare = v; paint(); });
+  const out = h(body, 'div');
+  const paint = () => {
+    state.cmp = inp.value; clear(out);
+    const txt = bare ? noVowels(inp.value) : inp.value;
+    FONT_GROUPS.forEach(([gid, title, what, ids]) => {
+      h(out, 'h4', 'aa-al-cmph', title);
+      h(out, 'p', 'aa-muted aa-small', what);
+      const grid = h(out, 'div', 'aa-al-cmpgrid');
+      ids.forEach(id => {
+        const f = AR_FONTS.find(x => x[0] === id); if (!f) return;
+        const card = h(grid, 'div', 'aa-al-cmpcard aa-root aa-font-' + id + ((S.arFont || 'amiri') === id ? ' aa-al-cmpon' : ''));
+        const top = h(card, 'div', 'aa-al-cmptop'); h(top, 'b', null, f[1].replace(/ \(.*\)$/, ''));
+        if ((S.arFont || 'amiri') === id) h(top, 'span', 'aa-tag', 'ta police');
+        const a = h(card, 'div', 'aa-ar aa-al-cmptxt', txt); a.setAttribute('dir', 'rtl'); a.setAttribute('lang', 'ar');
+        h(card, 'div', 'aa-muted aa-small', f[2]);
+        if ((S.arFont || 'amiri') !== id) btn(card, 'Utiliser cette police', () => { S.arFont = id; ctx.save(); if (ctx.refresh) ctx.refresh(); else paint(); }, 'aa-btn-quiet');
+      });
+    });
+  };
+  inp.addEventListener('input', () => { clearTimeout(inp._t); inp._t = setTimeout(paint, 250); });
+  paint();
 }
