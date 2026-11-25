@@ -4070,6 +4070,172 @@ const LESSONS = [
   },
 ];
 /* ====================================================================
+ * 06c2 - Leçons de grammaire : un schéma par notion et des exercices variés
+ * (vrai/faux, associer, remettre dans l'ordre). Ajoutés aux leçons de 06c.
+ * Schémas : blocks = mots en blocs colorés avec leur rôle (de droite à gauche),
+ *           root = la racine colorée dans chaque mot, big = cartes côte à côte.
+ * Couleurs de rôle : v verbe, s sujet / nominatif, o complément / accusatif,
+ *                    g génitif, a attribut, p petit mot, x neutre.
+ * ==================================================================== */
+const LESSON_EXTRA = {
+  racine: {
+    viz: [
+      [0, { t: 'root', words: [['عَلِمَ', 'il a su', 'علم'], ['عَلَّمَ', 'il a enseigné', 'علم'], ['عِلْم', 'le savoir', 'علم'], ['عَالِم', 'un savant', 'علم'], ['مَعْلُوم', 'connu', 'علم']], cap: 'Les 3 lettres de la racine (en couleur) restent ; le moule change autour.' }],
+      [2, { t: 'root', words: [['كَاتِب', 'celui qui écrit', 'كتب'], ['عَالِم', 'celui qui sait', 'علم'], ['كَافِر', 'celui qui renie', 'كفر'], ['خَالِق', 'celui qui crée', 'خلق']], cap: 'Le moule fāʿil : un ā après la 1re lettre, un i après la 2e.' }],
+    ],
+    more: [
+      { k: 'tf', q: 'Vrai ou faux : pour trouver un mot dans un dictionnaire arabe, on cherche sa première lettre.', a: false, why: 'Faux : on cherche sa **racine** (ex. مَعْلُوم se cherche à ع ل م).' },
+      { k: 'match', q: 'Associe chaque mot à sa racine.', pairs: [['خَلَقَ', 'خ ل ق'], ['كَاتِب', 'ك ت ب'], ['عِلْم', 'ع ل م'], ['ٱقْرَأْ', 'ق ر أ']], why: 'Enlève voyelles, alif de prolongation et lettres ajoutées : il reste 3 consonnes.' },
+      { k: 'mcq', q: 'Quel mot n\'a **pas** la même racine que les autres ?', o: ['قَلَم', 'عَلِمَ', 'عَالِم', 'عِلْم'], a: 0, why: 'قَلَم (le calame) vient de ق ل م ; les trois autres de ع ل م.' },
+      { k: 'tf', q: 'Vrai ou faux : عَلَّمَ et عَلِمَ ont la même racine mais pas le même moule.', a: true, why: 'Même racine ع ل م ; la **chadda** du moule faʿʿala donne « faire savoir » = enseigner.' },
+    ],
+  },
+  defini: {
+    viz: [
+      [0, { t: 'big', items: [['ٱلْكِتَابُ', 'défini : ال → le livre'], ['كِتَابٌ', 'indéfini : tanwīn → un livre'], ['ٱلْكِتَابٌ', '❌ impossible : les deux']] }],
+      [2, { t: 'blocks', rows: [{ join: true, w: [['ٱل', 'l muet', 'p'], ['شَّمْسُ', 'ش doublé', 'x']], cap: 'ash-shamsu : lettre solaire' }, { join: true, w: [['ٱلْ', 'on entend le l', 'p'], ['قَمَرُ', '', 'x']], cap: 'al-qamaru : lettre lunaire' }] }],
+    ],
+    more: [
+      { k: 'tf', q: 'Vrai ou faux : أَحَدٌ (aḥadun) est défini.', a: false, why: 'Le tanwīn -un marque un nom **indéfini** : « un, unique ».' },
+      { k: 'match', q: 'Associe chaque mot à sa lecture.', pairs: [['ٱلنَّاسِ', 'an-nāsi'], ['ٱلْفَلَقِ', 'al-falaqi'], ['ٱلدِّينِ', 'ad-dīni'], ['ٱلْحَمْدُ', 'al-ḥamdu']], why: 'Lettre solaire (ن د) : pas de l. Lettre lunaire (ف ح) : on entend le l.' },
+      { k: 'mcq', q: 'كِتَابُكَ (ton livre) est…', o: ['défini', 'indéfini'], a: 0, why: 'Le possessif ـكَ rend le nom **défini**, sans ال.' },
+      { k: 'order', q: 'Remets dans l\'ordre : « Le Seigneur de l\'univers » (de droite à gauche).', words: ['رَبِّ', 'ٱلْعَٰلَمِينَ'], why: 'رَبِّ ٱلْعَٰلَمِينَ : le premier nom n\'a ni ال ni tanwīn, il est défini par le second.' },
+    ],
+  },
+  cas: {
+    viz: [
+      [0, { t: 'big', items: [['ٱللَّهُ', '-u · nominatif · sujet'], ['ٱللَّهَ', '-a · accusatif · complément'], ['ٱللَّهِ', '-i · génitif · après « de », « à »']] }],
+    ],
+    more: [
+      { k: 'match', q: 'Associe chaque fin au cas.', pairs: [['-u / -un', 'nominatif (rafʿ)'], ['-a / -an', 'accusatif (naṣb)'], ['-i / -in', 'génitif (jarr)']], why: 'u → nominatif, a → accusatif, i → génitif.' },
+      { k: 'tf', q: 'Vrai ou faux : dans ٱلْحَمْدُ لِلَّهِ, le mot ٱللَّهِ est au génitif à cause de لِ.', a: true, why: 'Après une préposition (ici لِ, « à »), le nom est au **génitif** : -i.' },
+      { k: 'mcq', q: 'ٱلْمُسْلِمُونَ / ٱلْمُسْلِمِينَ : la forme en -īna sert pour…', o: ['l\'accusatif et le génitif', 'le nominatif seulement', 'le féminin'], a: 0, why: 'Pluriel masculin : **-ūna** au nominatif, **-īna** à l\'accusatif et au génitif.' },
+    ],
+  },
+  prep: {
+    viz: [
+      [0, { t: 'blocks', rows: [{ join: true, w: [['بِ', 'avec, par', 'p'], ['سْمِ', 'génitif -i', 'g']], cap: 'bismi : « au nom de »' }, { w: [['فِي', 'dans', 'p'], ['ٱلْأَرْضِ', 'génitif -i', 'g']], cap: 'fī l-arḍi : « sur la terre »' }, { w: [['مِن', 'de', 'p'], ['شَرِّ', 'génitif -i', 'g']], cap: 'min sharri : « contre le mal »' }] }],
+    ],
+    more: [
+      { k: 'match', q: 'Associe chaque préposition à son sens.', pairs: [['فِي', 'dans'], ['مِنْ', 'de, depuis'], ['عَلَىٰ', 'sur'], ['إِلَىٰ', 'vers'], ['لِ', 'à, pour']], why: 'Ce sont les cinq prépositions les plus fréquentes du Coran.' },
+      { k: 'tf', q: 'Vrai ou faux : après une préposition, le nom est toujours à l\'accusatif.', a: false, why: 'Après une préposition, le nom est au **génitif** (-i, -in, -īna).' },
+      { k: 'mcq', q: 'عَلَيْهِمْ veut dire…', o: ['sur eux', 'vers eux', 'avec eux'], a: 0, why: 'عَلَىٰ (sur) + ـهِمْ (eux). Le ā devient ay devant un pronom.' },
+    ],
+  },
+  idafa: {
+    viz: [
+      [0, { t: 'blocks', rows: [{ w: [['رَبِّ', 'nom 1 : ni ال ni tanwīn', 's'], ['ٱلْعَٰلَمِينَ', 'nom 2 : génitif', 'g']], cap: 'le Seigneur de l\'univers' }, { w: [['يَوْمِ', 'nom 1', 's'], ['ٱلدِّينِ', 'nom 2 : génitif -i', 'g']], cap: 'le jour du Jugement' }, { join: true, w: [['رَبُّ', 'nom 1', 's'], ['كَ', 'pronom = nom 2', 'g']], cap: 'ton Seigneur : le possessif est une annexion' }] }],
+    ],
+    more: [
+      { k: 'tf', q: 'Vrai ou faux : dans une annexion, le premier nom peut porter ال.', a: false, why: 'Le premier nom n\'a **ni ال ni tanwīn** : c\'est le second qui le rend défini.' },
+      { k: 'order', q: 'Remets dans l\'ordre : « le Roi des gens » (de droite à gauche).', words: ['مَلِكِ', 'ٱلنَّاسِ'], why: 'مَلِكِ ٱلنَّاسِ (114:2) : le possédé d\'abord, puis le « possesseur » au génitif.' },
+      { k: 'mcq', q: 'Dans رَبِّ ٱلْفَلَقِ, pourquoi ٱلْفَلَقِ finit-il par -i ?', o: ['c\'est le 2e nom d\'une annexion (génitif)', 'c\'est un sujet', 'c\'est un verbe'], a: 0, why: 'Le second nom d\'une annexion est **toujours au génitif**.' },
+    ],
+  },
+  pronoms: {
+    viz: [
+      [0, { t: 'blocks', rows: [{ join: true, w: [['رَبُّ', 'Seigneur', 'x'], ['نَا', 'notre', 'g']], cap: 'notre Seigneur' }, { join: true, w: [['عَلَيْ', 'sur', 'p'], ['هِمْ', 'eux', 'g']], cap: 'sur eux' }, { join: true, w: [['نَعْبُدُ', 'nous adorons', 'v'], ['كَ', 'toi (complément)', 'o']], cap: 'nous T\'adorons : le pronom collé au verbe = complément' }] }],
+    ],
+    more: [
+      { k: 'match', q: 'Associe chaque pronom collé à son sens.', pairs: [['ـكَ', 'ton, toi'], ['ـهُ', 'son, lui'], ['ـنَا', 'notre, nous'], ['ـهُمْ', 'leur, eux'], ['ـِي', 'mon, moi']], why: 'Les pronoms collés les plus fréquents.' },
+      { k: 'tf', q: 'Vrai ou faux : dans بِهِ, ـهُ devient ـهِ à cause du i de بِ.', a: true, why: 'Après un **i** ou un **y**, hu devient **hi** : بِهِ, عَلَيْهِ.' },
+      { k: 'mcq', q: 'Que veut dire رَبَّكَ ?', o: ['ton Seigneur', 'notre Seigneur', 'leur Seigneur'], a: 0, why: 'ـكَ = ton, toi (masculin).' },
+      { k: 'tf', q: 'Vrai ou faux : un nom avec un pronom collé peut avoir aussi le tanwīn.', a: false, why: 'Le pronom collé rend le nom défini : **pas de tanwīn**.' },
+    ],
+  },
+  nominale: {
+    viz: [
+      [0, { t: 'blocks', rows: [{ w: [['ٱللَّهُ', 'sujet (mubtadaʾ) -u', 's'], ['ٱلصَّمَدُ', 'attribut (khabar) -u', 'a']], cap: '« Allah [est] l\'Absolu » : pas de verbe « être »' }, { w: [['هُوَ', 'sujet : lui', 's'], ['ٱللَّهُ', 'attribut', 'a'], ['أَحَدٌ', 'attribut 2', 'a']], cap: '« Il [est] Allah, Unique »' }] }],
+    ],
+    more: [
+      { k: 'tf', q: 'Vrai ou faux : pour dire « Allah est grand », il faut un verbe « être » au présent.', a: false, why: 'Au présent, l\'arabe **n\'écrit pas** le verbe être : ٱللَّهُ أَكْبَرُ.' },
+      { k: 'order', q: 'Remets dans l\'ordre : « Allah est l\'Absolu » (de droite à gauche).', words: ['ٱللَّهُ', 'ٱلصَّمَدُ'], why: 'Sujet puis attribut, tous deux au nominatif (-u).' },
+      { k: 'mcq', q: 'Dans une phrase nominale simple, le sujet et l\'attribut sont…', o: ['au nominatif (-u)', 'à l\'accusatif (-a)', 'au génitif (-i)'], a: 0, why: 'Sans inna ni kāna, les deux sont au **nominatif**.' },
+    ],
+  },
+  adjectif: {
+    viz: [
+      [0, { t: 'blocks', rows: [{ w: [['ٱلصِّرَٰطَ', 'nom : défini · masc. · sing. · -a', 'o'], ['ٱلْمُسْتَقِيمَ', 'adjectif : pareil', 'o']], cap: 'le chemin droit : 4 accords (défini, genre, nombre, cas)' }, { w: [['ٱلرَّحْمَٰنِ', 'défini · -i', 'g'], ['ٱلرَّحِيمِ', 'défini · -i', 'g']], cap: 'le Tout-Miséricordieux, le Très-Miséricordieux' }] }],
+    ],
+    more: [
+      { k: 'tf', q: 'Vrai ou faux : en arabe, l\'adjectif se place avant le nom.', a: false, why: 'L\'adjectif vient **après** le nom, comme souvent en français.' },
+      { k: 'match', q: 'Associe le groupe à sa nature.', pairs: [['ٱلْكِتَابُ ٱلْكَبِيرُ', 'nom + adjectif : le grand livre'], ['ٱلْكِتَابُ كَبِيرٌ', 'phrase : le livre est grand']], why: 'Même ال des deux côtés → adjectif. ال sur le premier seulement → phrase nominale.' },
+      { k: 'mcq', q: 'Quel adjectif va avec نَارٌ حَامِيَةٌ (un feu ardent) ?', o: ['حَامِيَةٌ : féminin, indéfini, -un', 'ٱلْحَامِيَةُ', 'حَامِيَةً'], a: 0, why: 'نَارٌ est féminin, indéfini, au nominatif : l\'adjectif fait pareil.' },
+    ],
+  },
+  passe: {
+    viz: [
+      [0, { t: 'blocks', rows: [{ join: true, w: [['خَلَقَ', 'il a créé', 'v']], cap: 'la forme du dictionnaire : « il » au passé' }, { join: true, w: [['خَلَقْ', 'radical', 'v'], ['نَا', 'nous', 's']], cap: 'nous avons créé' }, { join: true, w: [['خَلَقْ', 'radical', 'v'], ['تَ', 'tu', 's']], cap: 'tu as créé' }, { join: true, w: [['خَلَقُ', 'radical', 'v'], ['وا', 'ils', 's']], cap: 'ils ont créé' }] }],
+    ],
+    more: [
+      { k: 'match', q: 'Associe chaque fin au sujet.', pairs: [['ـتُ', 'je'], ['ـتَ', 'tu'], ['ـنَا', 'nous'], ['ـُوا', 'ils'], ['ـَتْ', 'elle']], why: 'Au passé, le sujet est **à la fin** du verbe.' },
+      { k: 'tf', q: 'Vrai ou faux : أَنْعَمْتَ veut dire « tu as comblé ».', a: true, why: 'ـتَ à la fin = **tu** (masculin).' },
+      { k: 'mcq', q: 'Comment dit-on « nous avons fait descendre » avec أَنزَلَ ?', o: ['أَنزَلْنَا', 'أَنزَلُوا', 'أَنزَلْتُ'], a: 0, why: 'ـنَا = nous : إِنَّآ أَنزَلْنَٰهُ (97:1).' },
+    ],
+  },
+  verbale: {
+    viz: [
+      [0, { t: 'blocks', rows: [{ w: [['كَتَبَ', 'verbe', 'v'], ['ٱلطَّالِبُ', 'sujet -u', 's'], ['ٱلدَّرْسَ', 'complément -a', 'o']], cap: 'l\'élève a écrit la leçon : verbe → sujet → complément' }, { w: [['خَلَقَ', 'verbe (sujet caché : il)', 'v'], ['ٱلْإِنسَٰنَ', 'complément -a', 'o']], cap: '96:2 : « Il a créé l\'homme »' }] }],
+    ],
+    more: [
+      { k: 'order', q: 'Remets dans l\'ordre arabe : « Il a créé l\'homme » (de droite à gauche).', words: ['خَلَقَ', 'ٱلْإِنسَٰنَ'], why: 'Le verbe d\'abord, puis le complément à l\'accusatif (-a).' },
+      { k: 'tf', q: 'Vrai ou faux : dans قَالَ ٱلنَّاسُ, le verbe est au singulier alors que le sujet est un pluriel.', a: true, why: 'Quand le verbe est **devant** son sujet, il reste au singulier.' },
+      { k: 'mcq', q: 'Dans une phrase verbale, comment repère-t-on le sujet ?', o: ['il finit par -u (nominatif)', 'il finit par -a', 'il est toujours le premier mot'], a: 0, why: 'Le sujet est au **nominatif** ; le complément à l\'accusatif.' },
+    ],
+  },
+  present: {
+    viz: [
+      [0, { t: 'blocks', rows: [{ join: true, w: [['يَ', 'il', 'p'], ['عْلَمُ', 'savoir · -u', 'v']], cap: 'il sait' }, { join: true, w: [['نَ', 'nous', 'p'], ['عْبُدُ', 'adorer · -u', 'v']], cap: 'nous adorons' }, { join: true, w: [['تَ', 'tu / elle', 'p'], ['عْلَمُ', '', 'v']], cap: 'tu sais' }, { join: true, w: [['أَ', 'je', 'p'], ['عْبُدُ', '', 'v']], cap: 'j\'adore' }] }],
+      [3, { t: 'blocks', rows: [{ join: true, w: [['سَ', 'futur', 'x'], ['يَعْلَمُونَ', 'ils savent', 'v']], cap: 'ils sauront' }] }],
+    ],
+    more: [
+      { k: 'match', q: 'Associe chaque préfixe à la personne.', pairs: [['أَـ', 'je'], ['نَـ', 'nous'], ['تَـ', 'tu (ou elle)'], ['يَـ', 'il']], why: 'Le petit mot « أَنَيْتُ » aide à les retenir : أ ن ي ت.' },
+      { k: 'tf', q: 'Vrai ou faux : après لَمْ, le verbe perd son -u final (يَلِدْ).', a: true, why: 'لَمْ met le verbe à l\'**apocopé** : la fin se ferme (soukoun).' },
+      { k: 'mcq', q: 'Que veut dire سَيَعْلَمُونَ ?', o: ['ils sauront', 'ils savaient', 'ils ont su'], a: 0, why: 'سَـ devant le présent = **futur**.' },
+    ],
+  },
+  imperatif: {
+    viz: [
+      [0, { t: 'blocks', rows: [{ w: [['تَقْرَأُ', 'tu lis', 'x']], cap: '1. on part du présent à « tu »' }, { w: [['قْرَأْ', 'sans préfixe, fin fermée', 'x']], cap: '2. on enlève تَـ et on ferme la fin' }, { w: [['ٱقْرَأْ', 'lis !', 'v']], cap: '3. on ajoute ٱ pour pouvoir commencer le mot' }] }],
+    ],
+    more: [
+      { k: 'tf', q: 'Vrai ou faux : قُلْ (dis !) vient de تَقُولُ (tu dis).', a: true, why: 'On enlève تَـ, on ferme la fin, et le ū devient u : قُلْ.' },
+      { k: 'mcq', q: 'Comment dit-on « Ne fais pas ! » ?', o: ['لَا + présent apocopé : لَا تَفْعَلْ', 'مَا + impératif', 'لَمْ + impératif'], a: 0, why: 'L\'impératif ne se nie pas : on utilise لَا + le présent apocopé.' },
+      { k: 'order', q: 'Remets dans l\'ordre : « Guide-nous sur le chemin droit » (de droite à gauche).', words: ['ٱهْدِنَا', 'ٱلصِّرَٰطَ', 'ٱلْمُسْتَقِيمَ'], why: 'ٱهْدِنَا ٱلصِّرَٰطَ ٱلْمُسْتَقِيمَ (1:6) : impératif + نَا, puis le complément et son adjectif.' },
+      { k: 'match', q: 'Associe l\'impératif à son sens.', pairs: [['ٱقْرَأْ', 'lis !'], ['قُلْ', 'dis !'], ['ٱهْدِنَا', 'guide-nous !'], ['ٱعْبُدُوا', 'adorez !']], why: 'Ce sont des impératifs du Coran (96:1, 112:1, 1:6, 2:21).' },
+    ],
+  },
+  inna: {
+    viz: [
+      [0, { t: 'blocks', rows: [{ w: [['إِنَّ', 'certes', 'p'], ['ٱللَّهَ', 'nom de inna : -a', 'o'], ['غَفُورٌ', 'attribut : -u', 's']], cap: 'inna → le nom passe à l\'accusatif' }] }],
+      [1, { t: 'blocks', rows: [{ w: [['كَانَ', 'il était', 'p'], ['ٱللَّهُ', 'nom de kāna : -u', 's'], ['غَفُورًا', 'attribut : -a', 'o']], cap: 'kāna → l\'attribut passe à l\'accusatif' }] }],
+    ],
+    more: [
+      { k: 'tf', q: 'Vrai ou faux : après إِنَّ, le nom se met à l\'accusatif (-a).', a: true, why: 'inna → le **nom** à l\'accusatif ; l\'attribut reste au nominatif.' },
+      { k: 'tf', q: 'Vrai ou faux : après كَانَ, l\'attribut reste au nominatif (-u).', a: false, why: 'kāna → l\'**attribut** passe à l\'accusatif : كَانَ ٱللَّهُ غَفُورًا.' },
+      { k: 'match', q: 'Associe le mot à ce qu\'il change.', pairs: [['إِنَّ', 'le nom → -a'], ['كَانَ', 'l\'attribut → -a']], why: 'inna → le nom ; kāna → l\'attribut.' },
+    ],
+  },
+  irab: {
+    viz: [
+      [0, { t: 'blocks', rows: [{ w: [['ٱلْحَمْدُ', 'sujet (mubtadaʾ) -u', 's'], ['لِلَّهِ', 'attribut : prép. + nom', 'a'], ['رَبِّ', 'qualifie Allah : -i', 'g'], ['ٱلْعَٰلَمِينَ', 'complément du nom : -īna', 'g']], cap: '1:2 « La louange est à Allah, Seigneur de l\'univers »' }] }],
+    ],
+    more: [
+      { k: 'order', q: 'Remets dans l\'ordre le verset 1:5 (de droite à gauche).', words: ['إِيَّاكَ', 'نَعْبُدُ', 'وَإِيَّاكَ', 'نَسْتَعِينُ'], why: 'إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ : le complément « Toi » est mis **devant** pour insister.' },
+      { k: 'tf', q: 'Vrai ou faux : dans إِيَّاكَ نَعْبُدُ, إِيَّاكَ est le sujet.', a: false, why: 'إِيَّاكَ est le **complément** placé en tête ; le sujet (nous) est dans نَـ.' },
+    ],
+  },
+};
+/* on ajoute schémas et questions aux leçons */
+LESSONS.forEach(L => {
+  const X = LESSON_EXTRA[L.id]; if (!X) return;
+  (X.viz || []).forEach(([i, v]) => { if (L.sections[i]) L.sections[i].viz = v; });
+  // les nouvelles questions s'intercalent : une ancienne, une nouvelle…
+  const old = L.practice.slice(); const add = (X.more || []).slice(); const out = [];
+  while (old.length || add.length) { if (old.length) out.push(old.shift()); if (add.length) out.push(add.shift()); }
+  L.practice = out;
+});
+/* ====================================================================
  * 06d - Onglet Leçons : parcours de grammaire guidé
  * ==================================================================== */
 function lessonState(ctx) { return ctx.settings.lessons || (ctx.settings.lessons = {}); }
@@ -4141,54 +4307,82 @@ async function renderLessonExample(ctx, parent, ex) {
   box.appendChild(irBox); box.appendChild(detail);
 }
 
+/* --- schémas de grammaire --- */
+const ROLE_HUE = { v: '#c8665c', s: '#4f86c6', o: '#3e9e6b', g: '#8e63c7', a: '#c48a2c', p: '#7d8590', x: '#7d8590' };
+function lessonViz(ctx, parent, v) {
+  if (!v) return;
+  const wrap = h(parent, 'div', 'aa-wc-viz aa-gv');
+  if (v.t === 'big') return wcBig(wrap, v);
+  if (v.t === 'root') {
+    const g = h(wrap, 'div', 'aa-gv-roots'); g.setAttribute('dir', 'rtl');
+    v.words.forEach(([w, sens, root]) => {
+      const c = h(g, 'div', 'aa-gv-root');
+      const a = h(c, 'div', 'aa-gv-rootar'); a.setAttribute('dir', 'rtl'); a.setAttribute('lang', 'ar');
+      const R = [...(root || '')]; let k = 0;
+      const gs = []; for (const ch of w) { if (/[ً-ْٰ]/.test(ch) && gs.length) gs[gs.length - 1] += ch; else gs.push(ch); }
+      gs.forEach(gr => { const isR = k < R.length && gr[0] === R[k]; if (isR) k++; const s = h(a, 'span', isR ? 'aa-gv-rl' : 'aa-gv-ol', gr); void s; });
+      h(c, 'div', 'aa-small', sens);
+      if (root) h(c, 'div', 'aa-faint aa-small', [...root].join(' '));
+    });
+    if (v.cap) h(wrap, 'div', 'aa-muted aa-small aa-wc-cap', v.cap);
+    return;
+  }
+  if (v.t === 'blocks') {
+    v.rows.forEach(r => {
+      const row = h(wrap, 'div', 'aa-gv-row' + (r.join ? ' aa-gv-join' : '')); row.setAttribute('dir', 'rtl');
+      r.w.forEach(([ar, lab, hue]) => {
+        const b = h(row, 'div', 'aa-gv-b'); b.style.setProperty('--hue', ROLE_HUE[hue] || ROLE_HUE.x);
+        arSpan(b, ar, 'aa-gv-ar');
+        if (lab) h(b, 'div', 'aa-gv-lab', lab);
+      });
+      if (r.cap) mdText(wrap, 'div', 'aa-muted aa-small aa-gv-cap', r.cap);
+    });
+  }
+}
+
 async function renderLesson(ctx, root, state, L) {
   const k = LESSONS.indexOf(L);
-  const nav = h(root, 'div', 'aa-actions');
-  btn(nav, '← Toutes les leçons', () => { state.open = null; renderLessonsTab(ctx, root, state); }, 'aa-btn-quiet');
-  const head = h(root, 'div', 'aa-lesson-head');
-  h(head, 'div', 'aa-muted', 'Leçon ' + (k + 1) + ' sur ' + LESSONS.length + ' · ≈ ' + L.min + ' min');
-  h(head, 'h2', null, L.title);
-  arSpan(head, L.ar, 'aa-lesson-ar');
-  const ess = (LESSON_RULES[L.id] || []).map(ruleById).filter(Boolean);
-  if (ess.length) {
-    const box = h(root, 'div', 'aa-lesson-simple');
-    h(box, 'b', null, '🟢 L\'essentiel, en simple');
-    const ul0 = h(box, 'ul');
-    ess.forEach(r => { const li = h(ul0, 'li'); mdText(li, 'span', null, r.one + ' '); const a = h(li, 'a', 'aa-link aa-rule-link aa-more', 'en savoir plus'); a.title = r.title; a.addEventListener('click', e => { e.preventDefault(); const nx = li.nextSibling; if (nx && nx.classList && nx.classList.contains('aa-rule-inline')) { nx.remove(); return; } const hold = document.createElement('li'); hold.className = 'aa-rule-li'; li.parentNode.insertBefore(hold, li.nextSibling); const c = renderRuleCard(ctx, hold, r, { inline: true }); hold.classList.add('aa-rule-inline'); c.classList.remove('aa-rule-inline'); c.querySelector('.aa-actions button:last-child').onclick = () => hold.remove(); }); });
-    h(box, 'div', 'aa-muted aa-small', 'Les mots soulignés en pointillé ouvrent leur règle.');
-  }
-  const goal = details(root, '🎯 Ce que tu vas apprendre', false, 'aa-sec aa-lesson-goal');
-  const ul = h(goal, 'ul'); L.goal.forEach(g => mdText(ul, 'li', null, g));
-  if (L.rules && L.rules.length) {
-    const r = h(goal, 'div', 'aa-small'); h(r, 'span', 'aa-muted', 'Fiches de ton coffre : ');
-    L.rules.forEach((n, i) => { const a = h(r, 'a', 'aa-link', n); a.addEventListener('click', e => { e.preventDefault(); ctx.openPath('2 - Règles/' + n + '.md'); }); if (i < L.rules.length - 1) r.appendChild(document.createTextNode(' · ')); });
-  }
-  const NS = L.sections.length;
-  const stepBar = h(root, 'div', 'aa-steps');
-  const steps = [];
-  const openStep = (i, scroll) => {
-    steps.forEach((d, j) => { d.open = j === i; });
-    stepBar.querySelectorAll('.aa-step-dot').forEach((b, j) => { b.classList.toggle('aa-on', j === i); b.classList.toggle('aa-seen', j < i); });
-    state.step = i; saveLessonPlace(ctx, state);
-    if (scroll && steps[i] && steps[i].scrollIntoView) setTimeout(() => steps[i].scrollIntoView({ block: 'start', behavior: 'smooth' }), 30);
-  };
-  h(stepBar, 'span', 'aa-muted aa-small', 'Étapes :');
-  for (let si = 0; si < NS; si++) { const b = h(stepBar, 'button', 'aa-step-dot', String(si + 1)); b.title = L.sections[si].t; b.addEventListener('click', ev => { ev.preventDefault(); openStep(si, true); }); }
+  const NS = L.sections.length; const KEEP = NS + 1, QUIZ = NS + 2;
   if (state.stepFor !== L.id) { state.step = 0; state.stepFor = L.id; }
-  for (let si = 0; si < NS; si++) {
-    const S = L.sections[si];
-    const det = h(root, 'details', 'aa-step');
-    const sm = h(det, 'summary'); h(sm, 'span', 'aa-step-n', String(si + 1)); h(sm, 'span', 'aa-step-t', S.t);
-    det.addEventListener('toggle', () => { if (det.open && state.step !== si) openStep(si, false); });
-    steps.push(det);
-    const sec = h(det, 'div', 'aa-lesson-sec');
+  const step = Math.max(0, Math.min(QUIZ, state.step || 0));
+  state.step = step; saveLessonPlace(ctx, state);
+  const redraw = () => { clear(root); renderLesson(ctx, root, state, L); root.scrollTop = 0; try { root.closest('.view-content, .aa-root').scrollTop = 0; } catch (e) { /* */ } };
+  const goStep = i => { state.step = i; redraw(); };
+  const top = h(root, 'div', 'aa-fc-head');
+  btn(top, '← Les leçons', () => { state.open = null; saveLessonPlace(ctx, state); renderLessonsTab(ctx, root, state); }, 'aa-btn-quiet');
+  h(top, 'span', 'aa-muted aa-small', 'Leçon ' + (k + 1) + ' · ' + L.title);
+  h(top, 'span', 'aa-muted aa-small aa-fc-left', step === 0 ? 'But' : step <= NS ? 'Étape ' + step + ' / ' + NS : step === KEEP ? 'L\'essentiel' : 'Exercices');
+  const bar = h(root, 'div', 'aa-lesson-progress'); const fl = h(bar, 'div', 'aa-lesson-fill'); fl.style.width = Math.round(100 * step / QUIZ) + '%';
+  const dots = h(root, 'div', 'aa-wc-dots');
+  const labels = ['🎯'].concat(L.sections.map((s, i) => String(i + 1)), ['📌', '?']);
+  labels.forEach((lab, i) => { const d = h(dots, 'button', 'aa-wc-dot' + (i === step ? ' aa-on' : i < step ? ' aa-wc-dot-done' : ''), lab); d.title = i === 0 ? 'Ce que tu vas apprendre' : i <= NS ? L.sections[i - 1].t : i === KEEP ? 'L\'essentiel' : 'Exercices'; d.addEventListener('click', () => goStep(i)); });
+  const nav = () => {
+    const n = h(root, 'div', 'aa-wc-nav');
+    if (step > 0) btn(n, '← Précédent', () => goStep(step - 1), 'aa-btn-quiet');
+    if (step < QUIZ) btn(n, step === 0 ? 'Commencer →' : step < NS ? 'Suivant →' : step === NS ? 'L\'essentiel →' : 'Les exercices →', () => goStep(step + 1), 'mod-cta');
+  };
+  if (step === 0) {
+    const t = h(root, 'div', 'aa-wc-title'); h(t, 'h2', null, L.title); arSpan(t, L.ar, 'aa-wc-titlear');
+    h(root, 'div', 'aa-muted aa-small', '≈ ' + L.min + ' min · ' + NS + ' étapes · ' + L.practice.length + ' exercices');
+    h(root, 'h3', 'aa-wc-h', '🎯 Ce que tu vas apprendre');
+    const ul = h(root, 'ul', 'aa-wc-list-ul'); L.goal.forEach(g => mdText(ul, 'li', null, g));
+    if (L.rules && L.rules.length) {
+      const r = h(root, 'div', 'aa-small'); h(r, 'span', 'aa-muted', 'Fiches de ton coffre : ');
+      L.rules.forEach((n, i) => { const a = h(r, 'a', 'aa-link', n); a.addEventListener('click', e => { e.preventDefault(); ctx.openPath('2 - Règles/' + n + '.md'); }); if (i < L.rules.length - 1) r.appendChild(document.createTextNode(' · ')); });
+    }
+    nav(); linkTerms(ctx, root); return;
+  }
+  if (step <= NS) {
+    const S = L.sections[step - 1];
+    h(root, 'h3', 'aa-wc-h', S.t);
+    const sec = h(root, 'div', 'aa-lesson-sec aa-wc-body');
     if (S.md) S.md.split(/\n\n+/).forEach(par => {
       if (/^```/.test(par)) { const pre = h(sec, 'pre', 'aa-small'); pre.textContent = par.replace(/^```\w*\n?|```$/g, ''); return; }
       if (/^(- |\d\. )/m.test(par) && par.split('\n').every(l => /^(- |\d\. )/.test(l))) { const list = h(sec, /^\d/.test(par) ? 'ol' : 'ul'); par.split('\n').forEach(l => mdText(list, 'li', null, l.replace(/^(- |\d\. )/, ''))); return; }
-      const lines = par.split('\n');
       const p = h(sec, 'div', 'aa-lesson-p');
-      lines.forEach(l => { if (/^- /.test(l)) mdText(p, 'div', 'aa-lesson-li', '• ' + l.slice(2)); else if (/^\d\. /.test(l)) mdText(p, 'div', 'aa-lesson-li', l); else mdText(p, 'div', null, l); });
+      par.split('\n').forEach(l => { if (/^- /.test(l)) mdText(p, 'div', 'aa-lesson-li', '• ' + l.slice(2)); else if (/^\d\. /.test(l)) mdText(p, 'div', 'aa-lesson-li', l); else mdText(p, 'div', null, l); });
     });
+    lessonViz(ctx, sec, S.viz);
     if (S.table) {
       const t = h(sec, 'table', 'aa-table aa-lesson-table');
       S.table.forEach((row, ri) => { const tr = h(t, 'tr'); row.forEach(c => { const cell = h(tr, ri ? 'td' : 'th'); if (ri && hasArabic(c) && !/[a-zéèà]/i.test(c)) arSpan(cell, c, 'aa-mid'); else addBidi(cell, c); }); });
@@ -4202,23 +4396,29 @@ async function renderLesson(ctx, root, state, L) {
       h(box, 'div', 'aa-verse-fr', s + ':' + v + ' ' + vv[0]);
       renderIrab(ctx, h(box, 'div', 'aa-struct'), vv[2], [s, v]);
     }
-    const nx = h(sec, 'div', 'aa-actions aa-step-next');
-    if (si < NS - 1) btn(nx, 'Étape suivante : ' + L.sections[si + 1].t + ' →', () => openStep(si + 1, true), 'mod-cta');
-    else btn(nx, 'Fini ! Voir le résumé et les questions ↓', () => { steps[si].open = false; keepBox.scrollIntoView && keepBox.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 'mod-cta');
+    nav(); linkTerms(ctx, root); return;
   }
-  openStep(Math.min(state.step || 0, NS - 1), false);
-  const keep = h(root, 'div', 'aa-lesson-keep'); const keepBox = keep;
-  h(keep, 'b', null, '📌 À retenir');
-  const kl = h(keep, 'ul'); L.keep.forEach(x => mdText(kl, 'li', null, x));
-  const kb = h(keep, 'div', 'aa-actions');
-  btn(kb, 'Insérer le résumé dans la note', () => ctx.insertText('> [!abstract] ' + L.title + ' (' + L.ar + ')\n' + L.keep.map(x => '> - ' + x).join('\n') + '\n\n'), 'aa-btn-quiet');
-  btn(kb, 'Créer des flashcards', () => { L.keep.forEach((x, i) => ctx.addFlashcard(L.title + ' — point ' + (i + 1), x.replace(/\*\*/g, ''))); }, 'aa-btn-quiet');
-
-  linkTerms(ctx, root);
-  h(root, 'h3', null, '✍️ Vérifie que tu as compris');
+  if (step === KEEP) {
+    const keep = h(root, 'div', 'aa-lesson-keep');
+    h(keep, 'b', null, '📌 L\'essentiel à retenir');
+    const kl = h(keep, 'ul'); L.keep.forEach(x => mdText(kl, 'li', null, x));
+    const ess = (LESSON_RULES[L.id] || []).map(ruleById).filter(Boolean);
+    if (ess.length) {
+      const box = h(root, 'div', 'aa-lesson-simple');
+      h(box, 'b', null, '🟢 Les règles de cette leçon, en une phrase');
+      const ul0 = h(box, 'ul');
+      ess.forEach(r => { const li = h(ul0, 'li'); mdText(li, 'span', null, r.one + ' '); const a = h(li, 'a', 'aa-link aa-rule-link aa-more', 'la fiche'); a.title = r.title; a.addEventListener('click', e => { e.preventDefault(); ctx.openTab('rules', { open: r.id }); }); });
+    }
+    const kb = h(root, 'div', 'aa-actions');
+    btn(kb, 'Insérer le résumé dans la note', () => ctx.insertText('> [!abstract] ' + L.title + ' (' + L.ar + ')\n' + L.keep.map(x => '> - ' + x).join('\n') + '\n\n'), 'aa-btn-quiet');
+    nav(); linkTerms(ctx, root); return;
+  }
+  h(root, 'h3', 'aa-wc-h', '✍️ Vérifie que tu as compris');
+  mdText(root, 'p', 'aa-muted', L.practice.length + ' exercices variés. À **70 %**, la leçon est validée ✓.');
   const qbox = h(root, 'div', 'aa-quiz aa-lesson-quiz');
   if (!state.run || state.run.id !== L.id) state.run = { id: L.id, i: 0, ok: 0 };
-  renderLessonQuestion(ctx, qbox, state, L, root);
+  await renderLessonQuestion(ctx, qbox, state, L, root);
+  nav();
 }
 
 async function renderLessonQuestion(ctx, box, state, L, root) {
@@ -4304,6 +4504,53 @@ async function renderLessonQuestion(ctx, box, state, L, root) {
       }, 'aa-quiz-opt');
       if (q.optAr) arSpan(b, o, 'aa-mid'); else b.textContent = o;
     });
+  } else if (P.k === 'tf') {
+    mdText(box, 'div', 'aa-quiz-q', P.q);
+    const opts = h(box, 'div', 'aa-quiz-opts aa-tf'); let done = false;
+    [[true, '✓ Vrai'], [false, '✗ Faux']].forEach(([val, lab]) => {
+      const b = btn(opts, lab, () => {
+        if (done) return; done = true;
+        opts.querySelectorAll('button').forEach((x, j) => { if ((j === 0) === P.a) x.classList.add('aa-good'); else if (x === b) x.classList.add('aa-bad'); });
+        finish(val === P.a, P.why);
+      }, 'aa-quiz-opt');
+    });
+  } else if (P.k === 'match') {
+    mdText(box, 'div', 'aa-quiz-q', P.q);
+    mdText(box, 'div', 'aa-muted aa-small', 'Touche un élément à gauche, puis sa réponse à droite.');
+    const g = h(box, 'div', 'aa-match');
+    const colL = h(g, 'div', 'aa-match-col'); const colR = h(g, 'div', 'aa-match-col');
+    const rights = shuffle(P.pairs.map((p, i) => i));
+    let sel = null, errors = 0, left = P.pairs.length;
+    const cell = (col, txt) => { const b = h(col, 'button', 'aa-match-c'); if (hasArabic(txt) && !/[a-zé]/i.test(txt)) arSpan(b, txt, 'aa-mid'); else addBidi(b, txt); return b; };
+    const Ls = P.pairs.map(([a], i) => { const b = cell(colL, a); b.addEventListener('click', () => { if (b.disabled) return; Ls.forEach(x => x.classList.remove('aa-on')); b.classList.add('aa-on'); sel = i; }); return b; });
+    rights.forEach(i => {
+      const b = cell(colR, P.pairs[i][1]);
+      b.addEventListener('click', () => {
+        if (sel == null || b.disabled) return;
+        if (sel === i) { b.disabled = true; Ls[i].disabled = true; b.classList.add('aa-good'); Ls[i].classList.add('aa-good'); Ls[i].classList.remove('aa-on'); sel = null; left--; if (!left) finish(errors === 0, P.why + (errors ? ' (' + errors + ' erreur' + (errors > 1 ? 's' : '') + ')' : '')); }
+        else { errors++; b.classList.add('aa-bad'); setTimeout(() => b.classList.remove('aa-bad'), 600); }
+      });
+    });
+  } else if (P.k === 'order') {
+    mdText(box, 'div', 'aa-quiz-q', P.q);
+    mdText(box, 'div', 'aa-muted aa-small', 'Touche les mots dans l\'ordre : le premier se place à droite.');
+    const ans = h(box, 'div', 'aa-order-ans'); ans.setAttribute('dir', 'rtl');
+    const pool = h(box, 'div', 'aa-order-pool'); pool.setAttribute('dir', 'rtl');
+    let order = shuffle(P.words.map((w, i) => i)); if (order.every((x, i) => x === i) && order.length > 1) order = order.reverse();
+    const picked = [];
+    order.forEach(i => {
+      const b = h(pool, 'button', 'aa-order-w'); arSpan(b, P.words[i], 'aa-mid');
+      b.addEventListener('click', () => {
+        if (b.disabled) return; b.disabled = true; b.classList.add('aa-order-used'); picked.push(i);
+        const c = h(ans, 'span', 'aa-order-w aa-order-in'); arSpan(c, P.words[i], 'aa-mid');
+        if (picked.length === P.words.length) {
+          const good = picked.every((x, j) => P.words[x] === P.words[j]);
+          ans.classList.add(good ? 'aa-good' : 'aa-bad');
+          finish(good, (good ? '' : 'L\'ordre juste : **' + P.words.join(' ') + '**. ') + P.why);
+        }
+      });
+    });
+    btn(box, '↺ Recommencer', () => { if (picked.length === P.words.length) return; picked.length = 0; clear(ans); pool.querySelectorAll('button').forEach(b => { b.disabled = false; b.classList.remove('aa-order-used'); }); }, 'aa-btn-quiet aa-small');
   }
   box.appendChild(fb);
 }

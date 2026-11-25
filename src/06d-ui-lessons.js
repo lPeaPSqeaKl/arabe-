@@ -70,54 +70,82 @@ async function renderLessonExample(ctx, parent, ex) {
   box.appendChild(irBox); box.appendChild(detail);
 }
 
+/* --- schémas de grammaire --- */
+const ROLE_HUE = { v: '#c8665c', s: '#4f86c6', o: '#3e9e6b', g: '#8e63c7', a: '#c48a2c', p: '#7d8590', x: '#7d8590' };
+function lessonViz(ctx, parent, v) {
+  if (!v) return;
+  const wrap = h(parent, 'div', 'aa-wc-viz aa-gv');
+  if (v.t === 'big') return wcBig(wrap, v);
+  if (v.t === 'root') {
+    const g = h(wrap, 'div', 'aa-gv-roots'); g.setAttribute('dir', 'rtl');
+    v.words.forEach(([w, sens, root]) => {
+      const c = h(g, 'div', 'aa-gv-root');
+      const a = h(c, 'div', 'aa-gv-rootar'); a.setAttribute('dir', 'rtl'); a.setAttribute('lang', 'ar');
+      const R = [...(root || '')]; let k = 0;
+      const gs = []; for (const ch of w) { if (/[ً-ْٰ]/.test(ch) && gs.length) gs[gs.length - 1] += ch; else gs.push(ch); }
+      gs.forEach(gr => { const isR = k < R.length && gr[0] === R[k]; if (isR) k++; const s = h(a, 'span', isR ? 'aa-gv-rl' : 'aa-gv-ol', gr); void s; });
+      h(c, 'div', 'aa-small', sens);
+      if (root) h(c, 'div', 'aa-faint aa-small', [...root].join(' '));
+    });
+    if (v.cap) h(wrap, 'div', 'aa-muted aa-small aa-wc-cap', v.cap);
+    return;
+  }
+  if (v.t === 'blocks') {
+    v.rows.forEach(r => {
+      const row = h(wrap, 'div', 'aa-gv-row' + (r.join ? ' aa-gv-join' : '')); row.setAttribute('dir', 'rtl');
+      r.w.forEach(([ar, lab, hue]) => {
+        const b = h(row, 'div', 'aa-gv-b'); b.style.setProperty('--hue', ROLE_HUE[hue] || ROLE_HUE.x);
+        arSpan(b, ar, 'aa-gv-ar');
+        if (lab) h(b, 'div', 'aa-gv-lab', lab);
+      });
+      if (r.cap) mdText(wrap, 'div', 'aa-muted aa-small aa-gv-cap', r.cap);
+    });
+  }
+}
+
 async function renderLesson(ctx, root, state, L) {
   const k = LESSONS.indexOf(L);
-  const nav = h(root, 'div', 'aa-actions');
-  btn(nav, '← Toutes les leçons', () => { state.open = null; renderLessonsTab(ctx, root, state); }, 'aa-btn-quiet');
-  const head = h(root, 'div', 'aa-lesson-head');
-  h(head, 'div', 'aa-muted', 'Leçon ' + (k + 1) + ' sur ' + LESSONS.length + ' · ≈ ' + L.min + ' min');
-  h(head, 'h2', null, L.title);
-  arSpan(head, L.ar, 'aa-lesson-ar');
-  const ess = (LESSON_RULES[L.id] || []).map(ruleById).filter(Boolean);
-  if (ess.length) {
-    const box = h(root, 'div', 'aa-lesson-simple');
-    h(box, 'b', null, '🟢 L\'essentiel, en simple');
-    const ul0 = h(box, 'ul');
-    ess.forEach(r => { const li = h(ul0, 'li'); mdText(li, 'span', null, r.one + ' '); const a = h(li, 'a', 'aa-link aa-rule-link aa-more', 'en savoir plus'); a.title = r.title; a.addEventListener('click', e => { e.preventDefault(); const nx = li.nextSibling; if (nx && nx.classList && nx.classList.contains('aa-rule-inline')) { nx.remove(); return; } const hold = document.createElement('li'); hold.className = 'aa-rule-li'; li.parentNode.insertBefore(hold, li.nextSibling); const c = renderRuleCard(ctx, hold, r, { inline: true }); hold.classList.add('aa-rule-inline'); c.classList.remove('aa-rule-inline'); c.querySelector('.aa-actions button:last-child').onclick = () => hold.remove(); }); });
-    h(box, 'div', 'aa-muted aa-small', 'Les mots soulignés en pointillé ouvrent leur règle.');
-  }
-  const goal = details(root, '🎯 Ce que tu vas apprendre', false, 'aa-sec aa-lesson-goal');
-  const ul = h(goal, 'ul'); L.goal.forEach(g => mdText(ul, 'li', null, g));
-  if (L.rules && L.rules.length) {
-    const r = h(goal, 'div', 'aa-small'); h(r, 'span', 'aa-muted', 'Fiches de ton coffre : ');
-    L.rules.forEach((n, i) => { const a = h(r, 'a', 'aa-link', n); a.addEventListener('click', e => { e.preventDefault(); ctx.openPath('2 - Règles/' + n + '.md'); }); if (i < L.rules.length - 1) r.appendChild(document.createTextNode(' · ')); });
-  }
-  const NS = L.sections.length;
-  const stepBar = h(root, 'div', 'aa-steps');
-  const steps = [];
-  const openStep = (i, scroll) => {
-    steps.forEach((d, j) => { d.open = j === i; });
-    stepBar.querySelectorAll('.aa-step-dot').forEach((b, j) => { b.classList.toggle('aa-on', j === i); b.classList.toggle('aa-seen', j < i); });
-    state.step = i; saveLessonPlace(ctx, state);
-    if (scroll && steps[i] && steps[i].scrollIntoView) setTimeout(() => steps[i].scrollIntoView({ block: 'start', behavior: 'smooth' }), 30);
-  };
-  h(stepBar, 'span', 'aa-muted aa-small', 'Étapes :');
-  for (let si = 0; si < NS; si++) { const b = h(stepBar, 'button', 'aa-step-dot', String(si + 1)); b.title = L.sections[si].t; b.addEventListener('click', ev => { ev.preventDefault(); openStep(si, true); }); }
+  const NS = L.sections.length; const KEEP = NS + 1, QUIZ = NS + 2;
   if (state.stepFor !== L.id) { state.step = 0; state.stepFor = L.id; }
-  for (let si = 0; si < NS; si++) {
-    const S = L.sections[si];
-    const det = h(root, 'details', 'aa-step');
-    const sm = h(det, 'summary'); h(sm, 'span', 'aa-step-n', String(si + 1)); h(sm, 'span', 'aa-step-t', S.t);
-    det.addEventListener('toggle', () => { if (det.open && state.step !== si) openStep(si, false); });
-    steps.push(det);
-    const sec = h(det, 'div', 'aa-lesson-sec');
+  const step = Math.max(0, Math.min(QUIZ, state.step || 0));
+  state.step = step; saveLessonPlace(ctx, state);
+  const redraw = () => { clear(root); renderLesson(ctx, root, state, L); root.scrollTop = 0; try { root.closest('.view-content, .aa-root').scrollTop = 0; } catch (e) { /* */ } };
+  const goStep = i => { state.step = i; redraw(); };
+  const top = h(root, 'div', 'aa-fc-head');
+  btn(top, '← Les leçons', () => { state.open = null; saveLessonPlace(ctx, state); renderLessonsTab(ctx, root, state); }, 'aa-btn-quiet');
+  h(top, 'span', 'aa-muted aa-small', 'Leçon ' + (k + 1) + ' · ' + L.title);
+  h(top, 'span', 'aa-muted aa-small aa-fc-left', step === 0 ? 'But' : step <= NS ? 'Étape ' + step + ' / ' + NS : step === KEEP ? 'L\'essentiel' : 'Exercices');
+  const bar = h(root, 'div', 'aa-lesson-progress'); const fl = h(bar, 'div', 'aa-lesson-fill'); fl.style.width = Math.round(100 * step / QUIZ) + '%';
+  const dots = h(root, 'div', 'aa-wc-dots');
+  const labels = ['🎯'].concat(L.sections.map((s, i) => String(i + 1)), ['📌', '?']);
+  labels.forEach((lab, i) => { const d = h(dots, 'button', 'aa-wc-dot' + (i === step ? ' aa-on' : i < step ? ' aa-wc-dot-done' : ''), lab); d.title = i === 0 ? 'Ce que tu vas apprendre' : i <= NS ? L.sections[i - 1].t : i === KEEP ? 'L\'essentiel' : 'Exercices'; d.addEventListener('click', () => goStep(i)); });
+  const nav = () => {
+    const n = h(root, 'div', 'aa-wc-nav');
+    if (step > 0) btn(n, '← Précédent', () => goStep(step - 1), 'aa-btn-quiet');
+    if (step < QUIZ) btn(n, step === 0 ? 'Commencer →' : step < NS ? 'Suivant →' : step === NS ? 'L\'essentiel →' : 'Les exercices →', () => goStep(step + 1), 'mod-cta');
+  };
+  if (step === 0) {
+    const t = h(root, 'div', 'aa-wc-title'); h(t, 'h2', null, L.title); arSpan(t, L.ar, 'aa-wc-titlear');
+    h(root, 'div', 'aa-muted aa-small', '≈ ' + L.min + ' min · ' + NS + ' étapes · ' + L.practice.length + ' exercices');
+    h(root, 'h3', 'aa-wc-h', '🎯 Ce que tu vas apprendre');
+    const ul = h(root, 'ul', 'aa-wc-list-ul'); L.goal.forEach(g => mdText(ul, 'li', null, g));
+    if (L.rules && L.rules.length) {
+      const r = h(root, 'div', 'aa-small'); h(r, 'span', 'aa-muted', 'Fiches de ton coffre : ');
+      L.rules.forEach((n, i) => { const a = h(r, 'a', 'aa-link', n); a.addEventListener('click', e => { e.preventDefault(); ctx.openPath('2 - Règles/' + n + '.md'); }); if (i < L.rules.length - 1) r.appendChild(document.createTextNode(' · ')); });
+    }
+    nav(); linkTerms(ctx, root); return;
+  }
+  if (step <= NS) {
+    const S = L.sections[step - 1];
+    h(root, 'h3', 'aa-wc-h', S.t);
+    const sec = h(root, 'div', 'aa-lesson-sec aa-wc-body');
     if (S.md) S.md.split(/\n\n+/).forEach(par => {
       if (/^```/.test(par)) { const pre = h(sec, 'pre', 'aa-small'); pre.textContent = par.replace(/^```\w*\n?|```$/g, ''); return; }
       if (/^(- |\d\. )/m.test(par) && par.split('\n').every(l => /^(- |\d\. )/.test(l))) { const list = h(sec, /^\d/.test(par) ? 'ol' : 'ul'); par.split('\n').forEach(l => mdText(list, 'li', null, l.replace(/^(- |\d\. )/, ''))); return; }
-      const lines = par.split('\n');
       const p = h(sec, 'div', 'aa-lesson-p');
-      lines.forEach(l => { if (/^- /.test(l)) mdText(p, 'div', 'aa-lesson-li', '• ' + l.slice(2)); else if (/^\d\. /.test(l)) mdText(p, 'div', 'aa-lesson-li', l); else mdText(p, 'div', null, l); });
+      par.split('\n').forEach(l => { if (/^- /.test(l)) mdText(p, 'div', 'aa-lesson-li', '• ' + l.slice(2)); else if (/^\d\. /.test(l)) mdText(p, 'div', 'aa-lesson-li', l); else mdText(p, 'div', null, l); });
     });
+    lessonViz(ctx, sec, S.viz);
     if (S.table) {
       const t = h(sec, 'table', 'aa-table aa-lesson-table');
       S.table.forEach((row, ri) => { const tr = h(t, 'tr'); row.forEach(c => { const cell = h(tr, ri ? 'td' : 'th'); if (ri && hasArabic(c) && !/[a-zéèà]/i.test(c)) arSpan(cell, c, 'aa-mid'); else addBidi(cell, c); }); });
@@ -131,23 +159,29 @@ async function renderLesson(ctx, root, state, L) {
       h(box, 'div', 'aa-verse-fr', s + ':' + v + ' ' + vv[0]);
       renderIrab(ctx, h(box, 'div', 'aa-struct'), vv[2], [s, v]);
     }
-    const nx = h(sec, 'div', 'aa-actions aa-step-next');
-    if (si < NS - 1) btn(nx, 'Étape suivante : ' + L.sections[si + 1].t + ' →', () => openStep(si + 1, true), 'mod-cta');
-    else btn(nx, 'Fini ! Voir le résumé et les questions ↓', () => { steps[si].open = false; keepBox.scrollIntoView && keepBox.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 'mod-cta');
+    nav(); linkTerms(ctx, root); return;
   }
-  openStep(Math.min(state.step || 0, NS - 1), false);
-  const keep = h(root, 'div', 'aa-lesson-keep'); const keepBox = keep;
-  h(keep, 'b', null, '📌 À retenir');
-  const kl = h(keep, 'ul'); L.keep.forEach(x => mdText(kl, 'li', null, x));
-  const kb = h(keep, 'div', 'aa-actions');
-  btn(kb, 'Insérer le résumé dans la note', () => ctx.insertText('> [!abstract] ' + L.title + ' (' + L.ar + ')\n' + L.keep.map(x => '> - ' + x).join('\n') + '\n\n'), 'aa-btn-quiet');
-  btn(kb, 'Créer des flashcards', () => { L.keep.forEach((x, i) => ctx.addFlashcard(L.title + ' — point ' + (i + 1), x.replace(/\*\*/g, ''))); }, 'aa-btn-quiet');
-
-  linkTerms(ctx, root);
-  h(root, 'h3', null, '✍️ Vérifie que tu as compris');
+  if (step === KEEP) {
+    const keep = h(root, 'div', 'aa-lesson-keep');
+    h(keep, 'b', null, '📌 L\'essentiel à retenir');
+    const kl = h(keep, 'ul'); L.keep.forEach(x => mdText(kl, 'li', null, x));
+    const ess = (LESSON_RULES[L.id] || []).map(ruleById).filter(Boolean);
+    if (ess.length) {
+      const box = h(root, 'div', 'aa-lesson-simple');
+      h(box, 'b', null, '🟢 Les règles de cette leçon, en une phrase');
+      const ul0 = h(box, 'ul');
+      ess.forEach(r => { const li = h(ul0, 'li'); mdText(li, 'span', null, r.one + ' '); const a = h(li, 'a', 'aa-link aa-rule-link aa-more', 'la fiche'); a.title = r.title; a.addEventListener('click', e => { e.preventDefault(); ctx.openTab('rules', { open: r.id }); }); });
+    }
+    const kb = h(root, 'div', 'aa-actions');
+    btn(kb, 'Insérer le résumé dans la note', () => ctx.insertText('> [!abstract] ' + L.title + ' (' + L.ar + ')\n' + L.keep.map(x => '> - ' + x).join('\n') + '\n\n'), 'aa-btn-quiet');
+    nav(); linkTerms(ctx, root); return;
+  }
+  h(root, 'h3', 'aa-wc-h', '✍️ Vérifie que tu as compris');
+  mdText(root, 'p', 'aa-muted', L.practice.length + ' exercices variés. À **70 %**, la leçon est validée ✓.');
   const qbox = h(root, 'div', 'aa-quiz aa-lesson-quiz');
   if (!state.run || state.run.id !== L.id) state.run = { id: L.id, i: 0, ok: 0 };
-  renderLessonQuestion(ctx, qbox, state, L, root);
+  await renderLessonQuestion(ctx, qbox, state, L, root);
+  nav();
 }
 
 async function renderLessonQuestion(ctx, box, state, L, root) {
@@ -233,6 +267,53 @@ async function renderLessonQuestion(ctx, box, state, L, root) {
       }, 'aa-quiz-opt');
       if (q.optAr) arSpan(b, o, 'aa-mid'); else b.textContent = o;
     });
+  } else if (P.k === 'tf') {
+    mdText(box, 'div', 'aa-quiz-q', P.q);
+    const opts = h(box, 'div', 'aa-quiz-opts aa-tf'); let done = false;
+    [[true, '✓ Vrai'], [false, '✗ Faux']].forEach(([val, lab]) => {
+      const b = btn(opts, lab, () => {
+        if (done) return; done = true;
+        opts.querySelectorAll('button').forEach((x, j) => { if ((j === 0) === P.a) x.classList.add('aa-good'); else if (x === b) x.classList.add('aa-bad'); });
+        finish(val === P.a, P.why);
+      }, 'aa-quiz-opt');
+    });
+  } else if (P.k === 'match') {
+    mdText(box, 'div', 'aa-quiz-q', P.q);
+    mdText(box, 'div', 'aa-muted aa-small', 'Touche un élément à gauche, puis sa réponse à droite.');
+    const g = h(box, 'div', 'aa-match');
+    const colL = h(g, 'div', 'aa-match-col'); const colR = h(g, 'div', 'aa-match-col');
+    const rights = shuffle(P.pairs.map((p, i) => i));
+    let sel = null, errors = 0, left = P.pairs.length;
+    const cell = (col, txt) => { const b = h(col, 'button', 'aa-match-c'); if (hasArabic(txt) && !/[a-zé]/i.test(txt)) arSpan(b, txt, 'aa-mid'); else addBidi(b, txt); return b; };
+    const Ls = P.pairs.map(([a], i) => { const b = cell(colL, a); b.addEventListener('click', () => { if (b.disabled) return; Ls.forEach(x => x.classList.remove('aa-on')); b.classList.add('aa-on'); sel = i; }); return b; });
+    rights.forEach(i => {
+      const b = cell(colR, P.pairs[i][1]);
+      b.addEventListener('click', () => {
+        if (sel == null || b.disabled) return;
+        if (sel === i) { b.disabled = true; Ls[i].disabled = true; b.classList.add('aa-good'); Ls[i].classList.add('aa-good'); Ls[i].classList.remove('aa-on'); sel = null; left--; if (!left) finish(errors === 0, P.why + (errors ? ' (' + errors + ' erreur' + (errors > 1 ? 's' : '') + ')' : '')); }
+        else { errors++; b.classList.add('aa-bad'); setTimeout(() => b.classList.remove('aa-bad'), 600); }
+      });
+    });
+  } else if (P.k === 'order') {
+    mdText(box, 'div', 'aa-quiz-q', P.q);
+    mdText(box, 'div', 'aa-muted aa-small', 'Touche les mots dans l\'ordre : le premier se place à droite.');
+    const ans = h(box, 'div', 'aa-order-ans'); ans.setAttribute('dir', 'rtl');
+    const pool = h(box, 'div', 'aa-order-pool'); pool.setAttribute('dir', 'rtl');
+    let order = shuffle(P.words.map((w, i) => i)); if (order.every((x, i) => x === i) && order.length > 1) order = order.reverse();
+    const picked = [];
+    order.forEach(i => {
+      const b = h(pool, 'button', 'aa-order-w'); arSpan(b, P.words[i], 'aa-mid');
+      b.addEventListener('click', () => {
+        if (b.disabled) return; b.disabled = true; b.classList.add('aa-order-used'); picked.push(i);
+        const c = h(ans, 'span', 'aa-order-w aa-order-in'); arSpan(c, P.words[i], 'aa-mid');
+        if (picked.length === P.words.length) {
+          const good = picked.every((x, j) => P.words[x] === P.words[j]);
+          ans.classList.add(good ? 'aa-good' : 'aa-bad');
+          finish(good, (good ? '' : 'L\'ordre juste : **' + P.words.join(' ') + '**. ') + P.why);
+        }
+      });
+    });
+    btn(box, '↺ Recommencer', () => { if (picked.length === P.words.length) return; picked.length = 0; clear(ans); pool.querySelectorAll('button').forEach(b => { b.disabled = false; b.classList.remove('aa-order-used'); }); }, 'aa-btn-quiet aa-small');
   }
   box.appendChild(fb);
 }
