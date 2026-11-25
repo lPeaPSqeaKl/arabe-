@@ -1703,6 +1703,15 @@ class QuranData {
     }
     return JSON.parse(txt);
   }
+  /* versets qui se ressemblent (data/similar.json, fait par tools/build-similar.js) */
+  async similar() {
+    if (this._sim) return this._sim;
+    const ad = this.app.vault.adapter; const f = this.dir + '/data/similar.json';
+    let txt = null;
+    try { txt = await ad.read(f); } catch (e) { /* absent */ }
+    if (!txt) { const r = await requestUrl({ url: DATA_URL + 'similar.json' }); txt = r.text; try { await ad.write(f, txt); } catch (e) { /* */ } }
+    this._sim = JSON.parse(txt); return this._sim;
+  }
   useIndex(idx) {
     const unpack = x => [Math.floor(x / 1e6), Math.floor(x / 1e3) % 1000, x % 1000];
     const lazy = (obj) => { const c = new Map(); return { get(k) { if (c.has(k)) return c.get(k); const a = obj[k]; if (!a) return undefined; const r = a.map(unpack); c.set(k, r); return r; }, has(k) { return k in obj; } }; };
@@ -2448,6 +2457,7 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
     }
     const vText = () => words.map(wordText).join(' ') + '\n' + tokens.join(' ') + '\n« ' + v[0] + ' » (' + info[1] + ' ' + surahN + ':' + vn + ')';
     btn(tools, canShare() ? '↗ Partager' : 'Copier le verset', () => shareText(vText(), info[1] + ' ' + surahN + ':' + vn), 'aa-btn-quiet');
+    { let simBox = null; btn(moreMenu(tools), '🔁 Versets qui se ressemblent', () => { if (simBox) { simBox.remove(); simBox = null; return; } simBox = h(document.createElement('div'), 'div', 'aa-sim-wrap'); tools.parentNode.insertBefore(simBox, tools.nextSibling); renderSimilar(ctx, simBox, surahN, vn).catch(() => {}); }, 'aa-btn-quiet'); }
     btn(moreMenu(tools), '🖼 Image à partager', () => openVerseImage(ctx, surahN, vn), 'aa-btn-quiet');
     if (ctx.openTab) btn(moreMenu(tools), '🧠 Apprendre par cœur', () => ctx.openTab('coran', { hifz: { s: surahN, v: vn, level: 0 } }), 'aa-btn-quiet');
     if (ctx.openTab) btn(moreMenu(tools), '📜 Recopier dans mon cahier', () => ctx.openTab('write', { copy: true, copyAt: { s: surahN, v: vn }, copyChunk: 0, letter: null, word: null, unit: null, free: false }), 'aa-btn-quiet');
@@ -6903,8 +6913,11 @@ async function renderHifz(ctx, root, state, back) {
   const whole = at.v === 0; // 0 = toute la sourate
   if (HIFZ_AUDIO.old != null) { AUDIO.repeat = HIFZ_AUDIO.old; HIFZ_AUDIO.old = null; }
   const redraw = () => renderHifz(ctx, root, state, back);
+  if (state.muraja) return renderMuraja(ctx, root, state, () => { state.muraja = false; redraw(); });
   btn(h(root, 'div', 'aa-actions'), '← Retour au Coran', back, 'aa-btn-quiet');
   h(root, 'h2', null, '🧠 Apprendre par cœur');
+  { const nd = murajaCountToday(ctx); const mb = btn(h(root, 'div', 'aa-actions'), '📅 Ma révision du par cœur' + (nd ? ' · ' + nd + ' aujourd\'hui' : ''), () => { state.muraja = true; redraw(); }, nd ? 'mod-cta' : 'aa-btn-quiet'); mb.title = 'Les sourates déjà apprises reviennent ici, de plus en plus tard'; }
+  if (at.review) mdText(root, 'p', 'aa-ok', '📅 **Révision** : récite sans regarder, puis dis comment ça s\'est passé (en bas).');
   mdText(root, 'p', 'aa-help', '**1.** Écoute plusieurs fois en lisant. **2.** Passe au niveau suivant : des mots se cachent, tu les récites de mémoire. **3.** Au dernier niveau, tout est caché. Touche un mot caché pour le voir si tu bloques. Tu peux travailler verset par verset, ou choisir **Toute la sourate** dans « Verset ».');
   const bar = h(root, 'div', 'aa-toolbar');
   selectEl(field(bar, 'Sourate'), surahSequence('mushaf').map(n => [n, n + '. ' + data.surahInfo(n)[1]]), at.s, v => { state.hifz = { s: +v, v: whole ? 0 : 1, level: 0 }; redraw(); });
@@ -6944,6 +6957,7 @@ async function renderHifz(ctx, root, state, back) {
     if (level <= 1 && S.showTr !== false) h(card, 'div', 'aa-tr aa-hz-tr', translitVerse(v[2], S.style));
     h(card, 'div', 'aa-muted aa-hz-fr', v[0]);
   }
+  if (!whole) { const simBox = h(root, 'details', 'aa-hz-sim'); const sm = h(simBox, 'summary', 'aa-muted aa-small', '🔁 Versets qui se ressemblent…'); let filled = false; ctx.data.similar().then(SIM => { const n = (SIM[at.s + ':' + at.v] || []).length; if (!n) { simBox.remove(); return; } sm.textContent = '⚠️ Attention : ' + n + ' verset' + (n > 1 ? 's' : '') + ' ressemble' + (n > 1 ? 'nt' : '') + ' à celui-ci (voir les différences)'; }).catch(() => simBox.remove()); simBox.addEventListener('toggle', () => { if (simBox.open && !filled) { filled = true; renderSimilar(ctx, simBox, at.s, at.v, { max: 4 }); } }); }
   const act = h(root, 'div', 'aa-actions aa-hz-act');
   if (S.audio !== false) {
     if (whole) btn(act, '▶ Écouter la sourate' + (rep > 1 ? ' ' + rep + ' fois' : ''), () => {
@@ -6957,6 +6971,10 @@ async function renderHifz(ctx, root, state, back) {
   if (level > 0) btn(act, '👁 Vérifier', () => { line.querySelectorAll('.aa-hz-w').forEach(sp => { if (sp.dataset.full) sp.textContent = sp.dataset.full; sp.classList.remove('aa-hz-hide', 'aa-hz-hint'); sp.classList.add('aa-hz-peek'); }); }, 'aa-btn-quiet');
   if (level > 0) btn(act, '← Plus facile', () => { at.level = level - 1; redraw(); }, 'aa-btn-quiet');
   if (level < HIFZ_LEVELS.length - 1) btn(act, 'Niveau suivant →', () => { at.level = level + 1; redraw(); }, 'mod-cta');
+  else if (at.review) {
+    const g = h(root, 'div', 'aa-actions aa-hz-act');
+    [[2, '✓ Sans faute', 'mod-cta'], [1, '~ Avec des hésitations', 'aa-btn-quiet'], [0, '✗ J\'ai oublié', 'aa-btn-quiet']].forEach(([gr, lab, cl]) => btn(g, lab, () => { murajaGrade(ctx, at.s, gr); state.hifz = { s: at.s, v: at.v, level: 0 }; state.muraja = true; redraw(); }, cl));
+  }
   else btn(act, whole ? '✓ Je la sais, sourate suivante →' : '✓ Je le sais, verset suivant →', () => {
     list.forEach(vn => { H[at.s + ':' + vn] = todayNum(); }); ctx.save();
     if (whole) { if (at.s < 114) state.hifz = { s: at.s + 1, v: 0, level: 0 }; }
@@ -7792,6 +7810,8 @@ function renderToday(ctx, root) {
     mdText(s1, 'span', null, revLeft ? '**Réviser ' + revLeft + ' carte' + (revLeft > 1 ? 's' : '') + '** (≈ ' + mins + ' min)' : 'Révision faite ✓');
     const s2 = h(steps, 'li', learnedToday ? 'aa-today-done' : '');
     mdText(s2, 'span', null, (learnedToday ? '✓ ' : '') + '**Avancer** : ' + lessonLabel);
+    const nMj = murajaCountToday(ctx);
+    if (nMj) { const s3 = h(steps, 'li'); mdText(s3, 'span', null, '**Réciter** ' + nMj + ' sourate' + (nMj > 1 ? 's' : '') + ' apprise' + (nMj > 1 ? 's' : '') + ' par cœur (révision)'); const a = h(s3, 'a', 'aa-link aa-small', ' → ouvrir'); a.addEventListener('click', ev => { ev.preventDefault(); const s = ctx.settings.lastSurah || 1; ctx.openTab('coran', { surah: s, hifz: { s, v: 1, level: 0 }, muraja: true }); }); }
     const goLesson = () => nextItem ? nextItem.it.go(ctx) : ctx.openQuran(ctx.settings.lastSurah || 1, ctx.settings.lastVerse || 0);
     const goReview = () => ctx.openTab('review', { startNow: true, session: null, deck: null });
     if (revLeft) {
@@ -7986,6 +8006,96 @@ async function openVerseImage(ctx, s, v) {
   btn(act, '⬇ Télécharger', async () => { const b = await canvasBlob(cv); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = fname; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); }, 'aa-btn-quiet');
   await paint();
 }
+/* ====================================================================
+ * 06t - Pour ceux qui apprennent par cœur :
+ *  - les versets qui se ressemblent (mutashābihāt), avec leurs différences ;
+ *  - le plan de révision (murājaʿa) : chaque sourate apprise revient
+ *    de plus en plus tard (1, 3, 7, 14, 30, 60, 120 jours).
+ * ==================================================================== */
+const SIM_NORM = w => w.replace(/[ً-ٰٟۖ-ۭـ]/g, '').replace(/[ٱأإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه');
+/* pour chaque mot de a : true s'il est aussi dans b, au même endroit de la phrase (plus longue sous-suite commune) */
+function wordsInCommon(a, b) {
+  const A = a.map(SIM_NORM), B = b.map(SIM_NORM); const m = A.length, n = B.length;
+  const T = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = m - 1; i >= 0; i--) for (let j = n - 1; j >= 0; j--) T[i][j] = A[i] === B[j] ? T[i + 1][j + 1] + 1 : Math.max(T[i + 1][j], T[i][j + 1]);
+  const ka = new Array(m).fill(false), kb = new Array(n).fill(false); let i = 0, j = 0;
+  while (i < m && j < n) { if (A[i] === B[j]) { ka[i] = kb[j] = true; i++; j++; } else if (T[i + 1][j] >= T[i][j + 1]) i++; else j++; }
+  return [ka, kb];
+}
+function verseLineDiff(parent, words, same, cls) {
+  const l = h(parent, 'div', 'aa-sim-ar ' + (cls || '')); l.setAttribute('dir', 'rtl'); l.setAttribute('lang', 'ar');
+  words.forEach((w, i) => { h(l, 'span', same[i] ? null : 'aa-sim-diff', w); l.appendChild(document.createTextNode(' ')); });
+  return l;
+}
+/* le panneau « versets qui se ressemblent » d'un verset */
+async function renderSimilar(ctx, parent, s, v, opts) {
+  opts = opts || {};
+  const S = await ctx.data.similar(); const list = S[s + ':' + v] || [];
+  if (!list.length) { if (!opts.quiet) h(parent, 'p', 'aa-muted aa-small', 'Aucun autre verset ne ressemble vraiment à celui-ci.'); return 0; }
+  const box = h(parent, 'div', 'aa-sim');
+  const me = (await ctx.data.surah(s)).v[v - 1][2].map(wordText);
+  mdText(box, 'div', 'aa-small aa-muted', '🔁 **' + list.length + ' verset' + (list.length > 1 ? 's' : '') + ' qui se ressemble' + (list.length > 1 ? 'nt' : '') + '**. En couleur : ce qui change. C\'est là que la mémoire se trompe.');
+  for (const [r, pct] of list.slice(0, opts.max || 8)) {
+    const [s2, v2] = r.split(':').map(Number);
+    const other = (await ctx.data.surah(s2)).v[v2 - 1][2].map(wordText);
+    const [ka, kb] = wordsInCommon(me, other);
+    const it = h(box, 'div', 'aa-sim-it');
+    const head = h(it, 'div', 'aa-sim-head');
+    const a = h(head, 'a', 'aa-link', ctx.data.surahInfo(s2)[1] + ' ' + r); a.addEventListener('click', ev => { ev.preventDefault(); ctx.openQuran(s2, v2); });
+    h(head, 'span', 'aa-muted aa-small', ' · ' + (pct === 100 ? 'identique' : pct + ' % pareil'));
+    if (pct < 100) { verseLineDiff(it, me, ka, 'aa-sim-me'); h(it, 'div', 'aa-faint aa-small', '↑ ' + s + ':' + v + '   ↓ ' + r); }
+    verseLineDiff(it, other, kb);
+  }
+  return list.length;
+}
+
+/* --- plan de révision du par cœur --- */
+const MURAJA_STEPS = [1, 3, 7, 14, 30, 60, 120];
+function hifzSurahs(ctx) {
+  const H = ctx.settings.hifz || {}; const by = {};
+  Object.keys(H).forEach(k => { const s = +k.split(':')[0]; (by[s] = by[s] || []).push(+k.split(':')[1]); });
+  return by;
+}
+function murajaState(ctx) { return ctx.settings.muraja || (ctx.settings.muraja = {}); }
+/* les sourates (ou parties) à réviser aujourd'hui */
+function murajaDue(ctx) {
+  const by = hifzSurahs(ctx); const M = murajaState(ctx); const H = ctx.settings.hifz || {}; const t = todayNum(); const out = [];
+  Object.keys(by).forEach(s => {
+    const st = M[s]; const first = Math.min(...by[s].map(v => H[s + ':' + v]));
+    const due = st ? st.due : first + 1;
+    out.push({ s: +s, verses: by[s].sort((a, b) => a - b), due, late: t - due, st });
+  });
+  return out.sort((a, b) => a.due - b.due);
+}
+function renderMuraja(ctx, root, state, back) {
+  clear(root);
+  btn(h(root, 'div', 'aa-actions'), '← Apprendre par cœur', back, 'aa-btn-quiet');
+  h(root, 'h2', null, '📅 Ma révision du par cœur');
+  mdText(root, 'p', 'aa-help', 'Ce qu\'on apprend par cœur s\'oublie si on ne le récite pas. Chaque sourate apprise revient ici **de plus en plus tard** : le lendemain, puis après 3 jours, une semaine, deux semaines, un mois… Récite-la **sans regarder** (tout est caché), puis dis honnêtement comment ça s\'est passé.');
+  const all = murajaDue(ctx); const t = todayNum();
+  if (!all.length) { mdText(root, 'p', 'aa-muted', 'Rien pour l\'instant : apprends d\'abord un verset ou une sourate (bouton **✓ Je le sais** au dernier niveau), il apparaîtra ici.'); return; }
+  const today = all.filter(x => x.due <= t); const later = all.filter(x => x.due > t);
+  h(root, 'h3', 'aa-fc-group', today.length ? '🔔 Aujourd\'hui (' + today.length + ')' : '✓ Rien à réviser aujourd\'hui');
+  const row = (x, isToday) => {
+    const info = ctx.data.surahInfo(x.s); const c = h(root, 'div', 'aa-mj-row' + (isToday ? ' aa-mj-today' : ''));
+    const tx = h(c, 'div', 'aa-mj-tx'); h(tx, 'b', null, x.s + '. ' + info[1]);
+    const whole = x.verses.length === info[5];
+    h(tx, 'div', 'aa-muted aa-small', (whole ? 'toute la sourate' : x.verses.length + ' verset' + (x.verses.length > 1 ? 's' : '') + ' sur ' + info[5]) + ' · ' + (isToday ? (x.late > 0 ? 'en retard de ' + x.late + ' j' : 'aujourd\'hui') : 'dans ' + (x.due - t) + ' j'));
+    if (isToday) btn(c, 'Réciter', () => { state.muraja = null; state.hifz = { s: x.s, v: whole ? 0 : x.verses[0], level: 4, review: true }; ctx.openTab('coran', { surah: x.s, hifz: state.hifz }); }, 'mod-cta');
+    else btn(c, 'Réciter quand même', () => { state.muraja = null; state.hifz = { s: x.s, v: whole ? 0 : x.verses[0], level: 4, review: true }; ctx.openTab('coran', { surah: x.s, hifz: state.hifz }); }, 'aa-btn-quiet');
+  };
+  today.forEach(x => row(x, true));
+  if (later.length) { h(root, 'h3', 'aa-fc-group', 'Plus tard'); later.forEach(x => row(x, false)); }
+}
+/* après une récitation de révision : programmer la suivante */
+function murajaGrade(ctx, s, grade) {
+  const M = murajaState(ctx); const st = M[s] || { k: 0 }; const t = todayNum();
+  let k = st.k;
+  if (grade === 2) k = Math.min(MURAJA_STEPS.length - 1, k + 1); else if (grade === 1) k = Math.max(0, k); else k = 0;
+  M[s] = { k, due: t + MURAJA_STEPS[Math.max(0, k)], last: t, g: grade };
+  ctx.save(); if (ctx.markActivity) ctx.markActivity('l');
+}
+function murajaCountToday(ctx) { const t = todayNum(); return murajaDue(ctx).filter(x => x.due <= t).length; }
 /* ====================================================================
  * 07 - Le plugin Obsidian : vue, commandes, blocs de code, réglages
  * ==================================================================== */

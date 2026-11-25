@@ -110,6 +110,15 @@ class QuranData {
     }
     return JSON.parse(txt);
   }
+  /* versets qui se ressemblent (data/similar.json, fait par tools/build-similar.js) */
+  async similar() {
+    if (this._sim) return this._sim;
+    const ad = this.app.vault.adapter; const f = this.dir + '/data/similar.json';
+    let txt = null;
+    try { txt = await ad.read(f); } catch (e) { /* absent */ }
+    if (!txt) { const r = await requestUrl({ url: DATA_URL + 'similar.json' }); txt = r.text; try { await ad.write(f, txt); } catch (e) { /* */ } }
+    this._sim = JSON.parse(txt); return this._sim;
+  }
   useIndex(idx) {
     const unpack = x => [Math.floor(x / 1e6), Math.floor(x / 1e3) % 1000, x % 1000];
     const lazy = (obj) => { const c = new Map(); return { get(k) { if (c.has(k)) return c.get(k); const a = obj[k]; if (!a) return undefined; const r = a.map(unpack); c.set(k, r); return r; }, has(k) { return k in obj; } }; };

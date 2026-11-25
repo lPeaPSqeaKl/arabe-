@@ -1271,3 +1271,15 @@ body.is-mobile .aa-root .aa-body, body.is-mobile .aa-root.aa-reading .aa-body { 
 .aa-imgdlg-cv { width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 12px rgba(0, 0, 0, .15); }
 .aa-imgdlg-act { justify-content: center; }
 @media (max-width: 520px) { .aa-star { width: 42px; height: 42px; } .aa-star-t { font-size: 14px; } .aa-sh-name { font-size: 1.6em; } .aa-vod-ar { font-size: 1.6em; } }
+
+/* ---- 2.35 : versets qui se ressemblent, révision du par cœur ---- */
+.aa-sim { display: flex; flex-direction: column; gap: 10px; margin: 8px 0; }
+.aa-sim-it { border: 1px solid var(--background-modifier-border); border-radius: 10px; padding: 8px 12px; }
+.aa-sim-ar { font-family: "Atelier Amiri Quran", serif; font-size: 1.45em; line-height: 2; }
+.aa-sim-me { opacity: .75; }
+.aa-sim-diff { color: #c8665c; background: color-mix(in srgb, #c8665c 12%, transparent); border-radius: 4px; padding: 0 2px; }
+.aa-hz-sim { margin: 8px 0; }
+.aa-hz-sim summary { cursor: pointer; }
+.aa-mj-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--background-modifier-border); border-radius: 12px; margin: 6px 0; }
+.aa-mj-today { border-color: var(--interactive-accent); }
+.aa-mj-tx { flex: 1; }

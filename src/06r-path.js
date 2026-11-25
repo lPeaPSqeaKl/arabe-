@@ -84,6 +84,8 @@ function renderToday(ctx, root) {
     mdText(s1, 'span', null, revLeft ? '**Réviser ' + revLeft + ' carte' + (revLeft > 1 ? 's' : '') + '** (≈ ' + mins + ' min)' : 'Révision faite ✓');
     const s2 = h(steps, 'li', learnedToday ? 'aa-today-done' : '');
     mdText(s2, 'span', null, (learnedToday ? '✓ ' : '') + '**Avancer** : ' + lessonLabel);
+    const nMj = murajaCountToday(ctx);
+    if (nMj) { const s3 = h(steps, 'li'); mdText(s3, 'span', null, '**Réciter** ' + nMj + ' sourate' + (nMj > 1 ? 's' : '') + ' apprise' + (nMj > 1 ? 's' : '') + ' par cœur (révision)'); const a = h(s3, 'a', 'aa-link aa-small', ' → ouvrir'); a.addEventListener('click', ev => { ev.preventDefault(); const s = ctx.settings.lastSurah || 1; ctx.openTab('coran', { surah: s, hifz: { s, v: 1, level: 0 }, muraja: true }); }); }
     const goLesson = () => nextItem ? nextItem.it.go(ctx) : ctx.openQuran(ctx.settings.lastSurah || 1, ctx.settings.lastVerse || 0);
     const goReview = () => ctx.openTab('review', { startNow: true, session: null, deck: null });
     if (revLeft) {

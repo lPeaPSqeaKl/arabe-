@@ -23,8 +23,11 @@ async function renderHifz(ctx, root, state, back) {
   const whole = at.v === 0; // 0 = toute la sourate
   if (HIFZ_AUDIO.old != null) { AUDIO.repeat = HIFZ_AUDIO.old; HIFZ_AUDIO.old = null; }
   const redraw = () => renderHifz(ctx, root, state, back);
+  if (state.muraja) return renderMuraja(ctx, root, state, () => { state.muraja = false; redraw(); });
   btn(h(root, 'div', 'aa-actions'), '← Retour au Coran', back, 'aa-btn-quiet');
   h(root, 'h2', null, '🧠 Apprendre par cœur');
+  { const nd = murajaCountToday(ctx); const mb = btn(h(root, 'div', 'aa-actions'), '📅 Ma révision du par cœur' + (nd ? ' · ' + nd + ' aujourd\'hui' : ''), () => { state.muraja = true; redraw(); }, nd ? 'mod-cta' : 'aa-btn-quiet'); mb.title = 'Les sourates déjà apprises reviennent ici, de plus en plus tard'; }
+  if (at.review) mdText(root, 'p', 'aa-ok', '📅 **Révision** : récite sans regarder, puis dis comment ça s\'est passé (en bas).');
   mdText(root, 'p', 'aa-help', '**1.** Écoute plusieurs fois en lisant. **2.** Passe au niveau suivant : des mots se cachent, tu les récites de mémoire. **3.** Au dernier niveau, tout est caché. Touche un mot caché pour le voir si tu bloques. Tu peux travailler verset par verset, ou choisir **Toute la sourate** dans « Verset ».');
   const bar = h(root, 'div', 'aa-toolbar');
   selectEl(field(bar, 'Sourate'), surahSequence('mushaf').map(n => [n, n + '. ' + data.surahInfo(n)[1]]), at.s, v => { state.hifz = { s: +v, v: whole ? 0 : 1, level: 0 }; redraw(); });
@@ -64,6 +67,7 @@ async function renderHifz(ctx, root, state, back) {
     if (level <= 1 && S.showTr !== false) h(card, 'div', 'aa-tr aa-hz-tr', translitVerse(v[2], S.style));
     h(card, 'div', 'aa-muted aa-hz-fr', v[0]);
   }
+  if (!whole) { const simBox = h(root, 'details', 'aa-hz-sim'); const sm = h(simBox, 'summary', 'aa-muted aa-small', '🔁 Versets qui se ressemblent…'); let filled = false; ctx.data.similar().then(SIM => { const n = (SIM[at.s + ':' + at.v] || []).length; if (!n) { simBox.remove(); return; } sm.textContent = '⚠️ Attention : ' + n + ' verset' + (n > 1 ? 's' : '') + ' ressemble' + (n > 1 ? 'nt' : '') + ' à celui-ci (voir les différences)'; }).catch(() => simBox.remove()); simBox.addEventListener('toggle', () => { if (simBox.open && !filled) { filled = true; renderSimilar(ctx, simBox, at.s, at.v, { max: 4 }); } }); }
   const act = h(root, 'div', 'aa-actions aa-hz-act');
   if (S.audio !== false) {
     if (whole) btn(act, '▶ Écouter la sourate' + (rep > 1 ? ' ' + rep + ' fois' : ''), () => {
@@ -77,6 +81,10 @@ async function renderHifz(ctx, root, state, back) {
   if (level > 0) btn(act, '👁 Vérifier', () => { line.querySelectorAll('.aa-hz-w').forEach(sp => { if (sp.dataset.full) sp.textContent = sp.dataset.full; sp.classList.remove('aa-hz-hide', 'aa-hz-hint'); sp.classList.add('aa-hz-peek'); }); }, 'aa-btn-quiet');
   if (level > 0) btn(act, '← Plus facile', () => { at.level = level - 1; redraw(); }, 'aa-btn-quiet');
   if (level < HIFZ_LEVELS.length - 1) btn(act, 'Niveau suivant →', () => { at.level = level + 1; redraw(); }, 'mod-cta');
+  else if (at.review) {
+    const g = h(root, 'div', 'aa-actions aa-hz-act');
+    [[2, '✓ Sans faute', 'mod-cta'], [1, '~ Avec des hésitations', 'aa-btn-quiet'], [0, '✗ J\'ai oublié', 'aa-btn-quiet']].forEach(([gr, lab, cl]) => btn(g, lab, () => { murajaGrade(ctx, at.s, gr); state.hifz = { s: at.s, v: at.v, level: 0 }; state.muraja = true; redraw(); }, cl));
+  }
   else btn(act, whole ? '✓ Je la sais, sourate suivante →' : '✓ Je le sais, verset suivant →', () => {
     list.forEach(vn => { H[at.s + ':' + vn] = todayNum(); }); ctx.save();
     if (whole) { if (at.s < 114) state.hifz = { s: at.s + 1, v: 0, level: 0 }; }

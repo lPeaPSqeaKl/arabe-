@@ -612,6 +612,7 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
     }
     const vText = () => words.map(wordText).join(' ') + '\n' + tokens.join(' ') + '\n« ' + v[0] + ' » (' + info[1] + ' ' + surahN + ':' + vn + ')';
     btn(tools, canShare() ? '↗ Partager' : 'Copier le verset', () => shareText(vText(), info[1] + ' ' + surahN + ':' + vn), 'aa-btn-quiet');
+    { let simBox = null; btn(moreMenu(tools), '🔁 Versets qui se ressemblent', () => { if (simBox) { simBox.remove(); simBox = null; return; } simBox = h(document.createElement('div'), 'div', 'aa-sim-wrap'); tools.parentNode.insertBefore(simBox, tools.nextSibling); renderSimilar(ctx, simBox, surahN, vn).catch(() => {}); }, 'aa-btn-quiet'); }
     btn(moreMenu(tools), '🖼 Image à partager', () => openVerseImage(ctx, surahN, vn), 'aa-btn-quiet');
     if (ctx.openTab) btn(moreMenu(tools), '🧠 Apprendre par cœur', () => ctx.openTab('coran', { hifz: { s: surahN, v: vn, level: 0 } }), 'aa-btn-quiet');
     if (ctx.openTab) btn(moreMenu(tools), '📜 Recopier dans mon cahier', () => ctx.openTab('write', { copy: true, copyAt: { s: surahN, v: vn }, copyChunk: 0, letter: null, word: null, unit: null, free: false }), 'aa-btn-quiet');
