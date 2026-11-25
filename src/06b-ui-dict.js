@@ -52,8 +52,7 @@ function dictSearch(data, q, filter) {
   // un mot conjugué / avec préfixes : passer par l'index des formes du Coran
   if (isAr && data.forms && out.length < 3) {
     for (const c of data.lookup(q).slice(0, 3)) {
-      const dd = data.cache.get(c.ref[0]); if (!dd) continue;
-      const w = dd.v[c.ref[1] - 1][2][c.ref[2] - 1]; const lid = stemOf(w).seg[3];
+      const lid = c.lid; if (lid == null) continue;
       if (lid >= 0 && !out.some(x => x[0] === lid)) out.push([lid, 1]);
     }
   }

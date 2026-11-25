@@ -3,6 +3,7 @@
  * ==================================================================== */
 
 const DATA_VERSION = '3';
+const INDEX_FILE = 'index-1.json'; // changer le numéro si les données ou skeleton() changent
 const DATA_URL = 'https://raw.githubusercontent.com/lPeaPSqeaKl/arabe-/main/data/';
 const INL_NAMES = { 'ا': 'alif', 'ل': 'lām', 'م': 'mīm', 'ص': 'ṣād', 'ر': 'rā', 'ك': 'kāf', 'ه': 'hā', 'ي': 'yā', 'ع': 'ʿayn', 'ط': 'ṭā', 'س': 'sīn', 'ح': 'ḥā', 'ق': 'qāf', 'ن': 'nūn' };
 const AR_DIGITS = '٠١٢٣٤٥٦٧٨٩';
@@ -83,11 +84,42 @@ class QuranData {
     if (!l || !l[6]) return [];
     return l[6].split(',').map(r => r.split(':').map(Number));
   }
-  /* Index de toutes les formes du Coran (construit une seule fois, à la demande) */
+  /* Index de toutes les formes du Coran. Il est préparé à l'avance (data/INDEX_FILE, fait par
+   * tools/build-index.js) : un seul fichier lu au lieu des 114 sourates. S'il manque, on le
+   * télécharge une fois ; sans internet, on le reconstruit en lisant tout le Coran. */
   buildForms(progress) {
     if (this.forms) return Promise.resolve(this.forms);
     if (this.formsPromise) return this.formsPromise;
     this.formsPromise = (async () => {
+      let idx = null;
+      try { idx = await this.loadIndex(); } catch (e) { idx = null; }
+      if (idx) this.useIndex(idx); else await this.scanForms(progress);
+      return this.forms;
+    })();
+    this.formsPromise.catch(() => { this.formsPromise = null; });
+    return this.formsPromise;
+  }
+  async loadIndex() {
+    const ad = this.app.vault.adapter; const f = this.dir + '/data/' + INDEX_FILE;
+    let txt = null;
+    try { txt = await ad.read(f); } catch (e) { /* absent */ }
+    if (!txt) {
+      const r = await requestUrl({ url: DATA_URL + INDEX_FILE });
+      txt = r.text;
+      try { await ad.write(f, txt); } catch (e) { /* pas de copie locale */ }
+    }
+    return JSON.parse(txt);
+  }
+  useIndex(idx) {
+    const unpack = x => [Math.floor(x / 1e6), Math.floor(x / 1e3) % 1000, x % 1000];
+    const lazy = (obj) => { const c = new Map(); return { get(k) { if (c.has(k)) return c.get(k); const a = obj[k]; if (!a) return undefined; const r = a.map(unpack); c.set(k, r); return r; }, has(k) { return k in obj; } }; };
+    const forms = new Map();
+    for (const [key, list] of idx.f) { const m = new Map(); for (const [txt, n, ref, lid] of list) m.set(txt, { txt, n, ref: unpack(ref), lid }); forms.set(key, m); }
+    const lemForms = new Map();
+    for (const [lid, list] of idx.m) lemForms.set(+lid, new Map(list));
+    this.forms = forms; this.pos = lazy(idx.p); this.lemRefs = lazy(idx.r); this.lemForms = lemForms;
+  }
+  async scanForms(progress) {
       const forms = new Map(); const pos = new Map(); const lemRefs = new Map(); const lemForms = new Map();
       for (let s = 1; s <= 114; s++) {
         const d = await this.surah(s);
@@ -105,14 +137,11 @@ class QuranData {
           let m = forms.get(key);
           if (!m) { m = new Map(); forms.set(key, m); }
           const e = m.get(txt);
-          if (e) e.n++; else m.set(txt, { txt, n: 1, ref: [s, vi + 1, wi + 1] });
+          if (e) e.n++; else m.set(txt, { txt, n: 1, ref: [s, vi + 1, wi + 1], lid });
         }));
         if (progress && s % 10 === 0) progress(s);
       }
       this.forms = forms; this.pos = pos; this.lemRefs = lemRefs; this.lemForms = lemForms;
-      return forms;
-    })();
-    return this.formsPromise;
   }
   /* Cherche des suites de mots du texte dans un même verset (pour choisir la bonne lecture) */
   async findRuns(words) {
@@ -122,7 +151,7 @@ class QuranData {
     while (i < words.length) {
       let best = null;
       for (const r of (this.pos.get(keys[i]) || []).slice(0, 4000)) {
-        const v = this.cache.get(r[0]).v[r[1] - 1][2];
+        const v = (this.cache.get(r[0]) || await this.surah(r[0])).v[r[1] - 1][2];
         let k = 1;
         while (i + k < words.length && r[2] - 1 + k < v.length && skeleton(wordText(v[r[2] - 1 + k]), true) === keys[i + k]) k++;
         if (!best || k > best.k) best = { r, k, v };

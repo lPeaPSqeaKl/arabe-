@@ -33,7 +33,7 @@ Le texte des explications est séparé du code :
 - `content/fr/regles/<règle>.md` : l'explication détaillée de chaque règle, en Markdown simple (`## titres`, listes, tableaux, `> encadrés`, et `@coran sourate:verset | n° des mots | note` pour un exemple tiré du Coran).
 - `content/fr/cartes/<groupe>/Cartes - <règle>.md` : les cartes de révision, au format du plugin Spaced Repetition (`question` / ligne `?` / `réponse`, ou `question :: réponse`).
 - `content/fr/alphabet.json` : les lettres, leur prononciation et les zones du schéma de la bouche.
-- `css/style.css` : l'apparence (`css/fonts.css` contient les polices arabes incluses).
+- `css/style.css` : l'apparence. `css/fonts.css` contient les polices arabes : Amiri Quran va dans `styles.css`, les autres dans `data/fonts/` (chargées seulement quand on les choisit), par `tools/split-fonts.js`.
 - `src/` : le code, en morceaux numérotés. `build.sh` assemble le tout dans `main.js` (avec `node tools/content.js` pour le contenu).
 
 Le plugin est entièrement en français et en arabe.

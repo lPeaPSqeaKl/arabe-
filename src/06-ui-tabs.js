@@ -44,20 +44,23 @@ function renderQuranTab(ctx, root, state) {
   clear(root);
   const data = ctx.data;
   const PAGE = 20;
-  const bar = h(root, 'div', 'aa-toolbar');
+  /* petit écran (iPhone) : une barre compacte, le reste se replie pour que le texte commence tout de suite */
+  const small = (root.clientWidth || window.innerWidth || 1000) < 600;
+  const bar = h(root, 'div', 'aa-toolbar' + (small ? ' aa-qsmall' : ''));
   const order = ctx.settings.surahOrder === 'nuzul' ? 'nuzul' : 'mushaf';
   const seq = surahSequence(order);
   const goSurah = n => { state.surah = n; state.page = 0; state.focus = 0; state.resume = 0; renderQuranTab(ctx, root, state); };
   rememberPlace(ctx, state.surah, state.focus || state.resume || (state.page || 0) * PAGE + 1);
-  const f0 = field(bar, 'Ordre');
-  selectEl(f0, [['mushaf', 'ordre du Coran'], ['nuzul', 'ordre de la révélation']], order, v => { ctx.settings.surahOrder = v; ctx.save(); renderQuranTab(ctx, root, state); });
+  const f0 = small ? null : field(bar, 'Ordre');
+  const orderSel = box => selectEl(box, [['mushaf', 'ordre du Coran'], ['nuzul', 'ordre de la révélation']], order, v => { ctx.settings.surahOrder = v; ctx.save(); renderQuranTab(ctx, root, state); });
+  if (f0) orderSel(f0);
   const f1 = field(bar, 'Sourate');
   selectEl(f1, seq.map(n => { const s = data.surahInfo(n); return [n, (order === 'nuzul' ? rankFr(REVELATION_ORDER[n - 1]) + ' révélée · sourate ' : '') + n + '. ' + s[1] + ' — ' + s[2]]; }), state.surah, v => goSurah(+v));
   const info = data.surahInfo(state.surah); const nV = info[5];
   const pos = seq.indexOf(state.surah);
   const nav = h(bar, 'div', 'aa-actions aa-surah-nav');
-  if (pos > 0) btn(nav, '← ' + data.surahInfo(seq[pos - 1])[1], () => goSurah(seq[pos - 1]), 'aa-btn-quiet').title = 'Sourate précédente (' + (order === 'nuzul' ? 'ordre de la révélation' : 'ordre du Coran') + ')';
-  if (pos < seq.length - 1) btn(nav, data.surahInfo(seq[pos + 1])[1] + ' →', () => goSurah(seq[pos + 1]), 'aa-btn-quiet').title = 'Sourate suivante (' + (order === 'nuzul' ? 'ordre de la révélation' : 'ordre du Coran') + ')';
+  if (pos > 0) btn(nav, small ? '‹' : '← ' + data.surahInfo(seq[pos - 1])[1], () => goSurah(seq[pos - 1]), 'aa-btn-quiet').title = 'Sourate précédente (' + (order === 'nuzul' ? 'ordre de la révélation' : 'ordre du Coran') + ')';
+  if (pos < seq.length - 1) btn(nav, small ? '›' : data.surahInfo(seq[pos + 1])[1] + ' →', () => goSurah(seq[pos + 1]), 'aa-btn-quiet').title = 'Sourate suivante (' + (order === 'nuzul' ? 'ordre de la révélation' : 'ordre du Coran') + ')';
   const all = !!ctx.settings.scrollAll;
   const pages = all ? 1 : Math.ceil(nV / PAGE);
   root._aaSwipeGo = dir => {
@@ -76,18 +79,19 @@ function renderQuranTab(ctx, root, state) {
     const opts = []; for (let p = 0; p < pages; p++) opts.push([p, (p * PAGE + 1) + '–' + Math.min(nV, (p + 1) * PAGE)]);
     selectEl(f2, opts, state.page, v => { state.page = +v; state.focus = 0; renderQuranTab(ctx, root, state); });
   }
-  /* petit écran (iPhone) : le son et les options se replient pour laisser la place au texte */
-  const small = (root.clientWidth || window.innerWidth || 1000) < 600;
   const opt = h(bar, 'details', 'aa-qopts' + (small ? '' : ' aa-qopts-wide')); opt.open = !small || !!state.optsOpen;
-  h(opt, 'summary', null, (ctx.settings.audio !== false ? '🔊 Son et ' : '') + 'options d\'affichage');
+  h(opt, 'summary', null, small ? '⚙ Son et affichage' : (ctx.settings.audio !== false ? '🔊 Son et ' : '') + 'options d\'affichage');
   opt.addEventListener('toggle', () => { if (small) state.optsOpen = opt.open; });
   if (ctx.settings.audio !== false) renderReciteBar(ctx, root, opt, state, nV);
+  if (small) { const fo = field(opt, 'Ordre des sourates'); fo.classList.add('aa-qorder'); orderSel(fo); }
   const tg = h(opt, 'div', 'aa-toggles');
-  const quick = h(bar, 'div', 'aa-actions aa-quick');
+  const quick = h(small ? opt : bar, 'div', 'aa-actions aa-quick');
   btn(quick, 'A−', () => setArSize(ctx, root, -2), 'aa-btn-quiet aa-asize').title = 'Texte arabe plus petit';
   btn(quick, 'A+', () => setArSize(ctx, root, +2), 'aa-btn-quiet aa-asize').title = 'Texte arabe plus grand';
-  btn(quick, '⤢ Lecture', () => setReading(root.closest('.aa-root') || root, true), 'aa-btn-quiet').title = 'Plein écran : seulement le texte (Échap ou ✕ pour sortir)';
-  btn(quick, '🔎 Chercher', () => { state.searchOpen = !state.searchOpen; renderQuranTab(ctx, root, state); }, 'aa-btn-quiet' + (state.searchOpen ? ' aa-on' : '')).title = 'Chercher un mot dans tout le Coran';
+  const quick2 = small ? h(bar, 'div', 'aa-actions aa-quick aa-quick-sm') : quick;
+  if (small) opt.parentNode.insertBefore(quick2, opt);
+  btn(quick2, small ? '⤢' : '⤢ Lecture', () => setReading(root.closest('.aa-root') || root, true), 'aa-btn-quiet').title = 'Plein écran : seulement le texte (Échap ou ✕ pour sortir)';
+  btn(quick2, small ? '🔎' : '🔎 Chercher', () => { state.searchOpen = !state.searchOpen; renderQuranTab(ctx, root, state); }, 'aa-btn-quiet' + (state.searchOpen ? ' aa-on' : '')).title = 'Chercher un mot dans tout le Coran';
   checkbox(tg, 'translittération', ctx.settings.showTr, v => { ctx.settings.showTr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'français', ctx.settings.showFr, v => { ctx.settings.showFr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'couleurs des mots', ctx.settings.wordColors !== false, v => { ctx.settings.wordColors = v; ctx.save(); const r = root.closest && root.closest('.aa-root'); if (r) r.classList.toggle('aa-nocolor', !v); });
@@ -102,10 +106,13 @@ function renderQuranTab(ctx, root, state) {
     sel.value = ctx.settings.verseLayout || 'auto';
     sel.addEventListener('change', () => { ctx.settings.verseLayout = sel.value; ctx.save(); renderQuranTab(ctx, root, state); });
   }
-  renderBookmarks(ctx, root, state, n => goSurah(n));
+  const nBm = (ctx.settings.bookmarks || []).length;
+  const side = small ? h(details(root, '📑 ' + (nBm ? 'Signets (' + nBm + '), ' : '') + 'mon cours, infos sur la sourate', !!state.sideOpen, 'aa-qmore'), 'div') : root;
+  if (small) side.parentNode.addEventListener('toggle', () => { state.sideOpen = side.parentNode.open; });
+  renderBookmarks(ctx, side, state, n => goSurah(n));
   const course = ctx.courseSurahs();
   if (course.length) {
-    const cb = h(root, 'div', 'aa-course');
+    const cb = h(side, 'div', 'aa-course');
     h(cb, 'span', 'aa-muted', 'Mon cours : ');
     course.forEach(c => {
       const ch = h(cb, 'span', 'aa-chip' + (c.n === state.surah ? ' aa-chip-on' : ''), c.label);
@@ -114,8 +121,8 @@ function renderQuranTab(ctx, root, state) {
     const mine = course.find(c => c.n === state.surah);
     if (mine) { const lk = h(cb, 'a', 'aa-link aa-small', '📝 ouvrir ma note « ' + mine.file.basename + ' »'); lk.addEventListener('click', ev => { ev.preventDefault(); ctx.openNote(mine.file); }); }
   }
-  h(root, 'div', 'aa-muted aa-small aa-surah-info', 'Sourate ' + state.surah + ' · ' + info[5] + ' versets · révélée à ' + (info[4] === 'Médine' ? 'Médine' : 'La Mecque') + ' · ' + rankFr(REVELATION_ORDER[state.surah - 1]) + ' dans l\'ordre de la révélation');
-  const kn = h(root, 'div', 'aa-surah-know');
+  h(side, 'div', 'aa-muted aa-small aa-surah-info', 'Sourate ' + state.surah + ' · ' + info[5] + ' versets · révélée à ' + (info[4] === 'Médine' ? 'Médine' : 'La Mecque') + ' · ' + rankFr(REVELATION_ORDER[state.surah - 1]) + ' dans l\'ordre de la révélation');
+  const kn = h(side, 'div', 'aa-surah-know');
   surahKnowledge(ctx, state.surah).then(k => {
     if (!k.total) return;
     progressBar2(kn, k.known / k.total, k.learning / k.total);
@@ -123,8 +130,8 @@ function renderQuranTab(ctx, root, state) {
     t.appendChild(document.createTextNode('Tu connais ' + k.pct + ' % des mots de cette sourate' + (k.pctAll > k.pct ? ', et ' + (k.pctAll - k.pct) + ' % sont en cours d\'apprentissage' : '') + '. '));
     if (k.unknown.length) { const a = h(t, 'a', 'aa-link', '📖 Apprendre les mots de cette sourate (' + k.unknown.length + ' nouveaux)'); a.addEventListener('click', ev => { ev.preventDefault(); ctx.openTab('review', { surahWords: state.surah, session: null, deck: null }); }); }
   }).catch(() => {});
-  if (ctx.settings.tajwid) renderTajwidLegend(details(root, '🎨 Couleurs de prononciation : ce qu\'on prononce ou pas', true));
-  mdText(root, 'p', 'aa-help', '**Clique sur un mot** pour voir ses morceaux, ses signes lettre par lettre, la raison de sa terminaison et les autres formes possibles. Couleurs : bleu = nom, rouge = verbe, gris = particule.');
+  if (ctx.settings.tajwid) renderTajwidLegend(details(side, '🎨 Couleurs de prononciation : ce qu\'on prononce ou pas', true));
+  mdText(side, 'p', 'aa-help', '**Clique sur un mot** pour voir ses morceaux, ses signes lettre par lettre, la raison de sa terminaison et les autres formes possibles. Couleurs : bleu = nom, rouge = verbe, gris = particule.');
   if (state.searchOpen) renderQuranSearch(ctx, root, state);
   const body = h(root, 'div', 'aa-verses' + (ctx.settings.practice ? ' aa-practice' : ''));
   if (all) return renderQuranScroll(ctx, root, body, state, nV);

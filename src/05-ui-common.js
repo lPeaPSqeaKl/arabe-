@@ -485,12 +485,15 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
     }
     if (S.showFr) { const fr = h(box, 'div', 'aa-verse-fr'); fr.addEventListener('click', () => box.classList.add('aa-revealed')); h(fr, 'span', 'aa-ref', surahN + ':' + vn + ' '); fr.appendChild(document.createTextNode(v[0])); }
     const tools = h(box, 'div', 'aa-verse-tools');
+    /* iPad / iPhone : les outils du verset restent rangés derrière « ⋯ » ; on les ouvre d'un toucher */
+    const vtMore = btn(tools, '⋯', () => { const open = tools.classList.toggle('aa-vt-open'); vtMore.textContent = open ? '✕' : '⋯'; }, 'aa-btn-quiet aa-vt-more');
+    vtMore.title = 'Outils du verset : analyse, écouter, signet, copier, remarque';
     const structBox = h(document.createElement('div'), 'div', 'aa-struct');
     btn(tools, '🧩 Analyse de la phrase', () => {
       if (structBox.firstChild) { clear(structBox); return; }
       renderIrab(ctx, structBox, words, [surahN, vn], { onWord: wi => spans[wi].click() });
     }, 'aa-btn-quiet');
-    if (ctx.settings.audio !== false) btn(tools, '▶ Écouter le verset', () => playVerse(surahN, vn), 'aa-btn-quiet');
+    if (ctx.settings.audio !== false) btn(tools, '▶ Écouter le verset', () => playVerse(surahN, vn), 'aa-btn-quiet aa-vt-keep');
     box.dataset.verse = String(vn);
     {
       const on = isBookmarked(ctx, surahN, vn);

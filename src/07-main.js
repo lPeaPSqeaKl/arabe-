@@ -108,8 +108,14 @@ class AtelierView extends ItemView {
   }
   render() {
     clear(this.nav);
+    /* iPhone : les grands onglets passent en bas de l'écran, sous le pouce */
+    const phone = document.body.classList.contains('is-phone') || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && (this.contentEl.clientWidth || 1000) < 600);
+    this.contentEl.classList.toggle('aa-bottomnav', phone);
+    if (phone && this.nav.nextSibling) this.contentEl.appendChild(this.nav);
+    else if (!phone && this.contentEl.firstChild !== this.nav) this.contentEl.insertBefore(this.nav, this.contentEl.firstChild);
     this.contentEl.classList.toggle('aa-paper', this.plugin.settings.paper === true);
     this.contentEl.classList.toggle('aa-nocolor', this.plugin.settings.wordColors === false);
+    ensureFont(this.plugin.settings.arFont).catch(() => {});
     AR_FONTS.forEach(f => this.contentEl.classList.toggle('aa-font-' + f[0], (this.plugin.settings.arFont || 'amiri') === f[0]));
     this.contentEl.classList.toggle('aa-ui-l', this.plugin.settings.uiSize === 'grand');
     this.contentEl.classList.toggle('aa-ui-xl', this.plugin.settings.uiSize === 'tres-grand');
@@ -119,7 +125,7 @@ class AtelierView extends ItemView {
       const on = this.tab !== 'settings' && cur[0] === gid;
       const b = h(this.nav, 'button', 'aa-tab' + (on ? ' aa-on' : ''));
       if (typeof setIcon === 'function') { try { setIcon(h(b, 'span', 'aa-tab-ic'), icon); } catch (e) { /* */ } }
-      h(b, 'span', 'aa-tab-lab', label);
+      h(b, 'span', 'aa-tab-lab', phone && gid === 'dict' ? 'Dico' : label);
       b.title = title;
       b.addEventListener('click', () => {
         this.back = [];
@@ -128,8 +134,8 @@ class AtelierView extends ItemView {
       });
     });
     const gear = document.createElement('button'); gear.className = 'aa-tab aa-tab-gear' + (this.tab === 'settings' ? ' aa-on' : '');
-    this.nav.insertBefore(gear, this.nav.firstChild);
-    h(gear, 'span', 'aa-tab-lab', '⚙'); gear.setAttribute('aria-label', 'Réglages'); gear.title = 'Réglages de l\'atelier (police, taille, son, couleurs…)';
+    if (phone) { this.nav.appendChild(gear); if (typeof setIcon === 'function') { try { setIcon(h(gear, 'span', 'aa-tab-ic'), 'settings'); } catch (e) { /* */ } } h(gear, 'span', 'aa-tab-lab', 'Réglages'); }
+    else { this.nav.insertBefore(gear, this.nav.firstChild); h(gear, 'span', 'aa-tab-lab', '⚙'); } gear.setAttribute('aria-label', 'Réglages'); gear.title = 'Réglages de l\'atelier (police, taille, son, couleurs…)';
     gear.addEventListener('click', () => { if (this.tab !== 'settings') { this.pushBack(); this.setTab('settings'); } else this.goBack(); });
     { const on = this.nav.querySelector('.aa-tab.aa-on:not(.aa-tab-gear)'); if (on && this.nav.scrollWidth > this.nav.clientWidth) { try { this.nav.scrollLeft = on.offsetLeft - this.nav.clientWidth / 2 + on.offsetWidth / 2; } catch (e) { /* */ } } }
     const ctx = this.plugin.ctx(this);
@@ -208,7 +214,7 @@ function fillSettings(el, plugin, inObsidian, ctx) {
     h(el, 'h3', 'aa-set-h', 'Apparence');
     const fontSet = new Setting(el).setName('Police arabe').setDesc('Toutes ces polices sont incluses dans le plugin : elles marchent sans internet, sur PC, iPad et iPhone. « Amiri Quran » affiche le mieux les petits signes du Coran. Les polices décoratives (coufique, nastaʿlīq, affiche) sont belles mais plus difficiles à lire pour apprendre.');
     const preview = el.createDiv({ cls: 'aa-font-preview aa-root' });
-    const showFont = v => { AR_FONTS.forEach(f => preview.classList.toggle('aa-font-' + f[0], v === f[0])); const f = AR_FONTS.find(x => x[0] === v) || AR_FONTS[0]; preview.empty(); const ar = preview.createDiv({ text: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ · قُلْ هُوَ ٱللَّهُ أَحَدٌ' }); ar.className = 'aa-ar aa-font-preview-ar'; ar.setAttribute('dir', 'rtl'); ar.setAttribute('lang', 'ar'); const d = preview.createDiv({ text: f[2] }); d.style.cssText = 'font-size:12px;direction:ltr;text-align:left;color:var(--text-muted);font-family:var(--font-interface)'; };
+    const showFont = v => { ensureFont(v).catch(() => {}); AR_FONTS.forEach(f => preview.classList.toggle('aa-font-' + f[0], v === f[0])); const f = AR_FONTS.find(x => x[0] === v) || AR_FONTS[0]; preview.empty(); const ar = preview.createDiv({ text: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ · قُلْ هُوَ ٱللَّهُ أَحَدٌ' }); ar.className = 'aa-ar aa-font-preview-ar'; ar.setAttribute('dir', 'rtl'); ar.setAttribute('lang', 'ar'); const d = preview.createDiv({ text: f[2] }); d.style.cssText = 'font-size:12px;direction:ltr;text-align:left;color:var(--text-muted);font-family:var(--font-interface)'; };
     fontSet.addDropdown(d => { AR_FONTS.forEach(f => d.addOption(f[0], f[1])); d.setValue(s.arFont || 'amiri').onChange(async v => { s.arFont = v; showFont(v); await p.saveSettings(); p.refreshViews && p.refreshViews(); }); });
     showFont(s.arFont || 'amiri');
     new Setting(el).setName('Fond « papier »').setDesc('Un fond crème (ou brun très sombre en thème sombre), plus doux pour les yeux quand tu lis longtemps.')
@@ -262,21 +268,26 @@ class AtelierArabePlugin extends Plugin {
     if (!this.settings.lessons) this.settings.lessons = {};
     AUDIO.reciter = this.settings.reciter || 'Alafasy_128kbps'; AUDIO.rate = this.settings.audioRate || 1; AUDIO.repeat = this.settings.audioRepeat == null ? 1 : this.settings.audioRepeat;
     this.data = new QuranData(this.app, this.manifest.dir);
+    fontEnv(this.app, this.manifest.dir); ensureFont(this.settings.arFont).catch(() => {});
     this.scanAudio();
     notify = (m) => new Notice(m);
     this.registerView(VIEW_TYPE, leaf => new AtelierView(leaf, this));
     this.addRibbonIcon('languages', 'Atelier arabe', () => this.openView());
     this.addCommand({ id: 'ouvrir', name: 'Ouvrir l\'atelier', callback: () => this.openView() });
-    this.addCommand({ id: 'accueil', name: 'Accueil (tableau de bord)', callback: () => this.openView('home') });
-    this.addCommand({ id: 'ecrire', name: 'Apprendre à écrire', callback: () => this.openView('write') });
-    this.addCommand({ id: 'alphabet', name: 'Alphabet et prononciation', callback: () => this.openView('alphabet') });
-    this.addCommand({ id: 'lecons', name: 'Leçons de grammaire', callback: () => this.openView('lessons') });
-    this.addCommand({ id: 'regles', name: 'Règles expliquées simplement', callback: () => this.openView('rules') });
-    this.addCommand({ id: 'revision', name: 'Réviser mes cartes', callback: () => this.openView('review') });
-    this.addCommand({ id: 'dictionnaire', name: 'Dictionnaire', callback: () => this.openView('dict') });
-    this.addCommand({ id: 'construire', name: 'Construire une phrase', callback: () => this.openView('build') });
-    this.addCommand({ id: 'signes', name: 'Laboratoire des signes', callback: () => this.openView('signs') });
-    this.addCommand({ id: 'entrainement', name: 'Entraînement', callback: () => this.openView('quiz') });
+    this.addCommand({ id: 'accueil', name: 'Accueil', callback: () => this.openView('home') });
+    this.addCommand({ id: 'coran', name: 'Coran : reprendre ma lecture', callback: () => this.openView('coran') });
+    this.addCommand({ id: 'alphabet', name: 'Apprendre › Alphabet', callback: () => this.openView('alphabet') });
+    this.addCommand({ id: 'polices', name: 'Apprendre › Comparer les polices', callback: () => this.openView('alphabet', { mode: 'fonts' }) });
+    this.addCommand({ id: 'ecrire', name: 'Apprendre › Écrire', callback: () => this.openView('write') });
+    this.addCommand({ id: 'lecons', name: 'Apprendre › Leçons', callback: () => this.openView('lessons') });
+    this.addCommand({ id: 'regles', name: 'Apprendre › Règles', callback: () => this.openView('rules') });
+    this.addCommand({ id: 'revision', name: 'Réviser › Cartes du jour', callback: () => this.openView('review') });
+    this.addCommand({ id: 'entrainement', name: 'Réviser › Exercices', callback: () => this.openView('quiz') });
+    this.addCommand({ id: 'dictionnaire', name: 'Dictionnaire › Chercher un mot', callback: () => this.openView('dict') });
+    this.addCommand({ id: 'analyser', name: 'Dictionnaire › Analyser un texte', callback: () => this.openView('analyse') });
+    this.addCommand({ id: 'construire', name: 'Atelier › Construire une phrase', callback: () => this.openView('build') });
+    this.addCommand({ id: 'signes', name: 'Atelier › Changer les voyelles', callback: () => this.openView('signs') });
+    this.addCommand({ id: 'reglages', name: 'Réglages de l\'atelier', callback: () => this.openView('settings') });
     this.addCommand({
       id: 'analyser-selection', name: 'Analyser le texte sélectionné',
       editorCallback: (editor) => { const t = editor.getSelection(); if (!t || !hasArabic(t)) { new Notice('Sélectionne d\'abord un texte arabe.'); return; } this.openView('analyse', { text: t }); },
@@ -317,7 +328,7 @@ class AtelierArabePlugin extends Plugin {
     });
     this.addSettingTab(new AtelierSettingTab(this.app, this));
   }
-  onunload() { /* Obsidian ferme la vue tout seul */ }
+  onunload() { unloadFonts(); /* Obsidian ferme la vue tout seul */ }
   async saveSettings() {
     await this.saveData(this.settings);
     this.app.workspace.getLeavesOfType(VIEW_TYPE).forEach(l => l.view && l.view.render && l.view.plugin.data.surahs && l.view.render());

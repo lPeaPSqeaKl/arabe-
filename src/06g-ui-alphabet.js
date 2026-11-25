@@ -341,6 +341,7 @@ function renderAlphaFonts(ctx, body, A, state) {
       const grid = h(out, 'div', 'aa-al-cmpgrid');
       ids.forEach(id => {
         const f = AR_FONTS.find(x => x[0] === id); if (!f) return;
+        ensureFont(id).catch(() => {});
         const card = h(grid, 'div', 'aa-al-cmpcard aa-root aa-font-' + id + ((S.arFont || 'amiri') === id ? ' aa-al-cmpon' : ''));
         const top = h(card, 'div', 'aa-al-cmptop'); h(top, 'b', null, f[1].replace(/ \(.*\)$/, ''));
         if ((S.arFont || 'amiri') === id) h(top, 'span', 'aa-tag', 'ta police');

@@ -934,3 +934,38 @@ li.aa-rule-inline { list-style: none; border: none; background: none; }
 .aa-al-cmpcard .aa-btn-quiet { align-self: flex-start; margin-top: 2px; }
 .aa-font-nastaliq .aa-al-cmptxt, .aa-font-gulzar .aa-al-cmptxt { line-height: 2.8; }
 .aa-al-cmpin { height: auto !important; min-height: 2.9em; line-height: 2.2; padding: 10px 12px 8px; box-sizing: border-box; }
+
+/* 2.24 : Coran compact sur iPhone (le texte commence tout de suite) */
+.aa-qsmall { gap: 6px 8px; padding: 8px 10px; align-items: center; }
+.aa-qsmall .aa-field-label { display: none; }
+.aa-qsmall .aa-field { flex: 1 1 150px; min-width: 0; }
+.aa-qsmall .aa-field select { width: 100%; }
+.aa-qsmall .aa-surah-nav { gap: 4px; }
+.aa-qsmall .aa-surah-nav button, .aa-quick-sm button { min-width: 36px; padding: 4px 8px; }
+.aa-quick-sm { margin-left: auto; }
+.aa-qsmall .aa-qopts { margin-top: 0; }
+.aa-qsmall .aa-qorder .aa-field-label { display: inline; margin-right: 6px; }
+.aa-qsmall .aa-qorder { flex: none; display: flex; align-items: center; gap: 6px; margin: 4px 0 6px; }
+.aa-qsmall .aa-qorder select { width: auto; }
+.aa-qmore { margin: 6px 0 4px; }
+.aa-qmore > div > .aa-surah-info { text-align: left; }
+
+/* 2.24 : iPhone, barre des grands onglets en bas */
+.aa-root.aa-bottomnav .aa-tabs { position: sticky; top: auto; bottom: 0; display: grid; grid-template-columns: repeat(7, 1fr); gap: 0; padding: 4px 2px 6px; border-bottom: none; border-top: 1px solid var(--aa-line, var(--background-modifier-border)); overflow: visible; z-index: 3; box-shadow: 0 -2px 8px rgba(0,0,0,.04); }
+.aa-root.aa-bottomnav .aa-tab { flex-direction: column; justify-content: center; gap: 2px; padding: 5px 0 !important; border-radius: 10px !important; font-size: 10.5px; min-width: 0; background: transparent !important; color: var(--text-muted) !important; font-weight: 500; }
+.aa-root.aa-bottomnav .aa-tab-lab { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.aa-root.aa-bottomnav .aa-tab-ic svg { width: 21px; height: 21px; }
+.aa-root.aa-bottomnav .aa-tab.aa-on { color: var(--interactive-accent) !important; font-weight: 700; }
+.aa-root.aa-bottomnav .aa-tab.aa-on .aa-tab-ic { background: color-mix(in srgb, var(--interactive-accent) 14%, transparent); border-radius: 999px; padding: 2px 12px; }
+.aa-root.aa-bottomnav .aa-tabs .aa-tab-gear { font-size: 10.5px; padding-left: 0; padding-right: 0; }
+.aa-root.aa-bottomnav .aa-body { min-height: calc(100% - 70px); }
+.aa-root.aa-bottomnav .aa-subtabs-row { padding-top: 10px; }
+
+/* 2.24 : outils du verset rangés derrière « ⋯ » sur écran tactile */
+.aa-vt-more { display: none !important; }
+@media (hover: none) {
+  .aa-verse-tools { justify-content: flex-end; }
+  .aa-verse-tools .aa-vt-more { display: inline-flex !important; order: 99; min-width: 38px; justify-content: center; }
+  .aa-verse-tools:not(.aa-vt-open) > :not(.aa-vt-more):not(.aa-vt-keep):not(.aa-bm-on) { display: none !important; }
+  .aa-verse-tools.aa-vt-open { justify-content: flex-start; }
+}
