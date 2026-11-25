@@ -142,28 +142,125 @@ function wcViz(ctx, parent, v) {
   else if (v.t === 'big') wcBig(wrap, v);
   else if (v.t === 'marks') wcMarks(wrap, v);
   else if (v.t === 'styles') wcStyles(wrap, v);
+  else if (v.t === 'syl') wcSyl(wrap, v);
+  else if (v.t === 'words') wcWords(ctx, wrap, v);
+  else if (v.t === 'verse') wcVerse(ctx, wrap, v);
+  else if (v.t === 'pairs') wcPairs(wrap, v);
   else if (v.t === 'demo') makeWritePad(ctx, wrap, { text: v.text, mode: 'view', autoDemo: true });
   else if (v.t === 'trace') makeWritePad(ctx, wrap, { text: v.text, mode: 'trace', autoDemo: false, onScore: () => {} });
 }
 
-/* --- la liste des leçons (dans l'onglet Écrire) --- */
-function renderWriteCourseList(ctx, root, state, go) {
-  const C = wcState(ctx);
-  const nDone = WRITE_COURSE.filter(L => C[L.id] && C[L.id].done).length;
+/* --- schémas du cours de lecture --- */
+/* bouton « montrer la lecture » : la transcription est cachée pour que l'élève lise d'abord seul */
+function wcTrToggle(wrap) {
+  const b = btn(h(wrap, 'div', 'aa-wc-trbar'), '👁 Montrer la lecture', () => { const on = wrap.classList.toggle('aa-wc-trshow'); b.textContent = on ? '🙈 Cacher la lecture' : '👁 Montrer la lecture'; }, 'aa-btn-quiet aa-small');
+  return b;
+}
+function wcSyl(parent, v) {
+  const wrap = h(parent, 'div', 'aa-wc-syl');
+  wcTrToggle(wrap);
+  v.rows.forEach(row => {
+    const r = h(wrap, 'div', 'aa-wc-sylrow'); r.setAttribute('dir', 'rtl');
+    row.forEach(([ar, tr]) => {
+      const c = h(r, 'button', 'aa-wc-sylc');
+      arSpan(c, ar, 'aa-wc-sylar'); h(c, 'span', 'aa-tr aa-wc-tr', tr);
+      c.addEventListener('click', () => { speak(ar); c.classList.add('aa-wc-seen'); });
+    });
+  });
+  h(wrap, 'div', 'aa-muted aa-small aa-wc-cap', 'Lis d\'abord toi-même, puis touche pour entendre (voix de l\'appareil).');
+}
+function parseRef(r) { return String(r).split(':').map(Number); }
+async function wcWords(ctx, parent, v) {
+  const wrap = h(parent, 'div', 'aa-wc-syl');
+  wcTrToggle(wrap);
+  const g = h(wrap, 'div', 'aa-wc-wgrid'); g.setAttribute('dir', 'rtl');
+  for (const [ref, sens] of v.items) {
+    const [s, vn, wn] = parseRef(ref);
+    const c = h(g, 'button', 'aa-wc-sylc aa-wc-wcard');
+    try {
+      const d = await ctx.data.surah(s); const words = d.v[vn - 1][2]; const w = words[wn - 1];
+      const text = wordText(w); const tr = translitTokens(words, ctx.settings.style)[wn - 1];
+      arSpan(c, text, 'aa-wc-sylar'); h(c, 'span', 'aa-tr aa-wc-tr', tr);
+      h(c, 'span', 'aa-muted aa-small', sens); h(c, 'span', 'aa-faint aa-small', s + ':' + vn);
+      c.addEventListener('click', () => { playWord([s, vn, wn], text, ctx); c.classList.add('aa-wc-seen'); });
+    } catch (e) { h(c, 'span', 'aa-muted', ref); }
+  }
+  h(wrap, 'div', 'aa-muted aa-small aa-wc-cap', 'Lis le mot, puis touche-le pour entendre le récitateur.');
+}
+async function wcVerse(ctx, parent, v) {
+  const [s, vn] = parseRef(v.r);
+  const box = h(parent, 'div', 'aa-wc-verse'); box.setAttribute('data-ref', s + ':' + vn);
+  try {
+    const d = await ctx.data.surah(s); const vv = d.v[vn - 1]; const words = vv[2];
+    const tokens = translitTokens(words, ctx.settings.style);
+    const line = h(box, 'div', 'aa-verse-ar aa-wc-vline'); line.setAttribute('dir', 'rtl');
+    words.forEach((w, wi) => {
+      const sp = arSpan(line, wordText(w), 'aa-w'); sp.title = tokens[wi];
+      sp.addEventListener('click', () => playWord([s, vn, wi + 1], wordText(w), ctx));
+      line.appendChild(document.createTextNode(' '));
+    });
+    arSpan(line, '﴿' + arNum(vn) + '﴾', 'aa-vnum');
+    const tr = h(box, 'div', 'aa-tr aa-verse-tr aa-wc-tr', tokens.join(' '));
+    void tr;
+    const fr = h(box, 'div', 'aa-verse-fr aa-muted'); fr.textContent = ctx.data.surahInfo(s)[1] + ' ' + s + ':' + vn + ' · ' + vv[0];
+    const tools = h(box, 'div', 'aa-verse-tools');
+    btn(tools, '▶ Écouter le verset', () => playVerse(s, vn), 'aa-btn-quiet');
+    const t = btn(tools, '👁 Montrer la lecture', () => { const on = box.classList.toggle('aa-wc-trshow'); t.textContent = on ? '🙈 Cacher la lecture' : '👁 Montrer la lecture'; }, 'aa-btn-quiet');
+    btn(tools, '📖 Ouvrir dans le Coran', () => ctx.openQuran(s, vn), 'aa-btn-quiet');
+    h(box, 'div', 'aa-muted aa-small aa-wc-cap', 'Touche un mot pour l\'entendre seul.');
+  } catch (e) { h(box, 'p', 'aa-warn', 'Verset introuvable : ' + v.r); }
+}
+function wcPairs(parent, v) {
+  const g = h(parent, 'div', 'aa-wc-pairs');
+  v.items.forEach(([a, ta, b, tb]) => {
+    const row = h(g, 'div', 'aa-wc-pair'); row.setAttribute('dir', 'rtl');
+    [[a, ta], [b, tb]].forEach(([l, t], i) => {
+      if (i) h(row, 'span', 'aa-wc-vs', '≠');
+      const c = h(row, 'button', 'aa-wc-sylc');
+      arSpan(c, l, 'aa-wc-sylar'); h(c, 'span', 'aa-small', t);
+      c.addEventListener('click', () => speak(l + 'َ ' + l + 'ِ ' + l + 'ُ'));
+    });
+  });
+  h(parent, 'div', 'aa-muted aa-small aa-wc-cap', 'Touche une lettre : l\'appareil la dit avec a, i, u.');
+}
+
+/* --- les cours (écriture, lecture) : même moteur --- */
+const COURSES = {
+  write: {
+    list: () => WRITE_COURSE, store: ctx => wcState(ctx), act: 'w',
+    title: '📘 Le cours d\'écriture',
+    intro: 'Les **règles** de l\'écriture arabe, expliquées pas à pas, avec des schémas et le geste animé. À faire **avant ou en même temps** que le cahier lettre par lettre.',
+    ok: 'Bravo. Passe à la suite, ou entraîne-toi dans le cahier lettre par lettre.',
+  },
+  read: {
+    list: () => READ_COURSE, act: 'r',
+    store: ctx => { const R = ctx.settings.reading || (ctx.settings.reading = {}); return R.course || (R.course = {}); },
+    title: '📖 Le cours de lecture',
+    intro: 'De la première voyelle jusqu\'à lire **seul** une petite sourate. Chaque leçon : une règle simple, des syllabes à écouter, de **vrais mots du Coran**, puis un quiz.',
+    ok: 'Bravo. Passe à la suite, ou va lire dans l\'onglet Coran.',
+  },
+};
+function renderWriteCourseList(ctx, root, state, go) { return renderCourseList(ctx, root, state, go, COURSES.write); }
+function renderWriteCourse(ctx, root, state, go) { return renderCourse(ctx, root, state, go, COURSES.write); }
+
+/* --- la liste des leçons --- */
+function renderCourseList(ctx, root, state, go, D) {
+  const C = D.store(ctx); const LIST = D.list();
+  const nDone = LIST.filter(L => C[L.id] && C[L.id].done).length;
   const sec = h(root, 'div', 'aa-wc-list');
   const head = h(sec, 'div', 'aa-wc-listhead');
-  h(head, 'h3', 'aa-fc-group', '📘 Le cours d\'écriture');
-  h(head, 'span', 'aa-muted aa-small', nDone + ' / ' + WRITE_COURSE.length + ' leçons validées');
-  mdText(sec, 'p', 'aa-muted', 'Les **règles** de l\'écriture arabe, expliquées pas à pas, avec des schémas et le geste animé. À faire **avant ou en même temps** que le cahier lettre par lettre.');
+  h(head, 'h3', 'aa-fc-group', D.title);
+  h(head, 'span', 'aa-muted aa-small', nDone + ' / ' + LIST.length + ' leçons validées');
+  mdText(sec, 'p', 'aa-muted', D.intro);
   const grid = h(sec, 'div', 'aa-lesson-grid');
-  const next = WRITE_COURSE.find(L => !(C[L.id] && C[L.id].done));
-  WRITE_COURSE.forEach((L, k) => {
+  const next = LIST.find(L => !(C[L.id] && C[L.id].done));
+  LIST.forEach((L, k) => {
     const st = C[L.id];
     const c = h(grid, 'div', 'aa-lesson-card' + (st && st.done ? ' aa-lesson-done' : '') + (L === next ? ' aa-lesson-next' : ''));
     const top = h(c, 'div', 'aa-lesson-top'); h(top, 'span', 'aa-lesson-num', String(k + 1));
     if (st && st.done) h(top, 'span', 'aa-tag', '✓ ' + st.best + ' %'); else if (L === next) h(top, 'span', 'aa-tag', '→ maintenant');
     h(c, 'div', 'aa-lesson-title', L.title);
-    const a = arSpan(c, L.ar, 'aa-lesson-ar'); void a;
+    arSpan(c, L.ar, 'aa-lesson-ar');
     h(c, 'div', 'aa-muted aa-small', '≈ ' + L.min + ' min · ' + L.steps.length + ' étapes · ' + L.quiz.length + ' questions');
     c.addEventListener('click', () => { state.course = L.id; state.cstep = (C.place && C.place[0] === L.id) ? C.place[1] : 0; go(); });
   });
@@ -171,10 +268,11 @@ function renderWriteCourseList(ctx, root, state, go) {
 }
 
 /* --- une leçon : une étape à la fois, puis le quiz --- */
-function renderWriteCourse(ctx, root, state, go) {
-  const L = WRITE_COURSE.find(x => x.id === state.course); if (!L) { state.course = null; return go(); }
-  const C = wcState(ctx); const k = WRITE_COURSE.indexOf(L);
-  const n = L.steps.length; let step = Math.max(0, Math.min(n, state.cstep || 0));
+function renderCourse(ctx, root, state, go, D) {
+  const LIST = D.list();
+  const L = LIST.find(x => x.id === state.course); if (!L) { state.course = null; return go(); }
+  const C = D.store(ctx); const k = LIST.indexOf(L);
+  const n = L.steps.length; const step = Math.max(0, Math.min(n, state.cstep || 0));
   C.place = [L.id, step]; ctx.save();
   const top = h(root, 'div', 'aa-fc-head');
   btn(top, '← Le cours', () => { state.course = null; go(); }, 'aa-btn-quiet');
@@ -182,17 +280,17 @@ function renderWriteCourse(ctx, root, state, go) {
   h(top, 'span', 'aa-muted aa-small aa-fc-left', step < n ? 'Étape ' + (step + 1) + ' / ' + n : 'Quiz');
   const bar = h(root, 'div', 'aa-lesson-progress'); const fl = h(bar, 'div', 'aa-lesson-fill'); fl.style.width = Math.round(100 * step / (n + 1)) + '%';
   const dots = h(root, 'div', 'aa-wc-dots');
-  for (let i = 0; i <= n; i++) { const d = h(dots, 'button', 'aa-wc-dot' + (i === step ? ' aa-on' : i < step ? ' aa-wc-dot-done' : ''), i < n ? String(i + 1) : '?'); d.title = i < n ? L.steps[i].h : 'Quiz'; d.addEventListener('click', () => { state.cstep = i; go(); root.scrollTop = 0; }); }
+  for (let i = 0; i <= n; i++) { const d = h(dots, 'button', 'aa-wc-dot' + (i === step ? ' aa-on' : i < step ? ' aa-wc-dot-done' : ''), i < n ? String(i + 1) : '?'); d.title = i < n ? (L.steps[i].h || 'Étape ' + (i + 1)) : 'Quiz'; d.addEventListener('click', () => { stopAudio(); state.cstep = i; go(); root.scrollTop = 0; }); }
   if (step < n) {
     const S = L.steps[step];
     if (step === 0) { const t = h(root, 'div', 'aa-wc-title'); h(t, 'h2', null, L.title); arSpan(t, L.ar, 'aa-wc-titlear'); }
-    h(root, 'h3', 'aa-wc-h', S.h);
-    const body = h(root, 'div', 'aa-wc-body'); wcMdBlock(body, S.md);
+    if (S.h) h(root, 'h3', 'aa-wc-h', S.h);
+    if (S.md) { const body = h(root, 'div', 'aa-wc-body'); wcMdBlock(body, S.md); }
     wcViz(ctx, root, S.viz);
     if (S.copyBtn) btn(h(root, 'div', 'aa-actions'), '📜 Recopier le Coran dans mon cahier', () => { state.course = null; state.copy = true; go(); }, 'aa-btn-quiet');
     const nav = h(root, 'div', 'aa-wc-nav');
-    if (step > 0) btn(nav, '← Précédent', () => { state.cstep = step - 1; go(); root.scrollTop = 0; }, 'aa-btn-quiet');
-    btn(nav, step < n - 1 ? 'Suivant →' : 'Le quiz →', () => { state.cstep = step + 1; go(); root.scrollTop = 0; }, 'mod-cta');
+    if (step > 0) btn(nav, '← Précédent', () => { stopAudio(); state.cstep = step - 1; go(); root.scrollTop = 0; }, 'aa-btn-quiet');
+    btn(nav, step < n - 1 ? 'Suivant →' : 'Le quiz →', () => { stopAudio(); state.cstep = step + 1; go(); root.scrollTop = 0; }, 'mod-cta');
     return;
   }
   // le quiz
@@ -203,6 +301,14 @@ function renderWriteCourse(ctx, root, state, go) {
   L.quiz.forEach((Q, qi) => {
     const q = h(root, 'div', 'aa-wc-q');
     mdText(q, 'div', 'aa-wc-qtxt', (qi + 1) + '. ' + Q.q);
+    if (Q.say || Q.ref) {
+      const say = () => {
+        if (Q.say) return speak(Q.say);
+        const [s, v, w] = parseRef(Q.ref);
+        ctx.data.surah(s).then(d => playWord([s, v, w], wordText(d.v[v - 1][2][w - 1]), ctx)).catch(() => {});
+      };
+      btn(h(q, 'div', 'aa-wc-qsay'), '🔊 Écouter', say, 'aa-btn-quiet');
+    }
     // les réponses dans un ordre mélangé, mais toujours le même pour une question
     const order = Q.o.map((o, i) => i).sort((a, b) => ((a * 7 + qi * 3) % 5) - ((b * 7 + qi * 3) % 5));
     const opts = h(q, 'div', 'aa-wc-opts'); const fb = h(q, 'div', 'aa-wc-fb');
@@ -214,7 +320,7 @@ function renderWriteCourse(ctx, root, state, go) {
         mdText(fb, 'div', null, (i === Q.a ? '✅ ' : '❌ ') + Q.why);
         if (ans.every(x => x != null)) finish();
       }, 'aa-btn-quiet aa-wc-opt');
-      if (/[\u0600-\u06FF]/.test(o)) { b.textContent = ''; mdText(b, 'span', null, o); b.classList.add('aa-wc-optar'); }
+      if (/[؀-ۿ]/.test(o)) { b.textContent = ''; mdText(b, 'span', null, o); b.classList.add('aa-wc-optar'); }
     });
   });
   root.appendChild(res);
@@ -222,17 +328,31 @@ function renderWriteCourse(ctx, root, state, go) {
     clear(res);
     const good = ans.filter(Boolean).length; const pct = Math.round(100 * good / ans.length);
     const st = C[L.id] || (C[L.id] = { best: 0 }); st.best = Math.max(st.best || 0, pct); if (pct >= 70) st.done = true; st.d = todayNum(); ctx.save();
-    if (ctx.markActivity) ctx.markActivity('w');
+    if (ctx.markActivity) ctx.markActivity(D.act);
     const box = h(res, 'div', 'aa-fc-end');
-    h(box, 'div', 'aa-fc-end-ic', pct >= 70 ? '🌿' : '✍️');
+    h(box, 'div', 'aa-fc-end-ic', pct >= 70 ? '🌿' : '📖');
     h(box, 'h3', null, (pct >= 70 ? 'Leçon validée : ' : 'Pas encore : ') + good + ' / ' + ans.length);
-    h(box, 'p', 'aa-muted', pct >= 70 ? 'Bravo. Passe à la suite, ou entraîne-toi dans le cahier lettre par lettre.' : 'Relis les étapes (les numéros en haut), puis refais le quiz.');
+    h(box, 'p', 'aa-muted', pct >= 70 ? D.ok : 'Relis les étapes (les numéros en haut), puis refais le quiz.');
     const a = h(box, 'div', 'aa-fc-start');
-    const nx = WRITE_COURSE[k + 1];
+    const nx = LIST[k + 1];
     if (pct >= 70 && nx) btn(a, 'Leçon suivante : ' + nx.title + ' →', () => { state.course = nx.id; state.cstep = 0; go(); root.scrollTop = 0; }, 'mod-cta aa-fc-big');
     btn(a, '↻ Refaire le quiz', () => go(), 'aa-fc-big2');
     btn(a, 'Revoir la leçon', () => { state.cstep = 0; go(); root.scrollTop = 0; }, 'aa-btn-quiet');
   };
+}
+
+/* --- l'onglet Apprendre › Lire --- */
+function renderReadTab(ctx, root, state) {
+  clear(root);
+  const go = () => renderReadTab(ctx, root, state);
+  if (state.course) return renderCourse(ctx, root, state, go, COURSES.read);
+  const C = COURSES.read.store(ctx);
+  const nx = READ_COURSE.find(L => !(C[L.id] && C[L.id].done));
+  const act = h(root, 'div', 'aa-fc-start aa-wc-readstart');
+  if (nx) btn(act, '▶  ' + (C.place ? 'Continuer' : 'Commencer') + ' : ' + nx.title, () => { state.course = nx.id; state.cstep = (C.place && C.place[0] === nx.id) ? C.place[1] : 0; go(); }, 'mod-cta aa-fc-big');
+  else h(act, 'div', 'aa-ok', 'Tu as fini le cours de lecture. Ouvre le Coran et lis une sourate seul : tu en es capable.');
+  btn(act, '📖  Lire dans le Coran', () => ctx.openTab('coran', {}), 'aa-fc-big2');
+  renderCourseList(ctx, root, state, go, COURSES.read);
 }
 /* texte en paragraphes, listes « - » et « 1. » */
 function wcMdBlock(parent, md) {

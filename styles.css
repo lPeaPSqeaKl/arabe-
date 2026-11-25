@@ -1162,3 +1162,28 @@ body.is-mobile .aa-root .aa-body, body.is-mobile .aa-root.aa-reading .aa-body { 
 }
 .aa-wc-opt .aa-ari, .aa-wc-optar .aa-ari { font-size: 1.7em; line-height: 1.5; font-family: "Atelier Noto Naskh", "Atelier Amiri Quran", serif; }
 .aa-wc-qtxt .aa-ari { font-size: 1.35em; }
+
+/* ---- 2.30 : cours de lecture ---- */
+.aa-wc-syl { display: flex; flex-direction: column; gap: 10px; }
+.aa-wc-trbar { display: flex; justify-content: flex-end; }
+.aa-wc-sylrow, .aa-wc-wgrid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-start; }
+.aa-wc-sylc { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 84px; height: auto; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--background-modifier-border); background: var(--background-primary); cursor: pointer; box-shadow: none; }
+.aa-wc-sylc:hover { border-color: var(--interactive-accent); }
+.aa-wc-sylar { font-size: 2.1em; line-height: 1.7; }
+.aa-wc-wcard { min-width: 120px; }
+.aa-wc-tr { visibility: hidden; }
+.aa-wc-trshow .aa-wc-tr, .aa-wc-seen .aa-wc-tr { visibility: visible; }
+.aa-wc-verse .aa-wc-tr { display: none; }
+.aa-wc-verse.aa-wc-trshow .aa-wc-tr { display: block; }
+.aa-wc-verse .aa-verse-tools { opacity: 1 !important; }
+.aa-wc-verse .aa-verse-tools .aa-btn { font-size: .9em; }
+.aa-wc-vline { font-size: 2em; line-height: 2.1; }
+.aa-wc-vline .aa-w { cursor: pointer; }
+.aa-wc-pairs { display: flex; flex-direction: column; gap: 10px; }
+.aa-wc-pair { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.aa-wc-pair .aa-wc-sylc { min-width: 120px; }
+.aa-wc-vs { color: var(--text-faint); font-size: 1.4em; }
+.aa-wc-qsay { margin: 4px 0 6px; }
+.aa-wc-readstart { margin-bottom: 8px; }
+@media (max-width: 520px) { .aa-wc-sylc { min-width: 70px; padding: 8px 10px; } .aa-wc-sylar { font-size: 1.8em; } .aa-wc-vline { font-size: 1.6em; } .aa-wc-pair .aa-wc-sylc { min-width: 0; flex: 1; } }
+.aa-fc-head .aa-btn { white-space: nowrap; flex-shrink: 0; }

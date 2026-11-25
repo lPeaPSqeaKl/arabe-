@@ -34,16 +34,16 @@ const AR_FONTS = [
 const AMBIANCES = [['', 'Comme Obsidian'], ['nuit', 'Nuit (noir doux)'], ['sepia', 'Sépia (papier chaud)'], ['clair', 'Clair (blanc)']];
 function ambianceOf(S) { return S.ambiance != null ? S.ambiance : (S.paper === true ? 'sepia' : ''); }
 function applyAmbiance(el, a) { AMBIANCES.forEach(x => x[0] && el.classList.toggle('aa-amb-' + x[0], x[0] === a)); el.classList.remove('aa-paper'); }
-const TAB_ICONS = { home: 'home', write: 'pencil', coran: 'book-open', alphabet: 'a-large-small', lessons: 'graduation-cap', rules: 'book-marked', review: 'layers', dict: 'library', analyse: 'scan-search', build: 'blocks', signs: 'flask-conical', quiz: 'target' };
+const TAB_ICONS = { home: 'home', read: 'book-a', write: 'pencil', coran: 'book-open', alphabet: 'a-large-small', lessons: 'graduation-cap', rules: 'book-marked', review: 'layers', dict: 'library', analyse: 'scan-search', build: 'blocks', signs: 'flask-conical', quiz: 'target' };
 const TABS = [
-  ['home', 'Accueil', 'Ton tableau de bord du jour'], ['coran', 'Coran', 'Lire une sourate mot par mot'], ['alphabet', 'Alphabet', 'Les lettres et leur prononciation'], ['write', 'Écrire', 'Apprendre à écrire les lettres et les mots'], ['lessons', 'Leçons', 'Parcours de grammaire guidé'], ['rules', 'Règles', 'Les règles expliquées simplement'], ['review', 'Révision', 'Réviser les cartes de chaque règle'], ['dict', 'Dictionnaire', 'Tous les mots du Coran'], ['analyse', 'Analyser', 'Analyser un texte arabe'],
+  ['home', 'Accueil', 'Ton tableau de bord du jour'], ['coran', 'Coran', 'Lire une sourate mot par mot'], ['alphabet', 'Alphabet', 'Les lettres et leur prononciation'], ['read', 'Lire', 'Apprendre à lire, des voyelles aux sourates'], ['write', 'Écrire', 'Apprendre à écrire les lettres et les mots'], ['lessons', 'Leçons', 'Parcours de grammaire guidé'], ['rules', 'Règles', 'Les règles expliquées simplement'], ['review', 'Révision', 'Réviser les cartes de chaque règle'], ['dict', 'Dictionnaire', 'Tous les mots du Coran'], ['analyse', 'Analyser', 'Analyser un texte arabe'],
   ['build', 'Construire', 'Construire une phrase'], ['signs', 'Signes', 'Laboratoire des signes'], ['quiz', 'Entraînement', 'S\'entraîner'],
 ];
 /* 2.17 : 6 grands onglets ; chaque groupe a ses sous-onglets (rien n'a été supprimé) */
 const TAB_GROUPS = [
   ['home', 'Accueil', 'home', 'Ton tableau de bord du jour', [['home', 'Accueil']]],
   ['coran', 'Coran', 'book-open', 'Lire une sourate mot par mot', [['coran', 'Coran']]],
-  ['learn', 'Apprendre', 'graduation-cap', 'Alphabet, écriture, leçons et règles', [['alphabet', 'Alphabet'], ['write', 'Écrire'], ['lessons', 'Leçons'], ['rules', 'Règles']]],
+  ['learn', 'Apprendre', 'graduation-cap', 'Alphabet, lecture, écriture, leçons et règles', [['alphabet', 'Alphabet'], ['read', 'Lire'], ['write', 'Écrire'], ['lessons', 'Leçons'], ['rules', 'Règles']]],
   ['revise', 'Réviser', 'layers', 'Cartes de révision et exercices', [['review', 'Cartes du jour'], ['quiz', 'Exercices']]],
   ['dict', 'Dictionnaire', 'library', 'Chercher un mot ou analyser un texte', [['dict', 'Chercher un mot'], ['analyse', 'Analyser un texte']]],
   ['build', 'Atelier', 'blocks', 'Construire une phrase, jouer avec les voyelles', [['build', 'Construire une phrase'], ['signs', 'Changer les voyelles']]],
@@ -56,7 +56,7 @@ class AtelierView extends ItemView {
     super(leaf);
     this.plugin = plugin;
     this.tab = TABS.some(t => t[0] === plugin.settings.lastTab) ? plugin.settings.lastTab : 'home';
-    this.states = { coran: { surah: plugin.settings.lastSurah || 1, page: 0, resume: plugin.settings.lastVerse || 0 }, dict: {}, alphabet: {}, home: {}, write: {}, lessons: plugin.settings.lessonPlace && plugin.settings.lessonPlace.open ? { open: plugin.settings.lessonPlace.open, step: plugin.settings.lessonPlace.step || 0, stepFor: plugin.settings.lessonPlace.open } : {}, rules: {}, review: {}, analyse: {}, build: {}, signs: {}, quiz: {}, settings: {} };
+    this.states = { coran: { surah: plugin.settings.lastSurah || 1, page: 0, resume: plugin.settings.lastVerse || 0 }, dict: {}, alphabet: {}, home: {}, read: {}, write: {}, lessons: plugin.settings.lessonPlace && plugin.settings.lessonPlace.open ? { open: plugin.settings.lessonPlace.open, step: plugin.settings.lessonPlace.step || 0, stepFor: plugin.settings.lessonPlace.open } : {}, rules: {}, review: {}, analyse: {}, build: {}, signs: {}, quiz: {}, settings: {} };
   }
   getViewType() { return VIEW_TYPE; }
   getDisplayText() { return 'Atelier arabe'; }
@@ -185,6 +185,7 @@ class AtelierView extends ItemView {
     }
     if (this.tab === 'home') renderHomeTab(ctx, this.body, st);
     else if (this.tab === 'write') renderWriteTab(ctx, this.body, st);
+    else if (this.tab === 'read') renderReadTab(ctx, this.body, st);
     else if (this.tab === 'coran') renderQuranTab(ctx, this.body, st);
     else if (this.tab === 'dict') renderDictTab(ctx, this.body, st);
     else if (this.tab === 'alphabet') renderAlphabetTab(ctx, this.body, st);
@@ -315,6 +316,7 @@ class AtelierArabePlugin extends Plugin {
     this.addCommand({ id: 'alphabet', name: 'Apprendre › Alphabet', callback: () => this.openView('alphabet') });
     this.addCommand({ id: 'par-coeur', name: 'Coran : apprendre par cœur', callback: () => this.openView('coran', { hifz: { s: this.settings.lastSurah || 1, v: this.settings.lastVerse || 1, level: 0 } }) });
     this.addCommand({ id: 'polices', name: 'Apprendre › Comparer les polices', callback: () => this.openView('alphabet', { mode: 'fonts' }) });
+    this.addCommand({ id: 'lire', name: 'Apprendre › Lire (cours de lecture)', callback: () => this.openView('read') });
     this.addCommand({ id: 'ecrire', name: 'Apprendre › Écrire', callback: () => this.openView('write') });
     this.addCommand({ id: 'recopier', name: 'Apprendre › Recopier le Coran dans mon cahier', callback: () => this.openView('write', { copy: true, letter: null, word: null, unit: null, free: false }) });
     this.addCommand({ id: 'lecons', name: 'Apprendre › Leçons', callback: () => this.openView('lessons') });
