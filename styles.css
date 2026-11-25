@@ -963,15 +963,15 @@ li.aa-rule-inline { list-style: none; border: none; background: none; }
 .aa-qmore { margin: 6px 0 4px; }
 .aa-qmore > div > .aa-surah-info { text-align: left; }
 
-/* 2.24 : iPhone, barre des grands onglets en bas */
-.aa-root.aa-bottomnav .aa-tabs { position: sticky; top: auto; bottom: 0; display: grid; grid-template-columns: repeat(7, 1fr); gap: 0; padding: 4px 2px 6px; border-bottom: none; border-top: 1px solid var(--aa-line, var(--background-modifier-border)); overflow: visible; z-index: 3; box-shadow: 0 -2px 8px rgba(0,0,0,.04); }
-.aa-root.aa-bottomnav .aa-tab { flex-direction: column; justify-content: center; gap: 2px; padding: 5px 0 !important; border-radius: 10px !important; font-size: 10.5px; min-width: 0; background: transparent !important; color: var(--text-muted) !important; font-weight: 500; }
+/* 2.24 / 2.25.1 : iPhone, les grands onglets sur une ligne d'icônes, en haut (la barre flottante d'Obsidian occupe le bas) */
+.aa-root.aa-bottomnav .aa-tabs { position: sticky; top: 0; bottom: auto; display: grid; grid-template-columns: repeat(7, 1fr); gap: 0; padding: 4px 2px 4px; border-bottom: 1px solid var(--aa-line, var(--background-modifier-border)); border-top: none; overflow: visible; z-index: 3; }
+.aa-root.aa-bottomnav .aa-tab { flex-direction: column; justify-content: center; gap: 2px; padding: 4px 0 !important; border-radius: 10px !important; font-size: 10.5px; min-width: 0; background: transparent !important; color: var(--text-muted) !important; font-weight: 500; }
 .aa-root.aa-bottomnav .aa-tab-lab { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.aa-root.aa-bottomnav .aa-tab-ic svg { width: 21px; height: 21px; }
+.aa-root.aa-bottomnav .aa-tab-ic svg { width: 20px; height: 20px; }
 .aa-root.aa-bottomnav .aa-tab.aa-on { color: var(--interactive-accent) !important; font-weight: 700; }
 .aa-root.aa-bottomnav .aa-tab.aa-on .aa-tab-ic { background: color-mix(in srgb, var(--interactive-accent) 14%, transparent); border-radius: 999px; padding: 2px 12px; }
 .aa-root.aa-bottomnav .aa-tabs .aa-tab-gear { font-size: 10.5px; padding-left: 0; padding-right: 0; }
-.aa-root.aa-bottomnav .aa-body { min-height: calc(100% - 70px); }
+.aa-root.aa-bottomnav .aa-body { padding-bottom: 140px; }
 .aa-root.aa-bottomnav .aa-subtabs-row { padding-top: 10px; }
 
 /* 2.24 : outils du verset rangés derrière « ⋯ » sur écran tactile */

@@ -6376,11 +6376,11 @@ class AtelierView extends ItemView {
   }
   render() {
     clear(this.nav);
-    /* iPhone : les grands onglets passent en bas de l'écran, sous le pouce */
+    /* iPhone : les grands onglets tiennent sur une seule ligne d'icônes, en haut
+     * (en bas, la barre flottante d'Obsidian les cachait) */
     const phone = document.body.classList.contains('is-phone') || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && (this.contentEl.clientWidth || 1000) < 600);
     this.contentEl.classList.toggle('aa-bottomnav', phone);
-    if (phone && this.nav.nextSibling) this.contentEl.appendChild(this.nav);
-    else if (!phone && this.contentEl.firstChild !== this.nav) this.contentEl.insertBefore(this.nav, this.contentEl.firstChild);
+    if (this.contentEl.firstChild !== this.nav) this.contentEl.insertBefore(this.nav, this.contentEl.firstChild);
     this.contentEl.classList.toggle('aa-paper', this.plugin.settings.paper === true);
     this.contentEl.classList.toggle('aa-nocolor', this.plugin.settings.wordColors === false);
     ensureFont(this.plugin.settings.arFont).catch(() => {});
