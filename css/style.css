@@ -1237,3 +1237,7 @@ body.is-mobile .aa-root .aa-body, body.is-mobile .aa-root.aa-reading .aa-body { 
 .aa-order-w { height: auto; padding: 2px 12px; border-radius: 10px; }
 .aa-order-in { display: inline-flex; align-items: center; border: 1px solid var(--background-modifier-border); background: var(--background-secondary); }
 .aa-order-used { opacity: .3; }
+/* ---- 2.33 : cartes débloquées leçon par leçon ---- */
+.aa-fc-locked { opacity: .6; }
+.aa-fc-lock { background: var(--background-modifier-border); }
+.aa-fc-lockbox { border: 1px dashed var(--background-modifier-border); border-radius: 12px; padding: 10px 14px; margin: 8px 0; }

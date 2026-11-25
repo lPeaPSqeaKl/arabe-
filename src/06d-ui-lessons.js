@@ -170,7 +170,7 @@ async function renderLesson(ctx, root, state, L) {
       const box = h(root, 'div', 'aa-lesson-simple');
       h(box, 'b', null, '🟢 Les règles de cette leçon, en une phrase');
       const ul0 = h(box, 'ul');
-      ess.forEach(r => { const li = h(ul0, 'li'); mdText(li, 'span', null, r.one + ' '); const a = h(li, 'a', 'aa-link aa-rule-link aa-more', 'la fiche'); a.title = r.title; a.addEventListener('click', e => { e.preventDefault(); ctx.openTab('rules', { open: r.id }); }); });
+      ess.forEach(r => { const li = h(ul0, 'li'); mdText(li, 'span', null, r.one + ' '); const a = h(li, 'a', 'aa-link aa-rule-link aa-more', 'la fiche'); a.title = r.title; a.addEventListener('click', e => { e.preventDefault(); ctx.openTab('rules', { open: r.id, q: '' }); }); });
     }
     const kb = h(root, 'div', 'aa-actions');
     btn(kb, 'Insérer le résumé dans la note', () => ctx.insertText('> [!abstract] ' + L.title + ' (' + L.ar + ')\n' + L.keep.map(x => '> - ' + x).join('\n') + '\n\n'), 'aa-btn-quiet');

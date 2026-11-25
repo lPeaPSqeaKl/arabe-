@@ -64,7 +64,8 @@ function renderRuleCard(ctx, parent, r, opts) {
     }
     const a = h(box, 'div', 'aa-actions');
     btn(moreMenu(a), 'Insérer dans ma note Obsidian', () => ctx.insertText('> [!tip] ' + r.title + ' (' + r.ar + ')\n> ' + r.one.replace(/\*\*/g, '') + '\n' + r.txt.split('\n').map(l => '> ' + l).join('\n') + '\n' + (r.ex || []).map(e => '> - ' + e[0] + ' (' + e[1] + ') : ' + e[2]).join('\n') + '\n\n'), 'aa-btn-quiet');
-    btn(moreMenu(a), 'Ajouter à mes cartes de révision', () => ctx.addFlashcard(r.title + ' (' + r.ar + ')', r.one.replace(/\*\*/g, '')), 'aa-btn-quiet');
+    const dk = Object.keys(DECK_INFO).filter(k => DECK_INFO[k][0] === r.id);
+    dk.forEach(k => btn(a, '🃏 Réviser ses cartes', () => ctx.openTab('review', { deck: k, session: null }), 'aa-btn-quiet'));
   }
   return box;
 }
