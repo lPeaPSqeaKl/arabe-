@@ -502,6 +502,7 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
     }
     const vText = () => words.map(wordText).join(' ') + '\n' + tokens.join(' ') + '\n« ' + v[0] + ' » (' + info[1] + ' ' + surahN + ':' + vn + ')';
     btn(tools, canShare() ? '↗ Partager' : 'Copier le verset', () => shareText(vText(), info[1] + ' ' + surahN + ':' + vn), 'aa-btn-quiet');
+    if (ctx.openTab) btn(moreMenu(tools), '📜 Recopier dans mon cahier', () => ctx.openTab('write', { copy: true, copyAt: { s: surahN, v: vn }, copyChunk: 0, letter: null, word: null, unit: null, free: false }), 'aa-btn-quiet');
     btn(moreMenu(tools), 'Insérer dans ma note Obsidian', () => ctx.insertText('> [!quote] ' + info[1] + ' ' + surahN + ':' + vn + '\n> ' + words.map(wordText).join(' ') + '\n> *' + tokens.join(' ') + '*\n> ' + v[0] + '\n\n'), 'aa-btn-quiet');
     const key = surahN + ':' + vn; const notes = S.verseNotes || {};
     const noteBox = h(box, 'div', 'aa-vnote' + (notes[key] ? '' : ' aa-hidden'));

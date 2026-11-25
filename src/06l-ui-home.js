@@ -20,6 +20,7 @@ function renderHomeTab(ctx, root, state) {
   const head = h(root, 'div', 'aa-home-head');
   h(head, 'div', 'aa-muted aa-small aa-home-date', frDate(new Date()));
   h(head, 'h2', null, 'As-salāmu ʿalaykum');
+  renderHomeSearch(ctx, root, state);
   // les trois chiffres
   const tiles = h(root, 'div', 'aa-home-tiles');
   const tile = (ic, big, lab, sub) => { const t = h(tiles, 'div', 'aa-home-tile'); h(t, 'div', 'aa-home-ic', ic); h(t, 'b', null, big); h(t, 'span', null, lab); if (sub) h(t, 'span', 'aa-muted aa-small', sub); return t; };
@@ -160,4 +161,50 @@ function renderOfflineAudio(ctx, box) {
     }, 'mod-cta');
     btn(act, '🗑 Effacer le son gardé', async () => { await ctx.dropAudio(); paint(); notify('Son effacé de l\'appareil.'); }, 'aa-btn-quiet');
   }
+}
+
+/* Recherche unique de l'Accueil : un mot, une règle, une leçon ou une sourate, au même endroit */
+function homeSearch(ctx, q) {
+  const data = ctx.data; const out = { surahs: [], rules: [], lessons: [], words: [] };
+  q = (q || '').trim(); if (!q) return out;
+  const ql = stripLat(q); const isAr = hasArabic(q); const qa = stripAr(q).replace(/\s+/g, '');
+  const num = /^\d{1,3}$/.test(q) ? +q : 0;
+  for (let n = 1; n <= 114; n++) {
+    const s = data.surahInfo(n); let sc = 0;
+    if (num === n) sc = 100;
+    else if (!isAr && ql.length >= 2) { const a = stripLat(s[1]).replace(/^(al|an|ar|as|at|ad|adh|az|ash|ath|ay)\s*/, ''); if (stripLat(s[1]).startsWith(ql) || a.startsWith(ql)) sc = 80; else if (stripLat(s[1]).includes(ql) || (ql.length >= 3 && stripLat(s[2]).includes(ql))) sc = 50; }
+    else if (isAr && qa.length >= 2 && stripAr(s[3]).replace(/\s+/g, '').includes(qa)) sc = 60;
+    if (sc) out.surahs.push([n, sc]);
+  }
+  out.surahs = out.surahs.sort((a, b) => b[1] - a[1]).slice(0, 3).map(x => x[0]);
+  if (!isAr && ql.length >= 3) {
+    out.rules = RULES.filter(r => stripLat(r.title).includes(ql) || (r.terms || []).some(t => stripLat(t).includes(ql)) || stripLat(r.one).includes(ql)).slice(0, 4);
+    out.lessons = LESSONS.filter(l => stripLat(l.title).includes(ql)).slice(0, 3);
+  } else if (isAr) {
+    out.rules = RULES.filter(r => r.ar && stripAr(r.ar).replace(/\s+/g, '').includes(qa)).slice(0, 3);
+  }
+  if (!num) out.words = dictSearch(data, q).slice(0, 6);
+  return out;
+}
+function renderHomeSearch(ctx, root, state) {
+  const box = h(root, 'div', 'aa-home-search');
+  const inp = h(box, 'input', 'aa-input-line aa-hs-in'); inp.type = 'search';
+  inp.placeholder = '🔎 Chercher : un mot (كتاب, livre), une règle (génitif), une sourate (Yasin, 36)…';
+  inp.value = state.hq || '';
+  const res = h(box, 'div', 'aa-hs-res');
+  const row = (parent, ic, title, sub, go, ar) => { const r = h(parent, 'div', 'aa-hs-row'); h(r, 'span', 'aa-hs-ic', ic); const t = h(r, 'div', 'aa-hs-t'); const b = h(t, 'b', null, title); if (ar) { b.appendChild(document.createTextNode(' ')); arSpan(b, ar); } if (sub) h(t, 'div', 'aa-muted aa-small', sub); r.addEventListener('click', go); return r; };
+  const run = () => {
+    state.hq = inp.value; clear(res);
+    const q = inp.value.trim(); if (!q) return;
+    const R = homeSearch(ctx, q); const data = ctx.data;
+    const grp = (lab) => h(res, 'div', 'aa-hs-grp', lab);
+    if (R.surahs.length) { grp('Sourates'); R.surahs.forEach(n => { const s = data.surahInfo(n); row(res, '📖', n + '. ' + s[1], s[2] + ' · ' + s[5] + ' versets', () => ctx.openTab('coran', { surah: n, page: 0, focus: 0, resume: 0 })); }); }
+    if (R.rules.length) { grp('Règles'); R.rules.forEach(r => row(res, '📏', r.title, r.one.replace(/\*\*/g, ''), () => ctx.openTab('rules', { open: r.id, q: '' }), r.ar)); }
+    if (R.lessons.length) { grp('Leçons'); R.lessons.forEach(l => row(res, '🎓', l.title, '≈ ' + l.min + ' min', () => ctx.openTab('lessons', { open: l.id, step: 0, stepFor: l.id }), l.ar)); }
+    if (R.words.length) { grp('Mots du Coran'); R.words.forEach(i => { const l = data.lemmas[i]; row(res, '📚', '', l[4] + ' · ' + l[5] + '× dans le Coran', () => ctx.openTab('dict', { mode: 'search', q, entry: i }), l[0]); }); }
+    if (!res.firstChild) h(res, 'div', 'aa-muted aa-small', 'Rien trouvé. Essaie en arabe, en français ou en translittération (kitab).');
+  };
+  let timer = null;
+  inp.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(run, 250); });
+  if (inp.value) run();
 }

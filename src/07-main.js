@@ -279,6 +279,7 @@ class AtelierArabePlugin extends Plugin {
     this.addCommand({ id: 'alphabet', name: 'Apprendre › Alphabet', callback: () => this.openView('alphabet') });
     this.addCommand({ id: 'polices', name: 'Apprendre › Comparer les polices', callback: () => this.openView('alphabet', { mode: 'fonts' }) });
     this.addCommand({ id: 'ecrire', name: 'Apprendre › Écrire', callback: () => this.openView('write') });
+    this.addCommand({ id: 'recopier', name: 'Apprendre › Recopier le Coran dans mon cahier', callback: () => this.openView('write', { copy: true, letter: null, word: null, unit: null, free: false }) });
     this.addCommand({ id: 'lecons', name: 'Apprendre › Leçons', callback: () => this.openView('lessons') });
     this.addCommand({ id: 'regles', name: 'Apprendre › Règles', callback: () => this.openView('rules') });
     this.addCommand({ id: 'revision', name: 'Réviser › Cartes du jour', callback: () => this.openView('review') });

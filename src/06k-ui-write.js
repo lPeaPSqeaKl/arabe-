@@ -246,6 +246,7 @@ function renderWriteTab(ctx, root, state) {
   if (state.word) return renderWriteWord(ctx, root, state, go);
   if (state.unit) { const u = WRITE_UNITS.find(x => x.id === state.unit); if (u) return renderWriteUnit(ctx, root, state, u, go); state.unit = null; }
   if (state.free) return renderWriteFree(ctx, root, state, go);
+  if (state.copy) { renderCopyMode(ctx, root, state, () => { state.copy = false; go(); }).catch(e => h(root, 'p', 'aa-warn', 'Erreur : ' + e.message)); return; }
   const W = writeState(ctx);
   const all = writeAllLetters(); const nL = all.filter(l => letterLearned(W, l)).length;
   mdText(root, 'p', 'aa-help', 'Un vrai cahier d\'écriture : pour chaque lettre, tu **regardes le geste**, tu **traces sur le modèle**, puis tu l\'**écris seul**. L\'atelier compare ton tracé au modèle et te donne une note. Une lettre est apprise quand tu l\'écris seul avec au moins **60 / 100**.');
@@ -258,6 +259,7 @@ function renderWriteTab(ctx, root, state) {
   else if (nx) btn(act, '▶  Continuer : écrire « ' + nx.unit.words[nx.word][0] + ' »', () => { state.unit = nx.unit.id; state.word = [nx.unit.id, nx.word]; state.step = 0; go(); }, 'mod-cta aa-fc-big');
   else h(act, 'div', 'aa-ok', 'Tu as fait tout le parcours. Continue avec l\'écriture libre, ou refais les lettres pour améliorer tes notes.');
   btn(act, '✏️  Écriture libre', () => { state.free = true; go(); }, 'aa-fc-big2');
+  btn(act, '📜  Recopier le Coran dans mon cahier', () => { state.copy = true; go(); }, 'aa-fc-big2').title = 'Un verset en grand, morceau par morceau, pour l\'écrire à la main sur papier';
   const bas = details(root, '📏 Les règles de base de l\'écriture arabe', nL === 0);
   const ul = h(bas, 'ul', 'aa-wr-basics'); WRITE_BASICS.forEach(t => mdText(ul, 'li', null, t));
   const grid = h(root, 'div', 'aa-wr-units');

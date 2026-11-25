@@ -982,3 +982,29 @@ li.aa-rule-inline { list-style: none; border: none; background: none; }
   .aa-verse-tools:not(.aa-vt-open) > :not(.aa-vt-more):not(.aa-vt-keep):not(.aa-bm-on) { display: none !important; }
   .aa-verse-tools.aa-vt-open { justify-content: flex-start; }
 }
+
+/* 2.25 : Recopier dans mon cahier */
+.aa-cp-bar .aa-field select { max-width: 220px; }
+.aa-cp-where { margin: 10px 0 6px; }
+.aa-cp-sheet { --aa-cp-size: 54px; background: var(--aa-paper-bg, var(--background-primary-alt)); border: 1px solid var(--background-modifier-border); border-radius: 14px; padding: 18px 18px 16px; margin-bottom: 12px; }
+.aa-cp-text { font-family: var(--aa-ar-font); font-size: var(--aa-cp-size); line-height: 2.1; text-align: right; color: var(--text-normal);
+  background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--aa-cp-size) * 2.1 * 0.70 - 1px), color-mix(in srgb, var(--interactive-accent) 35%, transparent) calc(var(--aa-cp-size) * 2.1 * 0.70 - 1px), color-mix(in srgb, var(--interactive-accent) 35%, transparent) calc(var(--aa-cp-size) * 2.1 * 0.70), transparent calc(var(--aa-cp-size) * 2.1 * 0.70), transparent calc(var(--aa-cp-size) * 2.1));
+  word-spacing: .12em; overflow-wrap: anywhere; }
+.aa-font-nastaliq .aa-cp-text, .aa-font-gulzar .aa-cp-text { line-height: 2.8; }
+.aa-cp-tr { margin-top: 10px; font-size: 1.05em; }
+.aa-cp-fr { margin-top: 6px; font-size: .95em; }
+.aa-cp-nav { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.aa-cp-nav .mod-cta { margin-left: auto; }
+@media (max-width: 600px) { .aa-cp-sheet { padding: 12px 10px; } }
+.aa-cp-detach .aa-cp-w { display: inline-block; margin-left: .7em; }
+
+/* 2.25 : recherche de l'Accueil */
+.aa-home-search { margin: 4px 0 16px; }
+.aa-hs-in { width: 100%; box-sizing: border-box; font-size: 1em; padding: 10px 14px !important; height: auto !important; border-radius: 12px !important; }
+.aa-hs-res:not(:empty) { margin-top: 8px; border: 1px solid var(--background-modifier-border); border-radius: 12px; padding: 4px 6px 8px; background: var(--background-primary); }
+.aa-hs-grp { font-size: .78em; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); margin: 10px 8px 2px; }
+.aa-hs-row { display: flex; gap: 10px; align-items: flex-start; padding: 7px 8px; border-radius: 8px; cursor: pointer; }
+.aa-hs-row:hover { background: var(--background-modifier-hover); }
+.aa-hs-ic { flex: none; width: 1.4em; text-align: center; }
+.aa-hs-t { min-width: 0; }
+.aa-hs-t .aa-ar { font-size: 1.35em; }

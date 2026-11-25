@@ -2338,6 +2338,7 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
     }
     const vText = () => words.map(wordText).join(' ') + '\n' + tokens.join(' ') + '\n« ' + v[0] + ' » (' + info[1] + ' ' + surahN + ':' + vn + ')';
     btn(tools, canShare() ? '↗ Partager' : 'Copier le verset', () => shareText(vText(), info[1] + ' ' + surahN + ':' + vn), 'aa-btn-quiet');
+    if (ctx.openTab) btn(moreMenu(tools), '📜 Recopier dans mon cahier', () => ctx.openTab('write', { copy: true, copyAt: { s: surahN, v: vn }, copyChunk: 0, letter: null, word: null, unit: null, free: false }), 'aa-btn-quiet');
     btn(moreMenu(tools), 'Insérer dans ma note Obsidian', () => ctx.insertText('> [!quote] ' + info[1] + ' ' + surahN + ':' + vn + '\n> ' + words.map(wordText).join(' ') + '\n> *' + tokens.join(' ') + '*\n> ' + v[0] + '\n\n'), 'aa-btn-quiet');
     const key = surahN + ':' + vn; const notes = S.verseNotes || {};
     const noteBox = h(box, 'div', 'aa-vnote' + (notes[key] ? '' : ' aa-hidden'));
@@ -5682,6 +5683,7 @@ function renderWriteTab(ctx, root, state) {
   if (state.word) return renderWriteWord(ctx, root, state, go);
   if (state.unit) { const u = WRITE_UNITS.find(x => x.id === state.unit); if (u) return renderWriteUnit(ctx, root, state, u, go); state.unit = null; }
   if (state.free) return renderWriteFree(ctx, root, state, go);
+  if (state.copy) { renderCopyMode(ctx, root, state, () => { state.copy = false; go(); }).catch(e => h(root, 'p', 'aa-warn', 'Erreur : ' + e.message)); return; }
   const W = writeState(ctx);
   const all = writeAllLetters(); const nL = all.filter(l => letterLearned(W, l)).length;
   mdText(root, 'p', 'aa-help', 'Un vrai cahier d\'écriture : pour chaque lettre, tu **regardes le geste**, tu **traces sur le modèle**, puis tu l\'**écris seul**. L\'atelier compare ton tracé au modèle et te donne une note. Une lettre est apprise quand tu l\'écris seul avec au moins **60 / 100**.');
@@ -5694,6 +5696,7 @@ function renderWriteTab(ctx, root, state) {
   else if (nx) btn(act, '▶  Continuer : écrire « ' + nx.unit.words[nx.word][0] + ' »', () => { state.unit = nx.unit.id; state.word = [nx.unit.id, nx.word]; state.step = 0; go(); }, 'mod-cta aa-fc-big');
   else h(act, 'div', 'aa-ok', 'Tu as fait tout le parcours. Continue avec l\'écriture libre, ou refais les lettres pour améliorer tes notes.');
   btn(act, '✏️  Écriture libre', () => { state.free = true; go(); }, 'aa-fc-big2');
+  btn(act, '📜  Recopier le Coran dans mon cahier', () => { state.copy = true; go(); }, 'aa-fc-big2').title = 'Un verset en grand, morceau par morceau, pour l\'écrire à la main sur papier';
   const bas = details(root, '📏 Les règles de base de l\'écriture arabe', nL === 0);
   const ul = h(bas, 'ul', 'aa-wr-basics'); WRITE_BASICS.forEach(t => mdText(ul, 'li', null, t));
   const grid = h(root, 'div', 'aa-wr-units');
@@ -5991,6 +5994,7 @@ function renderHomeTab(ctx, root, state) {
   const head = h(root, 'div', 'aa-home-head');
   h(head, 'div', 'aa-muted aa-small aa-home-date', frDate(new Date()));
   h(head, 'h2', null, 'As-salāmu ʿalaykum');
+  renderHomeSearch(ctx, root, state);
   // les trois chiffres
   const tiles = h(root, 'div', 'aa-home-tiles');
   const tile = (ic, big, lab, sub) => { const t = h(tiles, 'div', 'aa-home-tile'); h(t, 'div', 'aa-home-ic', ic); h(t, 'b', null, big); h(t, 'span', null, lab); if (sub) h(t, 'span', 'aa-muted aa-small', sub); return t; };
@@ -6131,6 +6135,136 @@ function renderOfflineAudio(ctx, box) {
     }, 'mod-cta');
     btn(act, '🗑 Effacer le son gardé', async () => { await ctx.dropAudio(); paint(); notify('Son effacé de l\'appareil.'); }, 'aa-btn-quiet');
   }
+}
+
+/* Recherche unique de l'Accueil : un mot, une règle, une leçon ou une sourate, au même endroit */
+function homeSearch(ctx, q) {
+  const data = ctx.data; const out = { surahs: [], rules: [], lessons: [], words: [] };
+  q = (q || '').trim(); if (!q) return out;
+  const ql = stripLat(q); const isAr = hasArabic(q); const qa = stripAr(q).replace(/\s+/g, '');
+  const num = /^\d{1,3}$/.test(q) ? +q : 0;
+  for (let n = 1; n <= 114; n++) {
+    const s = data.surahInfo(n); let sc = 0;
+    if (num === n) sc = 100;
+    else if (!isAr && ql.length >= 2) { const a = stripLat(s[1]).replace(/^(al|an|ar|as|at|ad|adh|az|ash|ath|ay)\s*/, ''); if (stripLat(s[1]).startsWith(ql) || a.startsWith(ql)) sc = 80; else if (stripLat(s[1]).includes(ql) || (ql.length >= 3 && stripLat(s[2]).includes(ql))) sc = 50; }
+    else if (isAr && qa.length >= 2 && stripAr(s[3]).replace(/\s+/g, '').includes(qa)) sc = 60;
+    if (sc) out.surahs.push([n, sc]);
+  }
+  out.surahs = out.surahs.sort((a, b) => b[1] - a[1]).slice(0, 3).map(x => x[0]);
+  if (!isAr && ql.length >= 3) {
+    out.rules = RULES.filter(r => stripLat(r.title).includes(ql) || (r.terms || []).some(t => stripLat(t).includes(ql)) || stripLat(r.one).includes(ql)).slice(0, 4);
+    out.lessons = LESSONS.filter(l => stripLat(l.title).includes(ql)).slice(0, 3);
+  } else if (isAr) {
+    out.rules = RULES.filter(r => r.ar && stripAr(r.ar).replace(/\s+/g, '').includes(qa)).slice(0, 3);
+  }
+  if (!num) out.words = dictSearch(data, q).slice(0, 6);
+  return out;
+}
+function renderHomeSearch(ctx, root, state) {
+  const box = h(root, 'div', 'aa-home-search');
+  const inp = h(box, 'input', 'aa-input-line aa-hs-in'); inp.type = 'search';
+  inp.placeholder = '🔎 Chercher : un mot (كتاب, livre), une règle (génitif), une sourate (Yasin, 36)…';
+  inp.value = state.hq || '';
+  const res = h(box, 'div', 'aa-hs-res');
+  const row = (parent, ic, title, sub, go, ar) => { const r = h(parent, 'div', 'aa-hs-row'); h(r, 'span', 'aa-hs-ic', ic); const t = h(r, 'div', 'aa-hs-t'); const b = h(t, 'b', null, title); if (ar) { b.appendChild(document.createTextNode(' ')); arSpan(b, ar); } if (sub) h(t, 'div', 'aa-muted aa-small', sub); r.addEventListener('click', go); return r; };
+  const run = () => {
+    state.hq = inp.value; clear(res);
+    const q = inp.value.trim(); if (!q) return;
+    const R = homeSearch(ctx, q); const data = ctx.data;
+    const grp = (lab) => h(res, 'div', 'aa-hs-grp', lab);
+    if (R.surahs.length) { grp('Sourates'); R.surahs.forEach(n => { const s = data.surahInfo(n); row(res, '📖', n + '. ' + s[1], s[2] + ' · ' + s[5] + ' versets', () => ctx.openTab('coran', { surah: n, page: 0, focus: 0, resume: 0 })); }); }
+    if (R.rules.length) { grp('Règles'); R.rules.forEach(r => row(res, '📏', r.title, r.one.replace(/\*\*/g, ''), () => ctx.openTab('rules', { open: r.id, q: '' }), r.ar)); }
+    if (R.lessons.length) { grp('Leçons'); R.lessons.forEach(l => row(res, '🎓', l.title, '≈ ' + l.min + ' min', () => ctx.openTab('lessons', { open: l.id, step: 0, stepFor: l.id }), l.ar)); }
+    if (R.words.length) { grp('Mots du Coran'); R.words.forEach(i => { const l = data.lemmas[i]; row(res, '📚', '', l[4] + ' · ' + l[5] + '× dans le Coran', () => ctx.openTab('dict', { mode: 'search', q, entry: i }), l[0]); }); }
+    if (!res.firstChild) h(res, 'div', 'aa-muted aa-small', 'Rien trouvé. Essaie en arabe, en français ou en translittération (kitab).');
+  };
+  let timer = null;
+  inp.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(run, 250); });
+  if (inp.value) run();
+}
+/* ====================================================================
+ * 06m - Recopier dans mon cahier : un verset, morceau par morceau, en grand,
+ * sur des lignes, dans la police choisie. Pour écrire à la main sur papier.
+ * ==================================================================== */
+const NON_JOIN_NEXT = 'اأإآٱدذرزوؤةءى';
+/* « lettres détachées » : chaque lettre garde la forme qu'elle a dans le mot ; le petit trait (ـ, tatweel)
+ * montre de quel côté elle s'attache : هـ ـو */
+function detachLetters(word) {
+  const gs = []; // lettre + ses signes
+  for (const ch of word) { if (/[ً-ٰٟۖ-ۭٓ-ٕ]/.test(ch) && gs.length) gs[gs.length - 1] += ch; else gs.push(ch); }
+  let out = '';
+  gs.forEach((g, i) => {
+    out += g;
+    if (i === gs.length - 1) return;
+    const joins = !NON_JOIN_NEXT.includes(g[0]) && g[0] !== 'ـ';
+    out += joins ? '\u0640 \u0640' : ' ';
+  });
+  return out;
+}
+function copyChunks(s, v, words) {
+  let segs = verseSegments(s, v, words.length);
+  const out = [];
+  segs.forEach(([f, t]) => { for (let i = f; i < t; i += 4) { const e = Math.min(t, i + 4); if (t - e > 0 && t - e < 2) { out.push([i, t]); break; } out.push([i, e]); } });
+  return out;
+}
+async function renderCopyMode(ctx, root, state, back) {
+  clear(root);
+  const S = ctx.settings; const W = writeState(ctx);
+  const at = state.copyAt || W.copyAt || { s: S.lastSurah || 1, v: S.lastVerse || 1 };
+  state.copyAt = at; state.copyChunk = state.copyChunk || 0;
+  const top = h(root, 'div', 'aa-actions');
+  btn(top, '← Écrire', back, 'aa-btn-quiet');
+  h(root, 'h2', null, '📜 Recopier dans mon cahier');
+  mdText(root, 'p', 'aa-help', 'Prends ton cahier. Le verset arrive **morceau par morceau**, en grand, sur des lignes, dans ta police. Recopie-le de **droite à gauche**, puis passe au morceau suivant. « Lettres détachées » montre chaque lettre avec la forme qu\'elle a dans le mot ; le petit trait ـ montre de quel côté elle s\'attache à sa voisine.');
+  const data = ctx.data; const d = await data.surah(at.s); const nV = d.v.length;
+  if (at.v > nV) at.v = nV;
+  const bar = h(root, 'div', 'aa-toolbar aa-cp-bar');
+  const f1 = field(bar, 'Sourate');
+  selectEl(f1, surahSequence('mushaf').map(n => [n, n + '. ' + data.surahInfo(n)[1]]), at.s, v => { state.copyAt = { s: +v, v: 1 }; state.copyChunk = 0; renderCopyMode(ctx, root, state, back); });
+  const f2 = field(bar, 'Verset');
+  selectEl(f2, d.v.map((x, i) => [i + 1, String(i + 1)]), at.v, v => { state.copyAt = { s: at.s, v: +v }; state.copyChunk = 0; renderCopyMode(ctx, root, state, back); });
+  const opt = h(root, 'div', 'aa-toggles');
+  const redraw = () => renderCopyMode(ctx, root, state, back);
+  checkbox(opt, 'sans voyelles', !!W.copyBare, v => { W.copyBare = v; ctx.save(); redraw(); });
+  checkbox(opt, 'lettres détachées', !!W.copyDetach, v => { W.copyDetach = v; ctx.save(); redraw(); });
+  checkbox(opt, 'tout le verset d\'un coup', !!W.copyWhole, v => { W.copyWhole = v; state.copyChunk = 0; ctx.save(); redraw(); });
+  checkbox(opt, 'translittération et sens', W.copyHelp !== false, v => { W.copyHelp = v; ctx.save(); redraw(); });
+  const sz = h(opt, 'span', 'aa-actions');
+  btn(sz, 'A−', () => { W.copySize = Math.max(32, (W.copySize || 54) - 6); ctx.save(); redraw(); }, 'aa-btn-quiet aa-asize');
+  btn(sz, 'A+', () => { W.copySize = Math.min(110, (W.copySize || 54) + 6); ctx.save(); redraw(); }, 'aa-btn-quiet aa-asize');
+
+  const vv = d.v[at.v - 1]; const words = vv[2];
+  const chunks = W.copyWhole ? [[0, words.length]] : copyChunks(at.s, at.v, words);
+  if (state.copyChunk >= chunks.length) state.copyChunk = chunks.length - 1;
+  const [f, t] = chunks[state.copyChunk];
+  W.copyAt = { s: at.s, v: at.v }; ctx.save();
+  h(root, 'div', 'aa-muted aa-small aa-cp-where', data.surahInfo(at.s)[1] + ' ' + at.s + ':' + at.v + (chunks.length > 1 ? ' · morceau ' + (state.copyChunk + 1) + ' / ' + chunks.length : ''));
+  const sheet = h(root, 'div', 'aa-cp-sheet');
+  sheet.style.setProperty('--aa-cp-size', (W.copySize || 54) + 'px');
+  const line = h(sheet, 'div', 'aa-ar aa-cp-text' + (W.copyDetach ? ' aa-cp-detach' : '')); line.setAttribute('dir', 'rtl'); line.setAttribute('lang', 'ar');
+  words.slice(f, t).forEach(w => { let x = wordText(w); if (W.copyBare) x = noVowels(x); if (W.copyDetach) x = detachLetters(x); h(line, 'span', 'aa-cp-w', x); line.appendChild(document.createTextNode(' ')); });
+  if (t === words.length) h(line, 'span', 'aa-cp-w', '﴿' + arNum(at.v) + '﴾');
+  if (W.copyHelp !== false) {
+    h(sheet, 'div', 'aa-tr aa-cp-tr', translitTokens(words, S.style).slice(f, t).join(' '));
+    if (f === 0 || chunks.length === 1) h(sheet, 'div', 'aa-muted aa-cp-fr', vv[0]);
+  }
+  const nav = h(root, 'div', 'aa-pager aa-cp-nav');
+  const goTo = (s, v, c) => { state.copyAt = { s, v }; state.copyChunk = c; redraw(); };
+  const prev = () => {
+    if (state.copyChunk > 0) goTo(at.s, at.v, state.copyChunk - 1);
+    else if (at.v > 1) goTo(at.s, at.v - 1, 99);
+  };
+  const next = () => {
+    if (state.copyChunk < chunks.length - 1) return goTo(at.s, at.v, state.copyChunk + 1);
+    W.copied = (W.copied || 0) + 1; ctx.save();
+    if (at.v < nV) goTo(at.s, at.v + 1, 0);
+    else if (at.s < 114) goTo(at.s + 1, 1, 0);
+  };
+  if (state.copyChunk > 0 || at.v > 1) btn(nav, '← précédent', prev, 'aa-btn-quiet');
+  const last = state.copyChunk === chunks.length - 1;
+  btn(nav, last ? '✓ Recopié, verset suivant →' : 'J\'ai recopié, morceau suivant →', next, 'mod-cta');
+  onSwipe(sheet, dir => (dir > 0 ? next() : prev()));
+  if (W.copied) h(root, 'div', 'aa-muted aa-small aa-cp-count', '📜 ' + W.copied + ' verset' + (W.copied > 1 ? 's' : '') + ' recopié' + (W.copied > 1 ? 's' : '') + ' dans ton cahier.');
 }
 /* ====================================================================
  * 07 - Le plugin Obsidian : vue, commandes, blocs de code, réglages
@@ -6413,6 +6547,7 @@ class AtelierArabePlugin extends Plugin {
     this.addCommand({ id: 'alphabet', name: 'Apprendre › Alphabet', callback: () => this.openView('alphabet') });
     this.addCommand({ id: 'polices', name: 'Apprendre › Comparer les polices', callback: () => this.openView('alphabet', { mode: 'fonts' }) });
     this.addCommand({ id: 'ecrire', name: 'Apprendre › Écrire', callback: () => this.openView('write') });
+    this.addCommand({ id: 'recopier', name: 'Apprendre › Recopier le Coran dans mon cahier', callback: () => this.openView('write', { copy: true, letter: null, word: null, unit: null, free: false }) });
     this.addCommand({ id: 'lecons', name: 'Apprendre › Leçons', callback: () => this.openView('lessons') });
     this.addCommand({ id: 'regles', name: 'Apprendre › Règles', callback: () => this.openView('rules') });
     this.addCommand({ id: 'revision', name: 'Réviser › Cartes du jour', callback: () => this.openView('review') });
