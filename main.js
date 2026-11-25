@@ -2609,10 +2609,16 @@ function renderQuranTab(ctx, root, state) {
     }
     state.resume = 0;
     watchReading(ctx, root, body, state);
-    if (pages > 1) {
-      const nav = h(root, 'div', 'aa-pager');
-      if (state.page > 0) btn(nav, '← versets précédents', () => { state.page--; state.focus = 0; renderQuranTab(ctx, root, state); });
-      if (state.page < pages - 1) btn(nav, 'versets suivants →', () => { state.page++; state.focus = 0; renderQuranTab(ctx, root, state); });
+    const nav = h(root, 'div', 'aa-pager');
+    const top = () => { try { root.closest('.aa-root').scrollTop = 0; } catch (e) { /* */ } };
+    if (state.page > 0) btn(nav, '← versets précédents', () => { state.page--; state.focus = 0; renderQuranTab(ctx, root, state); top(); });
+    else if (pos > 0) btn(nav, '← ' + data.surahInfo(seq[pos - 1])[1], () => { goSurah(seq[pos - 1]); top(); }, 'aa-btn-quiet').title = 'Sourate précédente';
+    if (state.page < pages - 1) btn(nav, 'versets suivants →', () => { state.page++; state.focus = 0; renderQuranTab(ctx, root, state); top(); });
+    else if (pos < seq.length - 1) {
+      const n2 = seq[pos + 1];
+      const end = h(root, 'div', 'aa-scroll-end');
+      h(end, 'div', 'aa-muted aa-small', 'Fin de la sourate ' + info[1] + '.');
+      btn(end, 'Sourate suivante : ' + data.surahInfo(n2)[1] + ' →', () => { goSurah(n2); top(); }, 'mod-cta');
     }
   });
 }
