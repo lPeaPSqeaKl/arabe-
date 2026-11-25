@@ -24,6 +24,7 @@ function renderHomeTab(ctx, root, state) {
   renderToday(ctx, root);
   renderHomeSearch(ctx, root, state);
   renderPath(ctx, root, state, go);
+  renderVerseOfDay(ctx, root).catch(() => {});
   // les trois chiffres
   const tiles = h(root, 'div', 'aa-home-tiles');
   const tile = (ic, big, lab, sub) => { const t = h(tiles, 'div', 'aa-home-tile'); h(t, 'div', 'aa-home-ic', ic); h(t, 'b', null, big); h(t, 'span', null, lab); if (sub) h(t, 'span', 'aa-muted aa-small', sub); return t; };

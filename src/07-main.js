@@ -380,6 +380,14 @@ class AtelierArabePlugin extends Plugin {
       data: this.data, settings: this.settings,
       save: () => this.saveData(this.settings),
       insertText: (t) => this.insertText(t),
+      saveImage: async (name, buf) => {
+        try {
+          const dir = 'Atelier arabe/Images';
+          for (const d of ['Atelier arabe', dir]) if (!this.app.vault.getAbstractFileByPath(d)) await this.app.vault.createFolder(d);
+          let p = dir + '/' + name; let k = 2; while (this.app.vault.getAbstractFileByPath(p)) p = dir + '/' + name.replace(/\.png$/, '') + '-' + (k++) + '.png';
+          await this.app.vault.createBinary(p, buf); new Notice('Image gardée dans ' + p); return p;
+        } catch (e) { new Notice('Impossible de garder l\'image : ' + e.message); return null; }
+      },
       addFlashcard: (q, a) => this.addFlashcard(q, a),
       openQuran: (s, v) => this.openView('coran', { surah: s, page: 0, focus: v }),
       readNote: async (path) => { const f = this.app.vault.getAbstractFileByPath(path); return f ? await this.app.vault.read(f) : null; },

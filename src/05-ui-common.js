@@ -525,9 +525,7 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
   const info = data.surahInfo(surahN);
   to = Math.min(to || d.v.length, d.v.length); from = Math.max(1, from || 1);
   if (opts.title) {
-    const t = h(container, 'div', 'aa-surah-title');
-    arSpan(t, info[3], 'aa-mid');
-    h(t, 'div', null, 'Sourate ' + surahN + ' · ' + info[1] + ' — ' + info[2] + ' · ' + info[4] + ' · ' + info[5] + ' versets');
+    surahHeader(container, info, surahN);
   }
   if (from === 1 && surahN !== 1 && surahN !== 9 && opts.basmala !== false) {
     const b = h(container, 'div', 'aa-basmala'); arSpan(b, 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ');
@@ -614,6 +612,7 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
     }
     const vText = () => words.map(wordText).join(' ') + '\n' + tokens.join(' ') + '\n« ' + v[0] + ' » (' + info[1] + ' ' + surahN + ':' + vn + ')';
     btn(tools, canShare() ? '↗ Partager' : 'Copier le verset', () => shareText(vText(), info[1] + ' ' + surahN + ':' + vn), 'aa-btn-quiet');
+    btn(moreMenu(tools), '🖼 Image à partager', () => openVerseImage(ctx, surahN, vn), 'aa-btn-quiet');
     if (ctx.openTab) btn(moreMenu(tools), '🧠 Apprendre par cœur', () => ctx.openTab('coran', { hifz: { s: surahN, v: vn, level: 0 } }), 'aa-btn-quiet');
     if (ctx.openTab) btn(moreMenu(tools), '📜 Recopier dans mon cahier', () => ctx.openTab('write', { copy: true, copyAt: { s: surahN, v: vn }, copyChunk: 0, letter: null, word: null, unit: null, free: false }), 'aa-btn-quiet');
     btn(moreMenu(tools), 'Insérer dans ma note Obsidian', () => ctx.insertText('> [!quote] ' + info[1] + ' ' + surahN + ':' + vn + '\n> ' + words.map(wordText).join(' ') + '\n> *' + tokens.join(' ') + '*\n> ' + v[0] + '\n\n'), 'aa-btn-quiet');
