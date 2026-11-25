@@ -4,7 +4,10 @@
  * écrit seul. L'atelier compare ton tracé au modèle et donne une note.
  * Tout se passe sur l'appareil (aucune connexion nécessaire).
  * ==================================================================== */
-const WR_FONT = '"Atelier Amiri Quran", "Amiri Quran", "Amiri", "Geeza Pro", serif';
+/* modèle d'écriture : naskh d'école (Noto Naskh, lettres posées sur la ligne, sans empilements) ou style du Coran (Amiri Quran) */
+const WR_FONTS = { naskh: '"Atelier Noto Naskh", "Atelier Amiri Quran", "Amiri Quran", serif', amiri: '"Atelier Amiri Quran", "Amiri Quran", "Amiri", "Geeza Pro", serif' };
+let WR_FONT = WR_FONTS.naskh;
+function wrFontId(ctx) { const f = ((ctx && ctx.settings && ctx.settings.writing) || {}).font; return WR_FONTS[f] ? f : 'naskh'; }
 function writeState(ctx) { const W = ctx.settings.writing || (ctx.settings.writing = {}); if (!W.l) W.l = {}; if (!W.w) W.w = {}; return W; }
 function letterLearned(W, l) { return !!(W.l[l] && W.l[l].s >= 60); }
 function writeAllLetters() { const out = []; WRITE_UNITS.forEach(u => u.letters.forEach(l => out.push(l))); return out; }
@@ -113,50 +116,100 @@ function makeWritePad(ctx, parent, opts) {
     x0 = Math.max(0, x0 - 2); y0 = Math.max(0, y0 - 2); x1 = Math.min(W - 1, x1 + 2); y1 = Math.min(H - 1, y1 + 2);
     const w = x1 - x0 + 1, hh = y1 - y0 + 1; const m = new Uint8Array(w * hh);
     for (let y = 0; y < hh; y++) for (let x = 0; x < w; x++) m[y * w + x] = d[((y + y0) * W + x + x0) * 4 + 3] > 110 ? 1 : 0;
-    const pl = penPlan(m, w, hh, lay.fs);
+    // le même texte sans voyelles, pour reconnaître les voyelles (tracées en dernier)
+    let bare = null; const bt = noVowels(pad.text);
+    if (bt !== pad.text) { g.clearRect(0, 0, W, H); const keep = pad.text; pad.text = bt; drawText(g, '#000', null); pad.text = keep; const bd = g.getImageData(0, 0, W, H).data; bare = new Uint8Array(w * hh); for (let y = 0; y < hh; y++) for (let x = 0; x < w; x++) bare[y * w + x] = bd[((y + y0) * W + x + x0) * 4 + 3] > 60 ? 1 : 0; }
+    const pl = penPlan(m, w, hh, lay.fs, bare);
     pl.strokes.forEach(s => { s.pts = s.pts.map(([x, y, r]) => [x + x0, y + y0, r]); });
     plan = pl; planKey = key; return plan;
   }
-  /* démonstration : un stylo écrit le texte, trait par trait, dans le bon ordre et le bon sens */
+  /* démonstration : un stylo écrit le texte, trait par trait, dans le bon ordre et le bon sens.
+   * Le mouvement imite la main : il démarre doucement, ralentit dans les courbes (loi de la main :
+   * plus la courbe est serrée, plus on va lentement), accélère dans les lignes droites, et le stylo
+   * se lève et glisse en l'air jusqu'au trait suivant au lieu de sauter. */
+  function timeline(pl, slow) {
+    const fs = lay.fs; const unit = Math.max(1, fs / 160);
+    const vMax = (fs / 380) * (slow ? 0.45 : 1); // pixels par milliseconde dans une ligne droite
+    const segs = []; let tNow = 260; let prev = null;
+    pl.strokes.forEach((s, si) => {
+      // 1. on rééchantillonne le trait tous les ~1,2 px, puis on le lisse (fini les escaliers de pixels)
+      let P = s.pts; const out = [P[0]];
+      for (let i = 1; i < P.length; i++) { const a = out[out.length - 1], b = P[i]; const d = Math.hypot(b[0] - a[0], b[1] - a[1]); const n = Math.floor(d / (1.2 * unit)); for (let k = 1; k <= n; k++) out.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n, a[2] + (b[2] - a[2]) * k / n]); if (!n) out.push(b); }
+      P = out;
+      if (P.length > 6 && s.comp !== 'small' && s.comp !== 'mark') {
+        const sg = Math.max(2, Math.round(3 * unit)); const Q = P.map((p, i) => { if (i < 2 || i > P.length - 3) return p; let x = 0, y = 0, r = 0, ws = 0; for (let k = -sg; k <= sg; k++) { const q = P[Math.max(0, Math.min(P.length - 1, i + k))]; const wt = Math.exp(-(k * k) / (2 * (sg / 2) * (sg / 2))); x += q[0] * wt; y += q[1] * wt; r += q[2] * wt; ws += wt; } return [x / ws, y / ws, r / ws]; });
+        P = Q;
+      }
+      // 2. vitesse en chaque point : lente dans les courbes serrées, lente au départ et à l'arrivée
+      const n = P.length; const T = new Float32Array(n); const L = new Float32Array(n);
+      for (let i = 1; i < n; i++) L[i] = L[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]);
+      const tot = L[n - 1] || 1; const k = Math.max(2, Math.round(4 * unit));
+      const small = s.comp === 'small' || s.comp === 'mark' || s.comp === 'tiny';
+      // l'air : le stylo glisse jusqu'au début du trait
+      if (prev) { const d = Math.hypot(P[0][0] - prev[0], P[0][1] - prev[1]); if (d > 2) { const dur = 110 + 34 * Math.sqrt(d / unit) * (slow ? 1.6 : 1); segs.push({ air: true, from: prev, to: P[0], t0: tNow, t1: tNow + dur }); tNow += dur; } }
+      tNow += small ? 40 : 90; // le stylo se pose
+      const t0 = tNow;
+      for (let i = 1; i < n; i++) {
+        const a = P[Math.max(0, i - k)], b = P[i], c = P[Math.min(n - 1, i + k)];
+        const a1 = Math.atan2(b[1] - a[1], b[0] - a[0]), a2 = Math.atan2(c[1] - b[1], c[0] - b[0]); let da = Math.abs(a2 - a1); if (da > Math.PI) da = 2 * Math.PI - da;
+        const ds = Math.hypot(c[0] - a[0], c[1] - a[1]) || 1; const curv = da / ds * unit; // courbure
+        let v = vMax * Math.min(1, Math.pow(0.06 / Math.max(0.004, curv), 1 / 3));
+        if (da > 2.4) v *= 0.35; // demi-tour (haut d'une dent) : presque un arrêt
+        const ramp = Math.min(1, (L[i] + 3 * unit) / (18 * unit), (tot - L[i] + 3 * unit) / (22 * unit)); v *= 0.25 + 0.75 * Math.max(0, ramp);
+        if (small) v = vMax * 0.45;
+        T[i] = T[i - 1] + (L[i] - L[i - 1]) / Math.max(0.02, v);
+      }
+      segs.push({ air: false, s, P, T, t0, t1: t0 + T[n - 1], num: s.first && s.comp === 'main' });
+      tNow = t0 + T[n - 1] + (small ? 60 : 130); prev = P[n - 1];
+    });
+    return { segs, end: tNow };
+  }
   pad.demo = (slow) => {
     if (!lay) return; if (demoT) cancelAnimationFrame(demoT);
     const pl = getPlan(); if (!pl.strokes.length) return;
+    const tl = timeline(pl, slow);
     const col = colors(); const accent = getComputedStyle(wrap).getPropertyValue('--interactive-accent').trim() || '#6a5acd';
-    const mask = document.createElement('canvas'); mask.width = cv.width; mask.height = cv.height; const mg = mask.getContext('2d'); mg.setTransform(dpr, 0, 0, dpr, 0, 0); mg.fillStyle = '#000'; mg.strokeStyle = '#000'; mg.lineCap = 'round';
+    const mask = document.createElement('canvas'); mask.width = cv.width; mask.height = cv.height; const mg = mask.getContext('2d'); mg.setTransform(dpr, 0, 0, dpr, 0, 0); mg.fillStyle = '#000'; mg.strokeStyle = '#000'; mg.lineCap = 'round'; mg.lineJoin = 'round';
     const tmp = document.createElement('canvas'); tmp.width = cv.width; tmp.height = cv.height; const tg = tmp.getContext('2d');
-    const showNum = pad.text.replace(/[ً-ٰٟۖ-ۭ]/g, '').length <= 3;
-    const speed = Math.max(0.12, lay.fs / 900) * (slow ? 0.55 : 1); // pixels par milliseconde
-    const labels = []; let si = 0, pi = 0, pause = 350, last = performance.now(), num = 0;
-    const paint = (pen) => {
+    const showNum = pad.text.replace(/[ً-ٰٟۖ-ۭ]/g, '').length <= 3;
+    const labels = []; let num = 0; const drawn = tl.segs.map(() => 0); const t0 = performance.now();
+    const paint = (pen, up) => {
       const c = g2(); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
       c.save(); c.strokeStyle = col.line; c.lineWidth = 1; c.setLineDash([6, 6]); c.beginPath(); c.moveTo(10, lay.y); c.lineTo(W - 10, lay.y); c.stroke(); c.restore();
       drawText(c, col.model, null);
       tg.setTransform(1, 0, 0, 1, 0, 0); tg.clearRect(0, 0, tmp.width, tmp.height); tg.globalCompositeOperation = 'source-over'; tg.setTransform(dpr, 0, 0, dpr, 0, 0); drawText(tg, col.ink, null);
       tg.setTransform(1, 0, 0, 1, 0, 0); tg.globalCompositeOperation = 'destination-in'; tg.drawImage(mask, 0, 0); tg.globalCompositeOperation = 'source-over';
       c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(tmp, 0, 0); c.setTransform(dpr, 0, 0, dpr, 0, 0);
-      labels.forEach(([x, y, n]) => { c.save(); c.fillStyle = accent; c.beginPath(); c.arc(x, y, 11, 0, 7); c.fill(); c.fillStyle = '#fff'; c.font = 'bold 13px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(n), x, y + 0.5); c.restore(); });
-      if (pen) { c.save(); c.fillStyle = accent; c.globalAlpha = .9; c.beginPath(); c.arc(pen[0], pen[1], Math.max(5, lay.lw * 0.7), 0, 7); c.fill(); c.globalAlpha = .25; c.beginPath(); c.arc(pen[0], pen[1], Math.max(11, lay.lw * 1.5), 0, 7); c.fill(); c.restore(); }
-    };
-    const step = now => {
-      let dt = now - last; last = now;
-      if (pause > 0) { pause -= dt; dt = 0; }
-      let budget = dt * speed; let pen = null;
-      while (budget > 0 && si < pl.strokes.length) {
-        const s = pl.strokes[si];
-        if (pi === 0 && s.first && s.comp !== 'tiny') { num++; if (showNum && s.pts.length > 2) { const [x, y] = s.pts[0]; labels.push([x + 14, y - 14, num]); } }
-        const p = s.pts[pi]; const q = pi > 0 ? s.pts[pi - 1] : p;
-        mg.lineWidth = 2 * (p[2] + 1.3); mg.beginPath(); mg.moveTo(q[0], q[1]); mg.lineTo(p[0], p[1]); mg.stroke();
-        mg.beginPath(); mg.arc(p[0], p[1], p[2] + 1.3, 0, 7); mg.fill();
-        budget -= Math.hypot(p[0] - q[0], p[1] - q[1]) || 1; pen = p; pi++;
-        if (pi >= s.pts.length) { si++; pi = 0; const nx = pl.strokes[si]; if (nx && (nx.comp !== 'tiny' || !nx.first)) { pause = nx.first ? 380 : 220; break; } }
+      labels.forEach(([x, y, n]) => { c.save(); c.fillStyle = accent; c.globalAlpha = .9; c.beginPath(); c.arc(x, y, 10, 0, 7); c.fill(); c.globalAlpha = 1; c.fillStyle = '#fff'; c.font = 'bold 12px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(n), x, y + 0.5); c.restore(); });
+      if (pen) { // la pointe du stylo : pleine quand elle écrit, légère et un peu plus haute quand elle est levée
+        const r = Math.max(4, lay.lw * 0.55);
+        c.save(); c.fillStyle = accent;
+        if (up) { c.globalAlpha = .18; c.beginPath(); c.arc(pen[0], pen[1] - 3, r * 1.7, 0, 7); c.fill(); c.globalAlpha = .55; c.beginPath(); c.arc(pen[0], pen[1] - 3, r * 0.7, 0, 7); c.fill(); }
+        else { c.globalAlpha = .22; c.beginPath(); c.arc(pen[0], pen[1], r * 2, 0, 7); c.fill(); c.globalAlpha = .95; c.beginPath(); c.arc(pen[0], pen[1], r * 0.8, 0, 7); c.fill(); }
+        c.restore();
       }
-      if (si < pl.strokes.length) { paint(pen || (pl.strokes[si].pts[Math.max(0, pi - 1)])); demoT = requestAnimationFrame(step); }
+    };
+    const ease = x => x < .5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+    const step = now => {
+      const t = now - t0; let pen = null, up = false;
+      tl.segs.forEach((g, gi) => {
+        if (t < g.t0) return;
+        if (g.air) { if (t < g.t1) { const u = ease((t - g.t0) / (g.t1 - g.t0)); const lift = Math.sin(Math.PI * u) * Math.min(14, Math.hypot(g.to[0] - g.from[0], g.to[1] - g.from[1]) * 0.15); pen = [g.from[0] + (g.to[0] - g.from[0]) * u, g.from[1] + (g.to[1] - g.from[1]) * u - lift]; up = true; } return; }
+        const P = g.P, T = g.T; const lt = t - g.t0;
+        let i = drawn[gi];
+        if (i === 0 && g.num) { num++; if (showNum && P.length > 2) labels.push([P[0][0] + 14, P[0][1] - 14, num]); }
+        if (i === 0) { mg.beginPath(); mg.arc(P[0][0], P[0][1], P[0][2] + 1.3, 0, 7); mg.fill(); i = 1; }
+        while (i < P.length && T[i] <= lt) { const p = P[i], q = P[i - 1]; mg.lineWidth = 2 * (p[2] + 1.3); mg.beginPath(); mg.moveTo(q[0], q[1]); mg.lineTo(p[0], p[1]); mg.stroke(); i++; }
+        drawn[gi] = i;
+        if (t < g.t1) pen = P[Math.min(P.length - 1, i - 1)];
+      });
+      if (t < tl.end) { if (!pen) { const last = tl.segs.filter(g => !g.air && t >= g.t0).pop(); pen = last ? last.P[last.P.length - 1] : null; up = true; } paint(pen, up); demoT = requestAnimationFrame(step); }
       else {
         demoT = null; mg.setTransform(1, 0, 0, 1, 0, 0); mg.fillRect(0, 0, mask.width, mask.height); paint(null);
         if (pad.mode !== 'view') setTimeout(() => { if (!pad.strokes.length && !pad.checked && !demoT) redraw(); }, 1600);
       }
     };
-    paint(pl.strokes[0].pts[0]);
+    paint(tl.segs.find(g => !g.air).P[0], true);
     demoT = requestAnimationFrame(step);
   };
   const pt = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * H / r.height]; };
@@ -234,7 +287,9 @@ function makeWritePad(ctx, parent, opts) {
       ro.observe(wrap);
     }
   };
-  if (document.fonts && document.fonts.load) document.fonts.load('40px ' + WR_FONT, pad.text || 'ب').then(start, start); else start();
+  const fid = wrFontId(ctx); WR_FONT = WR_FONTS[fid];
+  const go = () => { if (document.fonts && document.fonts.load) document.fonts.load('40px ' + WR_FONT, pad.text || 'ب').then(start, start); else start(); };
+  (fid === 'naskh' ? ensureFont('naskh') : Promise.resolve()).then(go, go);
   return pad;
 }
 
@@ -246,6 +301,7 @@ function renderWriteTab(ctx, root, state) {
   if (state.word) return renderWriteWord(ctx, root, state, go);
   if (state.unit) { const u = WRITE_UNITS.find(x => x.id === state.unit); if (u) return renderWriteUnit(ctx, root, state, u, go); state.unit = null; }
   if (state.free) return renderWriteFree(ctx, root, state, go);
+  if (state.course) return renderWriteCourse(ctx, root, state, go);
   if (state.copy) { renderCopyMode(ctx, root, state, () => { state.copy = false; go(); }).catch(e => h(root, 'p', 'aa-warn', 'Erreur : ' + e.message)); return; }
   const W = writeState(ctx);
   const all = writeAllLetters(); const nL = all.filter(l => letterLearned(W, l)).length;
@@ -260,7 +316,9 @@ function renderWriteTab(ctx, root, state) {
   else h(act, 'div', 'aa-ok', 'Tu as fait tout le parcours. Continue avec l\'écriture libre, ou refais les lettres pour améliorer tes notes.');
   btn(act, '✏️  Écriture libre', () => { state.free = true; go(); }, 'aa-fc-big2');
   btn(act, '📜  Recopier le Coran dans mon cahier', () => { state.copy = true; go(); }, 'aa-fc-big2').title = 'Un verset en grand, morceau par morceau, pour l\'écrire à la main sur papier';
-  const bas = details(root, '📏 Les règles de base de l\'écriture arabe', nL === 0);
+  renderWriteCourseList(ctx, root, state, go);
+  h(root, 'h3', 'aa-fc-group aa-wc-cahier', '✍️ Le cahier : lettre par lettre');
+  const bas = details(root, '📏 Les règles de base de l\'écriture arabe (résumé)', false);
   const ul = h(bas, 'ul', 'aa-wr-basics'); WRITE_BASICS.forEach(t => mdText(ul, 'li', null, t));
   const grid = h(root, 'div', 'aa-wr-units');
   WRITE_UNITS.forEach((u, k) => {

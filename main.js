@@ -5625,7 +5625,10 @@ function writeForms(l) {
  * écrit seul. L'atelier compare ton tracé au modèle et donne une note.
  * Tout se passe sur l'appareil (aucune connexion nécessaire).
  * ==================================================================== */
-const WR_FONT = '"Atelier Amiri Quran", "Amiri Quran", "Amiri", "Geeza Pro", serif';
+/* modèle d'écriture : naskh d'école (Noto Naskh, lettres posées sur la ligne, sans empilements) ou style du Coran (Amiri Quran) */
+const WR_FONTS = { naskh: '"Atelier Noto Naskh", "Atelier Amiri Quran", "Amiri Quran", serif', amiri: '"Atelier Amiri Quran", "Amiri Quran", "Amiri", "Geeza Pro", serif' };
+let WR_FONT = WR_FONTS.naskh;
+function wrFontId(ctx) { const f = ((ctx && ctx.settings && ctx.settings.writing) || {}).font; return WR_FONTS[f] ? f : 'naskh'; }
 function writeState(ctx) { const W = ctx.settings.writing || (ctx.settings.writing = {}); if (!W.l) W.l = {}; if (!W.w) W.w = {}; return W; }
 function letterLearned(W, l) { return !!(W.l[l] && W.l[l].s >= 60); }
 function writeAllLetters() { const out = []; WRITE_UNITS.forEach(u => u.letters.forEach(l => out.push(l))); return out; }
@@ -5734,50 +5737,100 @@ function makeWritePad(ctx, parent, opts) {
     x0 = Math.max(0, x0 - 2); y0 = Math.max(0, y0 - 2); x1 = Math.min(W - 1, x1 + 2); y1 = Math.min(H - 1, y1 + 2);
     const w = x1 - x0 + 1, hh = y1 - y0 + 1; const m = new Uint8Array(w * hh);
     for (let y = 0; y < hh; y++) for (let x = 0; x < w; x++) m[y * w + x] = d[((y + y0) * W + x + x0) * 4 + 3] > 110 ? 1 : 0;
-    const pl = penPlan(m, w, hh, lay.fs);
+    // le même texte sans voyelles, pour reconnaître les voyelles (tracées en dernier)
+    let bare = null; const bt = noVowels(pad.text);
+    if (bt !== pad.text) { g.clearRect(0, 0, W, H); const keep = pad.text; pad.text = bt; drawText(g, '#000', null); pad.text = keep; const bd = g.getImageData(0, 0, W, H).data; bare = new Uint8Array(w * hh); for (let y = 0; y < hh; y++) for (let x = 0; x < w; x++) bare[y * w + x] = bd[((y + y0) * W + x + x0) * 4 + 3] > 60 ? 1 : 0; }
+    const pl = penPlan(m, w, hh, lay.fs, bare);
     pl.strokes.forEach(s => { s.pts = s.pts.map(([x, y, r]) => [x + x0, y + y0, r]); });
     plan = pl; planKey = key; return plan;
   }
-  /* démonstration : un stylo écrit le texte, trait par trait, dans le bon ordre et le bon sens */
+  /* démonstration : un stylo écrit le texte, trait par trait, dans le bon ordre et le bon sens.
+   * Le mouvement imite la main : il démarre doucement, ralentit dans les courbes (loi de la main :
+   * plus la courbe est serrée, plus on va lentement), accélère dans les lignes droites, et le stylo
+   * se lève et glisse en l'air jusqu'au trait suivant au lieu de sauter. */
+  function timeline(pl, slow) {
+    const fs = lay.fs; const unit = Math.max(1, fs / 160);
+    const vMax = (fs / 380) * (slow ? 0.45 : 1); // pixels par milliseconde dans une ligne droite
+    const segs = []; let tNow = 260; let prev = null;
+    pl.strokes.forEach((s, si) => {
+      // 1. on rééchantillonne le trait tous les ~1,2 px, puis on le lisse (fini les escaliers de pixels)
+      let P = s.pts; const out = [P[0]];
+      for (let i = 1; i < P.length; i++) { const a = out[out.length - 1], b = P[i]; const d = Math.hypot(b[0] - a[0], b[1] - a[1]); const n = Math.floor(d / (1.2 * unit)); for (let k = 1; k <= n; k++) out.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n, a[2] + (b[2] - a[2]) * k / n]); if (!n) out.push(b); }
+      P = out;
+      if (P.length > 6 && s.comp !== 'small' && s.comp !== 'mark') {
+        const sg = Math.max(2, Math.round(3 * unit)); const Q = P.map((p, i) => { if (i < 2 || i > P.length - 3) return p; let x = 0, y = 0, r = 0, ws = 0; for (let k = -sg; k <= sg; k++) { const q = P[Math.max(0, Math.min(P.length - 1, i + k))]; const wt = Math.exp(-(k * k) / (2 * (sg / 2) * (sg / 2))); x += q[0] * wt; y += q[1] * wt; r += q[2] * wt; ws += wt; } return [x / ws, y / ws, r / ws]; });
+        P = Q;
+      }
+      // 2. vitesse en chaque point : lente dans les courbes serrées, lente au départ et à l'arrivée
+      const n = P.length; const T = new Float32Array(n); const L = new Float32Array(n);
+      for (let i = 1; i < n; i++) L[i] = L[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]);
+      const tot = L[n - 1] || 1; const k = Math.max(2, Math.round(4 * unit));
+      const small = s.comp === 'small' || s.comp === 'mark' || s.comp === 'tiny';
+      // l'air : le stylo glisse jusqu'au début du trait
+      if (prev) { const d = Math.hypot(P[0][0] - prev[0], P[0][1] - prev[1]); if (d > 2) { const dur = 110 + 34 * Math.sqrt(d / unit) * (slow ? 1.6 : 1); segs.push({ air: true, from: prev, to: P[0], t0: tNow, t1: tNow + dur }); tNow += dur; } }
+      tNow += small ? 40 : 90; // le stylo se pose
+      const t0 = tNow;
+      for (let i = 1; i < n; i++) {
+        const a = P[Math.max(0, i - k)], b = P[i], c = P[Math.min(n - 1, i + k)];
+        const a1 = Math.atan2(b[1] - a[1], b[0] - a[0]), a2 = Math.atan2(c[1] - b[1], c[0] - b[0]); let da = Math.abs(a2 - a1); if (da > Math.PI) da = 2 * Math.PI - da;
+        const ds = Math.hypot(c[0] - a[0], c[1] - a[1]) || 1; const curv = da / ds * unit; // courbure
+        let v = vMax * Math.min(1, Math.pow(0.06 / Math.max(0.004, curv), 1 / 3));
+        if (da > 2.4) v *= 0.35; // demi-tour (haut d'une dent) : presque un arrêt
+        const ramp = Math.min(1, (L[i] + 3 * unit) / (18 * unit), (tot - L[i] + 3 * unit) / (22 * unit)); v *= 0.25 + 0.75 * Math.max(0, ramp);
+        if (small) v = vMax * 0.45;
+        T[i] = T[i - 1] + (L[i] - L[i - 1]) / Math.max(0.02, v);
+      }
+      segs.push({ air: false, s, P, T, t0, t1: t0 + T[n - 1], num: s.first && s.comp === 'main' });
+      tNow = t0 + T[n - 1] + (small ? 60 : 130); prev = P[n - 1];
+    });
+    return { segs, end: tNow };
+  }
   pad.demo = (slow) => {
     if (!lay) return; if (demoT) cancelAnimationFrame(demoT);
     const pl = getPlan(); if (!pl.strokes.length) return;
+    const tl = timeline(pl, slow);
     const col = colors(); const accent = getComputedStyle(wrap).getPropertyValue('--interactive-accent').trim() || '#6a5acd';
-    const mask = document.createElement('canvas'); mask.width = cv.width; mask.height = cv.height; const mg = mask.getContext('2d'); mg.setTransform(dpr, 0, 0, dpr, 0, 0); mg.fillStyle = '#000'; mg.strokeStyle = '#000'; mg.lineCap = 'round';
+    const mask = document.createElement('canvas'); mask.width = cv.width; mask.height = cv.height; const mg = mask.getContext('2d'); mg.setTransform(dpr, 0, 0, dpr, 0, 0); mg.fillStyle = '#000'; mg.strokeStyle = '#000'; mg.lineCap = 'round'; mg.lineJoin = 'round';
     const tmp = document.createElement('canvas'); tmp.width = cv.width; tmp.height = cv.height; const tg = tmp.getContext('2d');
-    const showNum = pad.text.replace(/[ً-ٰٟۖ-ۭ]/g, '').length <= 3;
-    const speed = Math.max(0.12, lay.fs / 900) * (slow ? 0.55 : 1); // pixels par milliseconde
-    const labels = []; let si = 0, pi = 0, pause = 350, last = performance.now(), num = 0;
-    const paint = (pen) => {
+    const showNum = pad.text.replace(/[ً-ٰٟۖ-ۭ]/g, '').length <= 3;
+    const labels = []; let num = 0; const drawn = tl.segs.map(() => 0); const t0 = performance.now();
+    const paint = (pen, up) => {
       const c = g2(); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
       c.save(); c.strokeStyle = col.line; c.lineWidth = 1; c.setLineDash([6, 6]); c.beginPath(); c.moveTo(10, lay.y); c.lineTo(W - 10, lay.y); c.stroke(); c.restore();
       drawText(c, col.model, null);
       tg.setTransform(1, 0, 0, 1, 0, 0); tg.clearRect(0, 0, tmp.width, tmp.height); tg.globalCompositeOperation = 'source-over'; tg.setTransform(dpr, 0, 0, dpr, 0, 0); drawText(tg, col.ink, null);
       tg.setTransform(1, 0, 0, 1, 0, 0); tg.globalCompositeOperation = 'destination-in'; tg.drawImage(mask, 0, 0); tg.globalCompositeOperation = 'source-over';
       c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(tmp, 0, 0); c.setTransform(dpr, 0, 0, dpr, 0, 0);
-      labels.forEach(([x, y, n]) => { c.save(); c.fillStyle = accent; c.beginPath(); c.arc(x, y, 11, 0, 7); c.fill(); c.fillStyle = '#fff'; c.font = 'bold 13px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(n), x, y + 0.5); c.restore(); });
-      if (pen) { c.save(); c.fillStyle = accent; c.globalAlpha = .9; c.beginPath(); c.arc(pen[0], pen[1], Math.max(5, lay.lw * 0.7), 0, 7); c.fill(); c.globalAlpha = .25; c.beginPath(); c.arc(pen[0], pen[1], Math.max(11, lay.lw * 1.5), 0, 7); c.fill(); c.restore(); }
-    };
-    const step = now => {
-      let dt = now - last; last = now;
-      if (pause > 0) { pause -= dt; dt = 0; }
-      let budget = dt * speed; let pen = null;
-      while (budget > 0 && si < pl.strokes.length) {
-        const s = pl.strokes[si];
-        if (pi === 0 && s.first && s.comp !== 'tiny') { num++; if (showNum && s.pts.length > 2) { const [x, y] = s.pts[0]; labels.push([x + 14, y - 14, num]); } }
-        const p = s.pts[pi]; const q = pi > 0 ? s.pts[pi - 1] : p;
-        mg.lineWidth = 2 * (p[2] + 1.3); mg.beginPath(); mg.moveTo(q[0], q[1]); mg.lineTo(p[0], p[1]); mg.stroke();
-        mg.beginPath(); mg.arc(p[0], p[1], p[2] + 1.3, 0, 7); mg.fill();
-        budget -= Math.hypot(p[0] - q[0], p[1] - q[1]) || 1; pen = p; pi++;
-        if (pi >= s.pts.length) { si++; pi = 0; const nx = pl.strokes[si]; if (nx && (nx.comp !== 'tiny' || !nx.first)) { pause = nx.first ? 380 : 220; break; } }
+      labels.forEach(([x, y, n]) => { c.save(); c.fillStyle = accent; c.globalAlpha = .9; c.beginPath(); c.arc(x, y, 10, 0, 7); c.fill(); c.globalAlpha = 1; c.fillStyle = '#fff'; c.font = 'bold 12px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(n), x, y + 0.5); c.restore(); });
+      if (pen) { // la pointe du stylo : pleine quand elle écrit, légère et un peu plus haute quand elle est levée
+        const r = Math.max(4, lay.lw * 0.55);
+        c.save(); c.fillStyle = accent;
+        if (up) { c.globalAlpha = .18; c.beginPath(); c.arc(pen[0], pen[1] - 3, r * 1.7, 0, 7); c.fill(); c.globalAlpha = .55; c.beginPath(); c.arc(pen[0], pen[1] - 3, r * 0.7, 0, 7); c.fill(); }
+        else { c.globalAlpha = .22; c.beginPath(); c.arc(pen[0], pen[1], r * 2, 0, 7); c.fill(); c.globalAlpha = .95; c.beginPath(); c.arc(pen[0], pen[1], r * 0.8, 0, 7); c.fill(); }
+        c.restore();
       }
-      if (si < pl.strokes.length) { paint(pen || (pl.strokes[si].pts[Math.max(0, pi - 1)])); demoT = requestAnimationFrame(step); }
+    };
+    const ease = x => x < .5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+    const step = now => {
+      const t = now - t0; let pen = null, up = false;
+      tl.segs.forEach((g, gi) => {
+        if (t < g.t0) return;
+        if (g.air) { if (t < g.t1) { const u = ease((t - g.t0) / (g.t1 - g.t0)); const lift = Math.sin(Math.PI * u) * Math.min(14, Math.hypot(g.to[0] - g.from[0], g.to[1] - g.from[1]) * 0.15); pen = [g.from[0] + (g.to[0] - g.from[0]) * u, g.from[1] + (g.to[1] - g.from[1]) * u - lift]; up = true; } return; }
+        const P = g.P, T = g.T; const lt = t - g.t0;
+        let i = drawn[gi];
+        if (i === 0 && g.num) { num++; if (showNum && P.length > 2) labels.push([P[0][0] + 14, P[0][1] - 14, num]); }
+        if (i === 0) { mg.beginPath(); mg.arc(P[0][0], P[0][1], P[0][2] + 1.3, 0, 7); mg.fill(); i = 1; }
+        while (i < P.length && T[i] <= lt) { const p = P[i], q = P[i - 1]; mg.lineWidth = 2 * (p[2] + 1.3); mg.beginPath(); mg.moveTo(q[0], q[1]); mg.lineTo(p[0], p[1]); mg.stroke(); i++; }
+        drawn[gi] = i;
+        if (t < g.t1) pen = P[Math.min(P.length - 1, i - 1)];
+      });
+      if (t < tl.end) { if (!pen) { const last = tl.segs.filter(g => !g.air && t >= g.t0).pop(); pen = last ? last.P[last.P.length - 1] : null; up = true; } paint(pen, up); demoT = requestAnimationFrame(step); }
       else {
         demoT = null; mg.setTransform(1, 0, 0, 1, 0, 0); mg.fillRect(0, 0, mask.width, mask.height); paint(null);
         if (pad.mode !== 'view') setTimeout(() => { if (!pad.strokes.length && !pad.checked && !demoT) redraw(); }, 1600);
       }
     };
-    paint(pl.strokes[0].pts[0]);
+    paint(tl.segs.find(g => !g.air).P[0], true);
     demoT = requestAnimationFrame(step);
   };
   const pt = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * H / r.height]; };
@@ -5855,7 +5908,9 @@ function makeWritePad(ctx, parent, opts) {
       ro.observe(wrap);
     }
   };
-  if (document.fonts && document.fonts.load) document.fonts.load('40px ' + WR_FONT, pad.text || 'ب').then(start, start); else start();
+  const fid = wrFontId(ctx); WR_FONT = WR_FONTS[fid];
+  const go = () => { if (document.fonts && document.fonts.load) document.fonts.load('40px ' + WR_FONT, pad.text || 'ب').then(start, start); else start(); };
+  (fid === 'naskh' ? ensureFont('naskh') : Promise.resolve()).then(go, go);
   return pad;
 }
 
@@ -5867,6 +5922,7 @@ function renderWriteTab(ctx, root, state) {
   if (state.word) return renderWriteWord(ctx, root, state, go);
   if (state.unit) { const u = WRITE_UNITS.find(x => x.id === state.unit); if (u) return renderWriteUnit(ctx, root, state, u, go); state.unit = null; }
   if (state.free) return renderWriteFree(ctx, root, state, go);
+  if (state.course) return renderWriteCourse(ctx, root, state, go);
   if (state.copy) { renderCopyMode(ctx, root, state, () => { state.copy = false; go(); }).catch(e => h(root, 'p', 'aa-warn', 'Erreur : ' + e.message)); return; }
   const W = writeState(ctx);
   const all = writeAllLetters(); const nL = all.filter(l => letterLearned(W, l)).length;
@@ -5881,7 +5937,9 @@ function renderWriteTab(ctx, root, state) {
   else h(act, 'div', 'aa-ok', 'Tu as fait tout le parcours. Continue avec l\'écriture libre, ou refais les lettres pour améliorer tes notes.');
   btn(act, '✏️  Écriture libre', () => { state.free = true; go(); }, 'aa-fc-big2');
   btn(act, '📜  Recopier le Coran dans mon cahier', () => { state.copy = true; go(); }, 'aa-fc-big2').title = 'Un verset en grand, morceau par morceau, pour l\'écrire à la main sur papier';
-  const bas = details(root, '📏 Les règles de base de l\'écriture arabe', nL === 0);
+  renderWriteCourseList(ctx, root, state, go);
+  h(root, 'h3', 'aa-fc-group aa-wc-cahier', '✍️ Le cahier : lettre par lettre');
+  const bas = details(root, '📏 Les règles de base de l\'écriture arabe (résumé)', false);
   const ul = h(bas, 'ul', 'aa-wr-basics'); WRITE_BASICS.forEach(t => mdText(ul, 'li', null, t));
   const grid = h(root, 'div', 'aa-wr-units');
   WRITE_UNITS.forEach((u, k) => {
@@ -6062,7 +6120,7 @@ function penDist(img, w, h) {
   return d;
 }
 /* mask : Uint8Array (1 = encre), w × h, fs = taille de la police (pour les seuils) */
-function penPlan(mask, w, h, fs) {
+function penPlan(mask, w, h, fs, bare) { // bare : le même texte sans voyelles (pour garder les voyelles pour la fin)
   const dist = penDist(mask, w, h);
   const sk = penThin(Uint8Array.from(mask), w, h);
   const isS = (x, y) => x >= 0 && y >= 0 && x < w && y < h && sk[y * w + x] === 1;
@@ -6119,42 +6177,123 @@ function penPlan(mask, w, h, fs) {
     mains.forEach(m => { const d = cx < m.x0 ? m.x0 - cx : cx > m.x1 ? cx - m.x1 : 0; if (d < bd) { bd = d; best = m; } });
     best.kids.push(s);
   });
-  const order = []; mains.forEach(m => { order.push(m); m.kids.sort((a, b) => b.x1 - a.x1 || a.y0 - b.y0).forEach(k => order.push(k)); });
-  // on parcourt chaque morceau comme un stylo
+  smalls.forEach(s => { if (!bare) return; let inB = 0; s.px.forEach(([x, y]) => { if (bare[y * w + x]) inB++; }); s.mark = inB < s.px.length * 0.3; });
+  // chaque morceau, puis ses points ; les voyelles et les signes à la toute fin, de droite à gauche
+  const order = []; mains.forEach(m => { order.push(m); m.kids.filter(k => !k.mark).sort((a, b) => b.x1 - a.x1 || a.y0 - b.y0).forEach(k => order.push(k)); });
+  smalls.filter(s => s.mark).sort((a, b) => b.x1 - a.x1 || a.y0 - b.y0).forEach(k => order.push(k));
+  // on parcourt chaque morceau comme un stylo : graphe du squelette (bouts, croisements, traits),
+  // puis un chemin qui fait les dents et les hampes en montant puis en redescendant, comme la main.
   const strokes = [];
   const R = (x, y) => Math.max(1, dist[y * w + x]);
-  const startScore = (x, y) => x - y; // en haut à droite d'abord
   for (const c of order) {
-    if (c.dot) { strokes.push({ pts: c.px.map(([x, y]) => [x, y, c.r]), first: true, comp: 'small' }); continue; }
-    const left = new Set(c.px.map(([x, y]) => y * w + x));
-    // départ : le point le plus en haut à droite ; une extrémité de trait est préférée si elle est presque aussi haute
-    const bonus = (x, y) => startScore(x, y) + (deg(x, y) === 1 ? fs * 0.15 : 0);
-    let cur = c.px.reduce((a, b) => bonus(b[0], b[1]) > bonus(a[0], a[1]) ? b : a);
-    let seg = []; let first = true;
-    while (left.size) {
-      if (!cur) {
-        // reprise : un pixel pas encore tracé, collé à ce qui est déjà tracé (une branche)
-        let pick = null, ps = -1e9;
-        for (const k of left) { const x = k % w, y = (k / w) | 0; const touch = N8.some(([dx, dy]) => isS(x + dx, y + dy) && !left.has((y + dy) * w + x + dx)); const s = (touch ? 1e6 : 0) + startScore(x, y) + (deg(x, y) === 1 ? 5e5 : 0); if (s > ps) { ps = s; pick = [x, y]; } }
-        cur = pick; if (seg.length) strokes.push({ pts: seg, first, comp: (seg.length > Math.max(4, fs * 0.08) || first) ? (c.main ? 'main' : 'small') : 'tiny' });
-        first = false; seg = [];
-        // on part du point déjà tracé voisin, pour que le trait reste continu
-        const nb = N8.map(([dx, dy]) => [cur[0] + dx, cur[1] + dy]).find(([a, b]) => isS(a, b) && !left.has(b * w + a));
-        if (nb) seg.push([nb[0], nb[1], R(nb[0], nb[1])]);
-      }
-      const [x, y] = cur; left.delete(y * w + x); seg.push([x, y, R(x, y)]);
-      const n = seg.length; const back = seg[Math.max(0, n - 5)];
-      let dx0 = x - back[0], dy0 = y - back[1]; const dl = Math.hypot(dx0, dy0) || 1; dx0 /= dl; dy0 /= dl;
-      let nx = null, nb = -1e9;
-      for (const [ddx, ddy] of N8) { const a = x + ddx, b = y + ddy; if (!left.has(b * w + a)) continue; const l = Math.hypot(ddx, ddy); const s = n > 1 ? (ddx * dx0 + ddy * dy0) / l : (-ddx + ddy * 0.6) / l; if (s > nb) { nb = s; nx = [a, b]; } }
-      if (nx) N8.forEach(([ddx, ddy]) => { const a = x + ddx, b = y + ddy; const k = b * w + a; if (left.has(k) && (a !== nx[0] || b !== nx[1]) && Math.abs(a - nx[0]) <= 1 && Math.abs(b - nx[1]) <= 1 && deg(a, b) <= 2) left.delete(k); });
-      cur = nx;
-    }
-    if (seg.length) strokes.push({ pts: seg, first, comp: (seg.length > Math.max(4, fs * 0.08) || first) ? (c.main ? 'main' : 'small') : 'tiny' });
+    if (c.dot) { strokes.push({ pts: c.px.map(([x, y]) => [x, y, c.r]), first: true, comp: c.mark ? 'mark' : 'small' }); continue; }
+    penWalk(c, w, isS, deg, fs, R).forEach((pts, k) => strokes.push({ pts, first: k === 0, comp: c.main ? 'main' : (c.mark ? 'mark' : 'small') }));
   }
   // on lisse un peu les traits (les escaliers de pixels)
   strokes.forEach(s => { const p = s.pts; if (p.length < 5) return; const q = p.map((pt, i) => { if (i === 0 || i === p.length - 1) return pt; const a = p[i - 1], b = p[i + 1]; return [(a[0] + 2 * pt[0] + b[0]) / 4, (a[1] + 2 * pt[1] + b[1]) / 4, pt[2]]; }); s.pts = q; });
   return { strokes: strokes.filter(s => s.pts.length) };
+}
+
+/* parcours d'un morceau : renvoie une liste de traits (chaque trait = [[x, y, r], …]) */
+function penWalk(c, w, isS, deg, fs, R) {
+  const key = (x, y) => y * w + x;
+  const inC = new Set(c.px.map(([x, y]) => key(x, y)));
+  const isNode = (x, y) => deg(x, y) !== 2;
+  // 1. les nœuds : bouts (1 voisin) et croisements (3 voisins ou plus), regroupés s'ils se touchent
+  const nodeOf = new Map(); const nodes = [];
+  for (const [x, y] of c.px) {
+    if (!isNode(x, y) || nodeOf.has(key(x, y))) continue;
+    const id = nodes.length; const px = []; const st = [[x, y]]; nodeOf.set(key(x, y), id);
+    while (st.length) { const [a, b] = st.pop(); px.push([a, b]); for (const [dx, dy] of N8) { const u = a + dx, v = b + dy, k = key(u, v); if (inC.has(k) && isNode(u, v) && !nodeOf.has(k)) { nodeOf.set(k, id); st.push([u, v]); } } }
+    const cx = px.reduce((s, p) => s + p[0], 0) / px.length, cy = px.reduce((s, p) => s + p[1], 0) / px.length;
+    nodes.push({ id, px, x: cx, y: cy, end: px.length === 1 && deg(x, y) === 1, edges: [] });
+  }
+  // 2. les traits entre nœuds
+  const used = new Set(); const edges = [];
+  const addEdge = (chain, a, b) => { const e = { id: edges.length, chain, a, b, len: chain.length, done: false }; edges.push(e); nodes[a].edges.push(e); if (b !== a) nodes[b].edges.push(e); };
+  for (const n of nodes) for (const [sx, sy] of n.px) for (const [dx, dy] of N8) {
+    const x1 = sx + dx, y1 = sy + dy, k1 = key(x1, y1);
+    if (!inC.has(k1) || nodeOf.get(k1) === n.id || used.has(k1)) continue;
+    if (nodeOf.has(k1)) { // deux nœuds collés
+      const o = nodeOf.get(k1); if (o > n.id && !edges.some(e => (e.a === n.id && e.b === o) || (e.a === o && e.b === n.id))) addEdge([[sx, sy], [x1, y1]], n.id, o); continue;
+    }
+    const chain = [[sx, sy], [x1, y1]]; used.add(k1); let px = sx, py = sy, cx = x1, cy = y1, end = -1;
+    for (let guard = 0; guard < 100000; guard++) {
+      let nx = null;
+      for (const [ex, ey] of N8) { const u = cx + ex, v = cy + ey, k = key(u, v); if (!inC.has(k) || (u === px && v === py)) continue; if (nodeOf.has(k) && !(chain.length === 2 && nodeOf.get(k) === n.id && u === sx && v === sy)) { if (chain.length > 2 || nodeOf.get(k) !== n.id) { nx = [u, v]; end = nodeOf.get(k); break; } } }
+      if (nx) { chain.push(nx); break; }
+      for (const [ex, ey] of N8) { const u = cx + ex, v = cy + ey, k = key(u, v); if (inC.has(k) && !used.has(k) && !nodeOf.has(k)) { nx = [u, v]; break; } }
+      if (!nx) break;
+      used.add(key(nx[0], nx[1])); chain.push(nx); px = cx; py = cy; [cx, cy] = nx;
+    }
+    if (end < 0) end = n.id;
+    addEdge(chain, n.id, end);
+  }
+  // un anneau sans nœud (ه seul, la boucle d'un و parfois) : on le coupe en haut à droite
+  const rest = c.px.filter(([x, y]) => !nodeOf.has(key(x, y)) && !used.has(key(x, y)));
+  if (rest.length > 3) {
+    const st0 = rest.reduce((a, b) => (b[0] - b[1] > a[0] - a[1] ? b : a));
+    const id = nodes.length; nodes.push({ id, px: [st0], x: st0[0], y: st0[1], end: false, edges: [] });
+    const chain = [st0]; const seen = new Set([key(st0[0], st0[1])]); let cur = st0;
+    for (;;) { let nx = null; let best = -1e9; for (const [dx, dy] of N8) { const u = cur[0] + dx, v = cur[1] + dy, k = key(u, v); if (!inC.has(k) || seen.has(k) || nodeOf.has(k)) continue; const s = chain.length === 1 ? (-dx * 2 + dy) : 0; if (s > best) { best = s; nx = [u, v]; } } if (!nx) break; seen.add(key(nx[0], nx[1])); chain.push(nx); cur = nx; }
+    chain.push(st0); addEdge(chain, id, id);
+  }
+  if (!edges.length) return c.px.length ? [c.px.map(([x, y]) => [x, y, R(x, y)])] : [];
+  // 3. le chemin
+  const dirOf = (chain, rev) => { const L = chain.length; const n = Math.max(1, Math.min(L - 1, Math.round(fs * 0.1))); const p0 = rev ? chain[L - 1] : chain[0], p1 = rev ? chain[L - 1 - n] : chain[n]; const dx = p1[0] - p0[0], dy = p1[1] - p0[1]; const l = Math.hypot(dx, dy) || 1; return [dx / l, dy / l]; };
+  const other = (e, at) => (e.a === at ? e.b : e.a);
+  const oriented = (e, at) => (e.a === at ? e.chain : e.chain.slice().reverse());
+  const subtreeOpen = (nodeId, from) => nodes[nodeId].edges.some(x => !x.done && x !== from);
+  const strokes = []; let stroke = null; let dirIn = [-1, 0];
+  const push = (chain) => { for (const [x, y] of chain) { const l = stroke[stroke.length - 1]; if (l && l[0] === x && l[1] === y) continue; stroke.push([x, y, R(x, y)]); } };
+  const startScore = n => n.x - n.y * 1.3 + (n.end ? fs * 0.25 : 0);
+  let cur = null;
+  const left = () => edges.some(e => !e.done);
+  while (left()) {
+    if (cur == null) { // poser le stylo : un nœud avec un trait pas encore fait, le plus en haut à droite
+      let best = null; for (const n of nodes) if (n.edges.some(e => !e.done)) { const s = startScore(n) + (n.edges.filter(e => !e.done).length === 1 ? fs * 0.2 : 0); if (!best || s > best.s) best = { n, s }; }
+      cur = best.n.id; stroke = []; strokes.push(stroke); dirIn = [-1, 0.3];
+    }
+    const cand = nodes[cur].edges.filter(e => !e.done);
+    if (!cand.length) { cur = null; continue; }
+    const info = cand.map(e => {
+      const o = other(e, cur); const ch = oriented(e, cur); const d = dirOf(ch, false);
+      const deadEnd = o !== cur && nodes[o].end && !subtreeOpen(o, e);
+      const up = (ch[ch.length - 1][1] - ch[0][1]) < -fs * 0.08; // le bout est plus haut : une dent ou une hampe
+      const cont = d[0] * dirIn[0] + d[1] * dirIn[1];
+      return { e, o, ch, d, deadEnd, up, cont, loop: o === cur };
+    });
+    let pick;
+    const others = n => info.length - 1;
+    // a) une dent ou une hampe : on monte et on redescend (seulement si autre chose reste à faire ici)
+    pick = info.filter(i => i.deadEnd && i.up && i.e.len < fs * 1.1 && others() > 0).sort((a, b) => a.e.len - b.e.len)[0];
+    if (pick) { pick.e.done = true; push(pick.ch); push(pick.ch.slice().reverse()); dirIn = dirOf(pick.ch, true).map(v => -v); dirIn = [ -Math.abs(dirIn[0]) || -1, 0 ]; continue; }
+    // b) un petit crochet vers le bas, s'il reste d'autres traits ici : aller-retour aussi
+    pick = info.filter(i => i.deadEnd && !i.up && i.e.len < fs * 0.25 && others() > 0)[0];
+    if (pick) { pick.e.done = true; push(pick.ch); push(pick.ch.slice().reverse()); continue; }
+    // c) une boucle (deux traits qui vont au même endroit, comme la tête du م ou du و) : on fait le tour et on revient ici
+    const par = info.filter(i => !i.loop && info.some(j => j !== i && j.o === i.o && !j.loop));
+    if (par.length >= 2) {
+      // a : l'arc du haut (on monte d'abord), b : l'arc du bas
+      const midY = i => i.ch[Math.floor(i.ch.length / 2)][1];
+      const a = par.slice().sort((x, y) => midY(x) - midY(y))[0]; const b = par.find(j => j !== a && j.o === a.o);
+      a.e.done = true; b.e.done = true; push(a.ch); push(b.ch.slice().reverse());
+      if (info.length > 2) continue; // d'autres traits partent d'ici : on repart d'ici
+      push(b.ch); cur = a.o; // sinon on repasse sur le bas de la boucle et on continue de l'autre côté
+      const L = b.ch.length; const p1 = b.ch[L - 1], p0 = b.ch[Math.max(0, L - 4)]; const dl = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1; dirIn = [(p1[0] - p0[0]) / dl, (p1[1] - p0[1]) / dl];
+      continue;
+    }
+    pick = info.find(i => i.loop && info.length > 1);
+    if (pick) { pick.e.done = true; push(pick.ch); continue; }
+    // d) sinon on continue dans le sens de la main (vers la gauche, sans casser le mouvement) ; un bout libre en dernier
+    info.forEach(i => { i.score = i.cont * 1.2 - i.d[0] * 0.6 + (i.deadEnd ? -0.8 : 0) + (i.loop ? 0.3 : 0); });
+    pick = info.sort((a, b) => b.score - a.score)[0];
+    pick.e.done = true; push(pick.ch);
+    const L = pick.ch.length; const n = Math.max(1, Math.min(L - 1, Math.round(fs * 0.1))); const p1 = pick.ch[L - 1], p0 = pick.ch[L - 1 - n]; const dl = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1; dirIn = [(p1[0] - p0[0]) / dl, (p1[1] - p0[1]) / dl];
+    cur = pick.o;
+    if (nodes[cur].end) cur = null; // au bout du trait : on lève le stylo
+  }
+  return strokes.filter(s => s.length);
 }
 /* ====================================================================
  * 06l - Onglet Accueil : le tableau de bord du jour
@@ -6538,6 +6677,429 @@ async function renderHifz(ctx, root, state, back) {
   }, 'mod-cta');
   const known = Object.keys(H).filter(k => k.startsWith(at.s + ':')).length;
   if (known) h(root, 'div', 'aa-muted aa-small aa-hz-count', '🧠 ' + known + ' / ' + nV + ' versets de ' + data.surahInfo(at.s)[1] + ' appris par cœur.');
+}
+/* ====================================================================
+ * 06o - Le cours d'écriture : 10 leçons avec explications, schémas et quiz.
+ * Chaque leçon : des étapes (titre, texte, un schéma « viz »), puis un quiz.
+ * Types de schéma (dessinés par 06p) :
+ *  ruler  : le texte posé sur ses lignes (haut, ligne de base, bas), avec les zones
+ *  alifdots : le alif mesuré en points
+ *  pieces : un mot coupé en morceaux attachés, en couleurs
+ *  skel   : les squelettes communs et les lettres qu'on obtient avec les points
+ *  forms  : les 4 formes de quelques lettres
+ *  cmp    : des cartes côte à côte (✅ / ❌ / neutre)
+ *  styles : le même texte dans plusieurs styles d'écriture
+ *  demo   : le geste animé ; trace : un cadre pour tracer sur le modèle
+ *  marks  : une lettre avec chaque signe, et son nom
+ * ==================================================================== */
+const WRITE_COURSE = [
+  {
+    id: 'c1', title: "La ligne et le sens de l'écriture", ar: 'السَّطْرُ', min: 15,
+    steps: [
+      { h: "De droite à gauche", md: "L'arabe s'écrit et se lit **de droite à gauche**. Chaque ligne commence au bord **droit** de la page, et chaque mot commence par sa lettre la plus à droite.\n\nUn cahier arabe s'ouvre donc « à l'envers » pour nous : la première page est celle qui, en français, serait la dernière.\n\nBonne nouvelle si tu es droitier : ta main avance vers la gauche, donc elle ne passe **jamais sur l'encre fraîche**.", viz: { t: 'ruler', text: 'بِسْمِ ٱللَّهِ', arrow: true } },
+      { h: "La ligne de base", md: "Toutes les lettres s'appuient sur **une ligne invisible**, la ligne de base (en pointillé dans l'Atelier). C'est sur elle que les lettres se **posent** et que passe le **trait qui les attache**.\n\nPar rapport à cette ligne, il y a **3 zones** :\n- **au-dessus** : la hampe des lettres hautes (ا ل ك ط ظ), les points et les voyelles du haut ;\n- **sur la ligne** : le corps de la plupart des lettres ;\n- **en dessous** : la queue des lettres qui « plongent » (ر ز و ن ي ج ح خ ع غ م ق س ش ص ض…), les points et la voyelle du bas.", viz: { t: 'ruler', text: 'ا ب ن ج', zones: true } },
+      { h: "Mesurer avec le point", md: "Les calligraphes ne mesurent pas en millimètres : ils mesurent avec **le point** (نُقْطَة nuqṭa), le petit losange que fait le calame quand on le pose.\n\nEn **naskh** (l'écriture des livres et des Corans imprimés), le **alif mesure environ 5 points** de haut. Toutes les autres lettres se règlent sur lui : le corps du ب est à peu près **aussi long que le alif est haut**, une voyelle fait environ **un tiers** du alif.\n\nTu n'as pas besoin d'être aussi précis. Retiens l'idée : **le alif est ta règle**. Si ton alif est grand, toute ta ligne est grande.", viz: { t: 'alifdots' } },
+      { h: "Préparer son cahier", md: "Pour bien commencer :\n- prends un cahier à **grands carreaux** (ou des lignes espacées d'au moins 1 cm) ;\n- pose les lettres **sur une ligne épaisse** : c'est ta ligne de base ;\n- fais monter le alif jusqu'à **la ligne épaisse du dessus** (environ 8 mm) ;\n- laisse les queues descendre d'environ **la moitié** de cet espace ;\n- saute **une ligne sur deux** au début : les queues et les voyelles ont besoin de place.\n\nUn simple stylo ou un crayon suffit. Plus tard, un **feutre à pointe biseautée** (2 à 4 mm) donne les pleins et les déliés du naskh, si tu le tiens toujours avec la même inclinaison.", viz: { t: 'ruler', text: 'كَتَبَ', zones: true } },
+      { h: "Regarde la main écrire", md: "Observe le stylo : il **part du haut à droite**, avance vers la gauche, se lève, puis revient poser **les points** et enfin **les voyelles**. On y reviendra dans chaque leçon.\n\nAppuie sur « 🐢 Au ralenti » pour bien suivre.", viz: { t: 'demo', text: 'بِسْمِ' } },
+    ],
+    quiz: [
+      { q: "Où commence une ligne d'arabe ?", o: ["Au bord droit de la page", "Au bord gauche de la page", "Au milieu"], a: 0, why: "On écrit de droite à gauche." },
+      { q: "Sur quoi les lettres se posent-elles ?", o: ["Sur la ligne de base", "Sous la ligne", "Sur la ligne du haut"], a: 0, why: "La ligne de base porte le corps des lettres et le trait qui les attache." },
+      { q: "Laquelle de ces lettres monte le plus haut ?", o: ["ا", "ب", "ن"], a: 0, why: "Le alif est la lettre la plus haute : c'est la règle de toute la ligne." },
+      { q: "Quelle lettre plonge sous la ligne ?", o: ["ر", "ا", "ب"], a: 0, why: "Le rā' descend sous la ligne, comme une virgule." },
+      { q: "En naskh, le alif mesure environ…", o: ["5 points", "1 point", "15 points"], a: 0, why: "Environ 5 points : c'est l'unité de mesure de toutes les lettres." },
+    ],
+  },
+  {
+    id: 'c2', title: "Le squelette et les points", ar: 'الرَّسْمُ وَالنُّقَطُ', min: 20,
+    steps: [
+      { h: "28 lettres, mais peu de formes", md: "L'arabe a 28 lettres, mais beaucoup **partagent le même corps** (on dit le même squelette, رَسْم rasm). Seuls **les points** les distinguent.\n\nAu tout début de l'islam, on écrivait même souvent **sans les points** : les lecteurs reconnaissaient les mots. Les points ont été généralisés ensuite pour éviter les erreurs.\n\nRegarde : à gauche le squelette nu, à droite les lettres qu'on obtient en ajoutant des points.", viz: { t: 'skel', rows: [['ٮـ', ['بـ', 'تـ', 'ثـ', 'نـ', 'يـ']], ['ح', ['ج', 'ح', 'خ']], ['د', ['د', 'ذ']], ['ر', ['ر', 'ز']], ['س', ['س', 'ش']], ['ص', ['ص', 'ض']], ['ط', ['ط', 'ظ']], ['ع', ['ع', 'غ']], ['ڡـ', ['فـ', 'قـ']]] } },
+      { h: "Le corps d'abord, les points ensuite", md: "Règle d'or : on trace **tout le corps** d'un morceau attaché **d'un seul mouvement**, sans lever le stylo. **Ensuite seulement** on revient poser les points, de droite à gauche. Les **voyelles** viennent **en tout dernier**, quand le mot entier est fini.\n\nPourquoi ? Parce que la main garde son élan, et que les lettres attachées restent bien régulières. Si tu poses les points en même temps, ton trait devient haché.", viz: { t: 'demo', text: 'بَيْت' } },
+      { h: "Comment faire un point", md: "En naskh, le point n'est **pas un rond** : c'est un **petit losange** penché, fait d'une petite pression du stylo, de haut à droite vers le bas à gauche.\n\n- **2 points** : côte à côte, sur une même ligne ;\n- **3 points** : deux en bas, un au-dessus d'eux (un petit triangle), pour ث et ش.\n\nLes points se placent **au milieu de la lettre** qu'ils accompagnent, pas au-dessus de sa voisine.", viz: { t: 'big', items: [['ب', 'un point dessous'], ['ت', 'deux points dessus'], ['ث', 'trois points en triangle'], ['ي', 'deux points dessous']] } },
+      { h: "À la main, les points se simplifient", md: "Quand on écrit vite, à la main (style **ruqʿa**), les points changent d'aspect :\n- **2 points** deviennent un **petit trait** ‐ ;\n- **3 points** deviennent un **petit chapeau** ^.\n\nTu le verras chez les arabophones. Pour apprendre, garde les vrais points du naskh : ils sont plus clairs.", viz: { t: 'styles', text: 'تَثْبِيت شَيْء', fonts: ['naskh', 'ruqaa'] } },
+    ],
+    quiz: [
+      { q: "Qu'est-ce qui distingue ب ت ث au début d'un mot ?", o: ["Seulement les points", "La hauteur", "Le sens d'écriture"], a: 0, why: "Même squelette ٮـ : 1 point dessous, 2 dessus, 3 dessus." },
+      { q: "Dans quel ordre écrit-on un morceau de mot ?", o: ["Corps, puis points, puis voyelles", "Points, puis corps", "Voyelles, puis corps"], a: 0, why: "Le corps d'un seul geste, puis les points, et les voyelles à la toute fin." },
+      { q: "Quelle lettre a trois points au-dessus ?", o: ["ش", "س", "ص"], a: 0, why: "ش = le squelette de س + trois points." },
+      { q: "Quelle lettre a le même corps que ج, sans aucun point ?", o: ["ح", "خ", "ع"], a: 0, why: "ج (point dedans), ح (aucun point), خ (point au-dessus)." },
+      { q: "En écriture rapide (ruqʿa), deux points deviennent souvent…", o: ["un petit trait", "un rond", "rien du tout"], a: 0, why: "Deux points → un petit trait, trois points → un petit chapeau." },
+    ],
+  },
+  {
+    id: 'c3', title: "Attacher les lettres", ar: 'الْوَصْلُ', min: 20,
+    steps: [
+      { h: "Une écriture attachée", md: "L'arabe est **toujours attaché**, même dans les livres imprimés. Les lettres d'un mot se relient par **un petit trait posé sur la ligne de base**.\n\nUn mot peut donc être **un seul morceau** tracé d'un trait, comme كَتَبَ (il a écrit).", viz: { t: 'pieces', text: 'كَتَبَ' } },
+      { h: "Les 6 lettres qui ne donnent pas la main", md: "Six lettres **ne s'attachent jamais à la lettre qui suit** (celle de gauche) : **ا د ذ ر ز و**.\n\nElles s'attachent à la lettre d'avant si elle le permet, mais **après elles, le mot se coupe** : on lève le stylo et la lettre suivante recommence comme un début de mot.\n\nMoyen mnémotechnique : ces six lettres « **ne donnent pas la main** » à gauche. (Il faut y ajouter ة, ء et les supports de hamza أ إ ؤ.)", viz: { t: 'pieces', text: 'دَرَسَ وَرْدَة' } },
+      { h: "Compter les morceaux", md: "Avant d'écrire un mot, regarde **combien de morceaux** il a. Chaque morceau se trace **d'un seul trait**, puis on lève le stylo.\n\nExemple : ٱلرَّحْمَٰنِ = ا | لر | حمن : **3 morceaux**. Le ر ne donne pas la main, alors le ح repart comme un début de mot.", viz: { t: 'pieces', text: 'ٱلرَّحْمَٰنِ ٱلرَّحِيمِ' } },
+      { h: "Les espaces", md: "Il y a **deux sortes d'espaces** :\n- un **petit espace** entre deux morceaux **d'un même mot** (après ا د ذ ر ز و) ;\n- un **espace plus grand** entre **deux mots**.\n\nSi tu les fais de la même taille, ton texte devient difficile à lire : on ne sait plus où finit un mot.", viz: { t: 'cmp', items: [['قَالَ رَبُّ', "Petit espace dans un mot, grand entre les mots", true], ['قَا لَ رَ بُّ', "Espaces trop réguliers : on ne voit plus les mots", false]] } },
+      { h: "Le trait d'allongement", md: "On peut **allonger le trait d'attache** pour l'élégance ou pour remplir une ligne : c'est le **tatwīl** (ou kashīda) ـ.\n\nLe tatwīl ne se met **qu'entre deux lettres attachées**, jamais après ا د ذ ر ز و. Sans excès : un mot très étiré devient étrange.", viz: { t: 'cmp', items: [['بسم', "Normal", null], ['بســم', "Allongé (tatwīl)", null]] } },
+    ],
+    quiz: [
+      { q: "Combien de morceaux dans le mot دار (maison) ?", o: ["3", "1", "2"], a: 0, why: "د et ا ne donnent pas la main, et ر finit le mot : د | ا | ر." },
+      { q: "Combien de morceaux dans كتب ?", o: ["1", "2", "3"], a: 0, why: "ك, ت et ب s'attachent toutes : un seul trait." },
+      { q: "Combien de morceaux dans رسول (messager) ?", o: ["3", "2", "4"], a: 0, why: "ر | سو | ل : le ر puis le و coupent le mot." },
+      { q: "Laquelle de ces lettres ne s'attache jamais à la suivante ?", o: ["ز", "س", "م"], a: 0, why: "ا د ذ ر ز و ne donnent pas la main à gauche." },
+      { q: "Où peut-on mettre un tatwīl ـ ?", o: ["Entre deux lettres attachées", "Après un و", "Au début d'un mot"], a: 0, why: "Il allonge le trait d'attache : il faut deux lettres qui s'attachent." },
+    ],
+  },
+  {
+    id: 'c4', title: "Les quatre formes d'une lettre", ar: 'أَشْكَالُ الْحُرُوفِ', min: 20,
+    steps: [
+      { h: "Pourquoi 4 formes ?", md: "Une lettre change un peu de forme selon **ses voisines** :\n- **seule** : rien ne la touche ;\n- **au début** : attachée seulement à **gauche** (vers la lettre suivante) ;\n- **au milieu** : attachée **des deux côtés** ;\n- **à la fin** : attachée seulement à **droite** (à la lettre d'avant).\n\nLe **cœur** de la lettre ne change pas : c'est ce qui permet de la reconnaître.", viz: { t: 'forms', letters: ['ب', 'ج', 'م'] } },
+      { h: "La recette", md: "Pour presque toutes les lettres :\n- **début** = la lettre **sans sa queue**, qui part vers la gauche ;\n- **milieu** = le début, avec en plus le trait qui arrive de droite ;\n- **fin** = la lettre **seule**, avec le trait qui arrive de droite.\n\nRegarde ن et س : au début et au milieu, le grand bol **disparaît**. Il ne reste qu'une petite dent (ن) ou trois dents (س).", viz: { t: 'forms', letters: ['ن', 'س', 'ي'] } },
+      { h: "Celles qui changent beaucoup", md: "Quelques lettres changent plus que les autres. Apprends-les bien :\n- **ع غ** : la tête est **ouverte** au début (عـ), devient un **petit triangle fermé** au milieu et à la fin (ـعـ ـع) ;\n- **ه** : quatre visages très différents : ه هـ ـهـ ـه ;\n- **ك** : au début et au milieu, une **barre penchée** en haut (كـ ـكـ) ;\n- **ي** : une petite dent au début et au milieu, une grande courbe à la fin.", viz: { t: 'forms', letters: ['ع', 'ه', 'ك'] } },
+      { h: "Les lettres qui ne donnent pas la main", md: "ا د ذ ر ز و n'ont que **deux formes** : **seule** et **à la fin**, puisqu'elles ne s'attachent jamais à gauche. Leur forme reste presque la même : le trait arrive simplement de la droite.", viz: { t: 'forms', letters: ['د', 'ر', 'و'] } },
+    ],
+    quiz: [
+      { q: "Dans كتب, le ت est en forme…", o: ["milieu", "début", "fin"], a: 0, why: "Il est attaché à ك (à droite) et à ب (à gauche)." },
+      { q: "Au début d'un mot, ن ressemble à…", o: ["une petite dent avec un point dessus", "un grand bol", "un rond"], a: 0, why: "Le bol disparaît : نـ = une dent, un point dessus." },
+      { q: "Quelle forme de ع est un petit triangle fermé ?", o: ["ـعـ (milieu)", "عـ (début)", "ع (seule)"], a: 0, why: "La tête est ouverte au début, fermée au milieu et à la fin." },
+      { q: "Combien de formes a le د ?", o: ["2", "4", "1"], a: 0, why: "Seule et à la fin : il ne s'attache jamais à gauche." },
+      { q: "Quelle lettre a la forme هـ au début d'un mot ?", o: ["ه", "ع", "م"], a: 0, why: "Le hā' a quatre formes très différentes : ه هـ ـهـ ـه." },
+    ],
+  },
+  {
+    id: 'c5', title: "Les dents et les bols", ar: 'الْأَسْنَانُ', min: 20,
+    steps: [
+      { h: "La dent", md: "Au début et au milieu d'un mot, ب ت ث ن ي se réduisent à **une petite dent** (نَبْرَة nabra) : un petit trait qui monte d'environ **un point** au-dessus de la ligne et redescend.\n\nLa main fait : **monter – redescendre – avancer**. Regarde bien le geste : sur chaque dent, le stylo monte puis revient sur ses pas.", viz: { t: 'demo', text: 'بَيْن' } },
+      { h: "Les dents de س", md: "Le س a **trois dents** régulières, **sans aucun point**. Les dents du س sont un peu plus petites et serrées que les dents des lettres à points.\n\nQuand plusieurs dents se suivent, ce sont **les points** qui disent quelle lettre est où. Regarde نَسْتَعِينُ (c'est Toi dont nous implorons le secours, 1:5) : ن (1 dent), س (3 dents), ت (1 dent), ع, ي (1 dent), ن final.", viz: { t: 'pieces', text: 'نَسْتَعِينُ', letters: true } },
+      { h: "Plat ou rond : ب ou ن à la fin", md: "À la fin d'un mot, ne confonds pas :\n- **ب ت ث** : un corps **long et plat**, posé sur la ligne (un bateau) ;\n- **ن** : un **bol rond et profond**, qui descend sous la ligne ;\n- **ي** : une **grande courbe** en S couché, sous la ligne, avec deux points dessous.", viz: { t: 'ruler', text: 'كِتَاب   مِن   فِي', zones: true } },
+      { h: "Les bols de س ش ص ض ق", md: "Seules ou à la fin, ces lettres finissent par **le même grand bol** que ن : rond, profond, il remonte un peu à gauche. Au début et au milieu, ce bol disparaît.", viz: { t: 'ruler', text: 'نَاس  ٱلْأَرْض  حَقّ', zones: true } },
+      { h: "À toi", md: "Trace le mot sur le modèle. Pense : **monter-redescendre** à chaque dent, puis les points.", viz: { t: 'trace', text: 'بَيْن' } },
+    ],
+    quiz: [
+      { q: "Combien de dents a le س ?", o: ["3", "1", "2"], a: 0, why: "Trois dents régulières, sans point." },
+      { q: "Au milieu d'un mot, ي ressemble à…", o: ["une dent avec deux points dessous", "une grande courbe", "un rond"], a: 0, why: "ـيـ : une dent, deux points dessous." },
+      { q: "À la fin d'un mot, quelle lettre a un bol profond ?", o: ["ن", "ب", "ت"], a: 0, why: "ب et ت sont plates ; ن est un bol rond et profond." },
+      { q: "Qu'est-ce qui permet de savoir quelle dent est quelle lettre ?", o: ["Les points", "La couleur", "La hauteur"], a: 0, why: "Toutes les dents se ressemblent : ce sont les points qui parlent." },
+    ],
+  },
+  {
+    id: 'c6', title: "Les lettres qui montent et qui plongent", ar: 'الصَّاعِدُ وَالنَّازِلُ', min: 20,
+    steps: [
+      { h: "Les lettres hautes", md: "Cinq lettres montent jusqu'à la hauteur du alif : **ا ل ك ط ظ** (pour ك, c'est sa barre du haut). On les trace **de haut en bas**.\n\nGarde-les **toutes à la même hauteur** : c'est ce qui donne une ligne régulière et belle.", viz: { t: 'ruler', text: 'كَلَّا طَالِب', zones: true } },
+      { h: "La hampe au milieu d'un mot", md: "Quand ل ou ط arrivent au milieu d'un mot, la main vient de la ligne de base. Elle **monte la hampe** puis **redescend sur le même trait** et continue. Regarde le geste au ralenti.", viz: { t: 'demo', text: 'عِلْم' } },
+      { h: "Les lettres qui plongent", md: "Sous la ligne, trois familles :\n- **petite descente**, comme une virgule : **ر ز و** ;\n- **le bol** : **ن ي س ش ص ض ق** (seules ou à la fin) ;\n- **la grande courbe** : **ج ح خ ع غ** (seules ou à la fin), qui descend le plus bas.\n\nEt **م** seul ou à la fin, avec sa petite **queue droite**.", viz: { t: 'ruler', text: 'رَبّ  نُون  حَجّ  قَلَم', zones: true } },
+      { h: "Les lettres qui s'empilent", md: "Dans les Corans et la belle calligraphie, certaines lettres **s'empilent** : avant ج ح خ et parfois م, la lettre d'avant est **posée plus haut**, et le mot descend en escalier (مُحَمَّد, لِلَّهِ).\n\nC'est beau, mais **pas obligatoire** : en écriture d'école, tout reste sur la ligne. Commence par la version simple.", viz: { t: 'styles', text: 'مُحَمَّد  يَحْمَدُ', fonts: ['naskh', 'amiri'] } },
+    ],
+    quiz: [
+      { q: "Laquelle de ces lettres monte jusqu'à la hauteur du alif ?", o: ["ط", "ص", "ع"], a: 0, why: "ا ل ك ط ظ sont les lettres hautes." },
+      { q: "Dans quel sens trace-t-on le alif ?", o: ["Du haut vers le bas", "Du bas vers le haut", "De gauche à droite"], a: 0, why: "Les hampes se tracent de haut en bas." },
+      { q: "Quelle lettre descend le plus bas sous la ligne ?", o: ["ح (seul)", "ر", "د"], a: 0, why: "La grande courbe de ج ح خ ع غ est la plus profonde ; ر fait une petite virgule, د ne descend pas." },
+      { q: "Les lettres empilées (مُحَمَّد en escalier) sont…", o: ["belles mais pas obligatoires", "obligatoires", "une faute"], a: 0, why: "En écriture d'école, on peut tout garder sur la ligne." },
+    ],
+  },
+  {
+    id: 'c7', title: "Les voyelles et les petits signes", ar: 'الْحَرَكَاتُ', min: 25,
+    steps: [
+      { h: "Quand et où", md: "Les voyelles (حَرَكَات) se tracent **en dernier**, quand tout le mot est fini (corps puis points).\n\nElles sont **petites** (environ un tiers du alif) et se placent **au-dessus ou au-dessous du corps de leur lettre**, pas au-dessus du trait d'attache. Toutes se tracent **de haut en bas** ou **de droite à gauche**, comme le reste.", viz: { t: 'demo', text: 'كَتَبَ' } },
+      { h: "Les trois voyelles brèves et le soukoun", md: "- **fatḥa** َ : un petit trait **penché** au-dessus (son a) ;\n- **kasra** ِ : le même trait **au-dessous** (son i) ;\n- **ḍamma** ُ : un **petit و** au-dessus (son ou) ;\n- **sukūn** ْ : un **petit rond** au-dessus : pas de voyelle.", viz: { t: 'marks', items: [['بَ', 'fatḥa', 'ba'], ['بِ', 'kasra', 'bi'], ['بُ', 'ḍamma', 'bou'], ['بْ', 'sukūn', 'b (sans voyelle)']] } },
+      { h: "La shadda", md: "La **shadda** ّ (un petit « w ») veut dire que la consonne est **doublée**. On la trace **avant** la voyelle de la lettre :\n- la **fatḥa** et la **ḍamma** se mettent **au-dessus de la shadda** ;\n- la **kasra** se met **sous la lettre**, ou tout près **sous la shadda** (les deux se voient : les Corans imprimés la mettent souvent sous la shadda).", viz: { t: 'marks', items: [['رَبَّ', 'shadda + fatḥa', 'rabba'], ['رَبُّ', 'shadda + ḍamma', 'rabbou'], ['رَبِّ', 'shadda + kasra', 'rabbi']] } },
+      { h: "Le tanwīn", md: "Le **tanwīn** double la voyelle et ajoute un **n** à la prononciation : ً (an) ٍ (in) ٌ (oun).\n\nAttention au **tanwīn en a** : on ajoute en général **un alif** à la fin du mot (كِتَابًا), sauf après **ة** (رَحْمَةً) et après **ء** précédé d'un alif (سَمَاءً). Ce alif ne se prononce pas comme un ā : il porte juste le « an ».", viz: { t: 'marks', items: [['كِتَابًا', 'tanwīn fatḥ + alif', 'kitāban'], ['كِتَابٌ', 'tanwīn ḍamm', 'kitāboun'], ['كِتَابٍ', 'tanwīn kasr', 'kitābin'], ['رَحْمَةً', 'après ة : pas de alif', 'raḥmatan']] } },
+      { h: "Les signes du Coran", md: "Le Coran ajoute d'autres petits signes, que l'on recopie quand on écrit un verset :\n- **madda** آ : un alif qui s'allonge (ā long, souvent après une hamza) ;\n- **alif waṣla** ٱ : un alif qu'on ne prononce pas quand on enchaîne ;\n- **petit alif** ٰ (alif suscrit) : un ā long écrit en petit, comme dans ٱلرَّحْمَٰنِ.\n\nDans la vie de tous les jours, les arabophones écrivent **presque sans voyelles**. Le Coran, lui, est **entièrement vocalisé**.", viz: { t: 'cmp', items: [['ٱلرَّحْمَٰنِ', "Coran : tout est noté", null], ['الرحمن', "Écriture courante : sans voyelles", null]] } },
+    ],
+    quiz: [
+      { q: "Quand trace-t-on les voyelles ?", o: ["À la toute fin du mot", "Avant le corps", "Avant les points"], a: 0, why: "Corps, puis points, puis voyelles." },
+      { q: "Quel signe est un petit و au-dessus de la lettre ?", o: ["ḍamma ُ", "fatḥa َ", "sukūn ْ"], a: 0, why: "La ḍamma (son ou) est un petit و." },
+      { q: "Avec une shadda, où va la fatḥa ?", o: ["Au-dessus de la shadda", "Sous la lettre", "À côté"], a: 0, why: "Fatḥa et ḍamma au-dessus de la shadda ; la kasra en dessous." },
+      { q: "Comment écrit-on « un livre » avec le tanwīn en a ?", o: ["كِتَابًا", "كِتَابً", "كِتَابَن"], a: 0, why: "On ajoute un alif qui porte le tanwīn." },
+      { q: "Le petit rond ْ au-dessus d'une lettre veut dire…", o: ["pas de voyelle", "un ā long", "lettre doublée"], a: 0, why: "C'est le sukūn." },
+    ],
+  },
+  {
+    id: 'c8', title: "Les lettres pièges", ar: 'حُرُوفٌ دَقِيقَةٌ', min: 25,
+    steps: [
+      { h: "Lām-alif : toujours ensemble", md: "Quand ل est suivi de ا, on n'écrit **jamais** les deux côte à côte : on fait **une seule forme**, la ligature **لا** (comme un V qui se croise).\n\nC'est la seule ligature **obligatoire** de l'arabe. Elle compte quand même pour **deux lettres**.", viz: { t: 'cmp', items: [['لا', "Juste : la ligature", true], ['ل‌ا', "Faux : ل et ا côte à côte", false]] } },
+      { h: "ة, ت ou ه ?", md: "Le **tā' marbūṭa** ة ressemble à un ه avec **deux points**. On le trouve **seulement à la fin** d'un mot (souvent des noms féminins : رَحْمَة, جَنَّة).\n\n- quand on enchaîne, il se prononce **t** ;\n- quand on s'arrête dessus, il se prononce **a** (ou un léger **h**).\n\nNe le remplace pas par ت (un t « ouvert », qui peut être partout) ni par ه (sans points).", viz: { t: 'cmp', items: [['رَحْمَة', "ة : tā' marbūṭa (fin de mot)", true], ['بَيْت', "ت : le t ordinaire", null], ['وَجْه', "ه : le hā' (sans points)", null]] } },
+      { h: "ى ou ي ?", md: "Le **alif maqṣūra** ى ressemble au ي final mais **n'a pas de points**. Il ne vient **qu'à la fin** d'un mot et se prononce **ā** : عَلَى (sur), مُوسَى (Moïse), هُدًى (guidée).\n\nAttention : en Égypte et chez beaucoup de gens, on écrit le ي final **sans points** à la main. Dans le Coran et dans tes exercices, fais bien la différence.", viz: { t: 'cmp', items: [['عَلَى', "ى : alif maqṣūra (ā), sans points", true], ['فِي', "ي : yā' (ī), deux points dessous", true]] } },
+      { h: "La hamza et ses sièges", md: "La **hamza** ء (un petit coup de glotte) s'écrit souvent **sur un support** :\n- sur un **alif** : أ (dessus) ou إ (dessous, avec un i) — au début d'un mot, c'est toujours un alif : أَحَد, إِيمَان ;\n- sur un **و** : ؤ (مُؤْمِن) ;\n- sur une **dent sans points** : ئ (سُئِلَ) ;\n- **seule**, sur la ligne : ء (شَيْء, سَمَاء).\n\nLa règle complète dépend des voyelles autour. Pour l'instant, **recopie le modèle** : tu la sentiras peu à peu.", viz: { t: 'big', items: [['أَحَد', 'sur alif'], ['إِيمَان', 'sous alif'], ['مُؤْمِن', 'sur و'], ['سُئِلَ', 'sur une dent'], ['سَمَاء', 'seule']] } },
+      { h: "L'article ال et le nom d'Allah", md: "L'article **ال** s'écrit **toujours**, même quand le ل ne se prononce pas (devant les « lettres solaires ») : ٱلشَّمْس se dit ash-shams, mais on écrit bien le ل, et la **shadda** va sur la lettre suivante.\n\nLe nom **ٱللَّه** s'écrit avec **deux lām**, une **shadda** et souvent un **petit alif** au-dessus : ا + ل + ل + ه. Prends le temps de le tracer lentement.", viz: { t: 'demo', text: 'ٱللَّهُ' } },
+    ],
+    quiz: [
+      { q: "Comment écrit-on ل suivi de ا ?", o: ["لا (ligature)", "ل puis ا séparés", "ال"], a: 0, why: "La ligature lām-alif est obligatoire." },
+      { q: "Où peut-on trouver ة ?", o: ["Seulement à la fin d'un mot", "N'importe où", "Seulement au début"], a: 0, why: "Le tā' marbūṭa ne vient qu'en fin de mot." },
+      { q: "Lequel se prononce ā, sans points ?", o: ["ى", "ي", "ة"], a: 0, why: "Le alif maqṣūra : عَلَى, مُوسَى." },
+      { q: "Au début d'un mot, la hamza s'écrit sur…", o: ["un alif (أ ou إ)", "un و", "une dent"], a: 0, why: "Au début d'un mot, la hamza est toujours sur un alif." },
+      { q: "Dans ٱلشَّمْس, le ل de l'article…", o: ["s'écrit mais ne se prononce pas", "ne s'écrit pas", "se prononce"], a: 0, why: "Devant une lettre solaire, on écrit le ل et on double la lettre suivante (shadda)." },
+    ],
+  },
+  {
+    id: 'c9', title: "Écrire un mot pas à pas", ar: 'كِتَابَةُ كَلِمَةٍ', min: 25,
+    steps: [
+      { h: "La méthode en 4 temps", md: "Pour n'importe quel mot :\n1. **Regarde et coupe** : combien de morceaux ? (après ا د ذ ر ز و, on coupe) ;\n2. **Trace chaque morceau d'un trait**, de droite à gauche, sans lever le stylo ;\n3. **Pose les points**, de droite à gauche ;\n4. **Ajoute les signes** : d'abord la shadda, puis les voyelles, puis les autres signes.\n\nPrenons ٱلرَّحِيمِ (le Très Miséricordieux).", viz: { t: 'pieces', text: 'ٱلرَّحِيمِ' } },
+      { h: "Regarde le geste entier", md: "Observe les 4 temps : **ا**, puis le morceau **لر**, puis le morceau **حيم** d'un seul trait, puis les **deux points** du ي, et enfin la **shadda** et les **voyelles**.", viz: { t: 'demo', text: 'ٱلرَّحِيمِ' } },
+      { h: "À toi : trace sur le modèle", md: "Trace en suivant le modèle gris. Ne cherche pas la vitesse : cherche **un trait continu** dans chaque morceau.", viz: { t: 'trace', text: 'ٱلرَّحِيمِ' } },
+      { h: "La basmala", md: "Maintenant la phrase par laquelle on commence tout : **بِسْمِ ٱللَّهِ** (au nom d'Allah). Compte d'abord les morceaux (بسم = 1, ٱللَّه = 2 : ا | للّه), puis trace.", viz: { t: 'trace', text: 'بِسْمِ ٱللَّهِ' } },
+      { h: "Et sur papier", md: "Le mieux reste **le papier** : ouvre « 📜 Recopier le Coran dans mon cahier » (dans l'onglet Écrire). L'Atelier te montre un verset en grand, morceau par morceau, et tu le recopies à la main.\n\nConseils :\n- écris **grand** au début (le alif d'au moins 1 cm) ;\n- **une ligne sur deux** ;\n- compare ensuite avec le modèle : hauteur des hampes, place des points, régularité des dents.", viz: null, copyBtn: true },
+    ],
+    quiz: [
+      { q: "Première étape avant d'écrire un mot ?", o: ["Compter ses morceaux", "Poser les voyelles", "Écrire le dernier morceau"], a: 0, why: "Regarder et couper : après ا د ذ ر ز و, on coupe." },
+      { q: "Combien de morceaux dans ٱلرَّحِيمِ ?", o: ["3", "1", "2"], a: 0, why: "ا | لر | حيم." },
+      { q: "Dans un morceau, on lève le stylo…", o: ["à la fin du morceau seulement", "après chaque lettre", "jamais"], a: 0, why: "Un morceau = un seul trait ; on lève le stylo ensuite pour les points." },
+      { q: "Quel signe trace-t-on en premier parmi les signes ?", o: ["La shadda", "La kasra", "Le sukūn"], a: 0, why: "La shadda d'abord, puis la voyelle qui va avec." },
+    ],
+  },
+  {
+    id: 'c10', title: "Les styles d'écriture", ar: 'الْخُطُوطُ', min: 20,
+    steps: [
+      { h: "Le naskh : le modèle", md: "Le **naskh** (نَسْخ, « copie ») est l'écriture **des livres, des journaux et des Corans imprimés**. Lettres nettes, points bien placés : c'est **le modèle à apprendre** et celui de l'Atelier.", viz: { t: 'styles', text: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ', fonts: ['naskh'] } },
+      { h: "Le ruqʿa : la main de tous les jours", md: "Au Moyen-Orient, quand on écrit vite à la main, on utilise le **ruqʿa** (رُقْعَة) :\n- plus petit, presque tout **sur la ligne** ;\n- les **dents de س disparaissent** (un simple trait) ;\n- **2 points → un trait**, **3 points → un chapeau** ;\n- les queues sont **courtes**.\n\nApprends à **le lire** : c'est l'écriture des lettres, des notes et des tableaux d'école.", viz: { t: 'styles', text: 'شَمْس  سَلَامٌ عَلَيْكُمْ', fonts: ['naskh', 'ruqaa'] } },
+      { h: "Le maghribi : l'écriture du Maroc", md: "Au **Maghreb** et en Afrique de l'Ouest, les manuscrits et beaucoup de Corans sont en **maghribi**. Formes rondes, grandes courbes… et une différence importante :\n- le **fā'** a **un point dessous** : ڢ ;\n- le **qāf** a **un seul point dessus** : ڧ.\n\nSi tu lis un Coran marocain, pense-y !", viz: { t: 'styles', text: 'قُلْ أَعُوذُ بِرَبِّ ٱلْفَلَقِ', fonts: ['naskh', 'maghribi'] } },
+      { h: "Le coufique et le nastaʿlīq", md: "Deux styles d'art à connaître :\n- le **coufique** : anguleux et géométrique, la plus ancienne écriture des Corans ; aujourd'hui pour les titres et les décorations ;\n- le **nastaʿlīq** : le style persan et ourdou, où les mots **descendent en diagonale**.\n\nÀ admirer, pas encore à recopier. Tu peux tous les voir dans Apprendre › Alphabet › « 🖋 Comparer les polices ».", viz: { t: 'styles', text: 'بِسْمِ ٱللَّهِ', fonts: ['kufi', 'nastaliq'] } },
+    ],
+    quiz: [
+      { q: "Quel style apprend-on en premier ?", o: ["Le naskh", "Le coufique", "Le nastaʿlīq"], a: 0, why: "Le naskh est le modèle des livres et des Corans imprimés." },
+      { q: "En ruqʿa, les dents du س…", o: ["deviennent un simple trait", "sont plus grandes", "ont des points"], a: 0, why: "Le ruqʿa simplifie : le س n'a plus de dents." },
+      { q: "En maghribi, le fā' a…", o: ["un point dessous", "deux points dessus", "aucun point"], a: 0, why: "ڢ : un point dessous ; et le qāf un seul point dessus." },
+      { q: "Quel style fait descendre les mots en diagonale ?", o: ["Le nastaʿlīq", "Le naskh", "Le ruqʿa"], a: 0, why: "Le nastaʿlīq, le style persan et ourdou." },
+    ],
+  },
+];
+/* ====================================================================
+ * 06p - Affichage du cours d'écriture (données dans 06o)
+ * Une étape à la fois, avec un schéma, puis un quiz (70 % pour valider).
+ * ==================================================================== */
+const WC_FONTS = {
+  naskh: '"Atelier Noto Naskh", "Atelier Amiri Quran", serif', amiri: '"Atelier Amiri Quran", serif', ruqaa: '"Atelier Aref Ruqaa", "Atelier Amiri Quran", serif',
+  maghribi: '"Bouazzi Maghribi", "Atelier Amiri Quran", serif', kufi: '"Atelier Reem Kufi", "Atelier Amiri Quran", serif', nastaliq: '"Atelier Noto Nastaliq", "Atelier Amiri Quran", serif',
+};
+const WC_FONT_NAMES = { naskh: 'Naskh (livres, école)', amiri: 'Naskh des Corans (calligraphié)', ruqaa: 'Ruqʿa (à la main)', maghribi: 'Maghribi (Maroc)', kufi: 'Coufique', nastaliq: 'Nastaʿlīq (persan)' };
+function wcState(ctx) { const W = writeState(ctx); return W.course || (W.course = {}); }
+function wcFont(el, id) { if (id !== 'amiri') ensureFont(id).catch(() => {}); el.style.fontFamily = WC_FONTS[id] || WC_FONTS.naskh; }
+/* découpe un mot en morceaux attachés (après ا د ذ ر ز و ة ء… le mot se coupe) */
+function wcPieces(word) {
+  const gs = []; for (const ch of word) { if (/[ً-ٰٟۖ-ۭ]/.test(ch) && gs.length) gs[gs.length - 1] += ch; else gs.push(ch); }
+  const out = []; let cur = ''; gs.forEach(g => { cur += g; if (NON_JOIN_NEXT.includes(g[0]) || g[0] === 'ٱ') { out.push(cur); cur = ''; } }); if (cur) out.push(cur);
+  return out;
+}
+function wcColors(el) { const cs = getComputedStyle(el); return { ink: cs.color || '#222', muted: cs.getPropertyValue('--text-muted').trim() || '#777', faint: cs.getPropertyValue('--text-faint').trim() || '#aaa', accent: cs.getPropertyValue('--interactive-accent').trim() || '#7852ee', line: cs.getPropertyValue('--background-modifier-border').trim() || '#ddd', soft: cs.getPropertyValue('--background-secondary').trim() || '#f4f4f4' }; }
+
+/* --- le texte posé sur ses lignes --- */
+function wcRuler(parent, v) {
+  const box = h(parent, 'div', 'aa-wc-canvas'); const cv = h(box, 'canvas');
+  const draw = () => {
+    const W = Math.max(260, Math.min(720, box.clientWidth || 600)); const H = Math.round(Math.min(260, Math.max(170, W * 0.36)));
+    const dpr = window.devicePixelRatio || 1; cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); const col = wcColors(box);
+    const font = fs => fs + 'px ' + WC_FONTS.naskh;
+    c.direction = 'rtl'; c.textAlign = 'center'; c.textBaseline = 'alphabetic';
+    let fs = H * 0.42; c.font = font(fs); let m = c.measureText(v.text); const wmax = W - (v.zones ? 150 : 40);
+    if (m.width > wmax) { fs *= wmax / m.width; c.font = font(fs); m = c.measureText(v.text); }
+    const alif = c.measureText('ا').actualBoundingBoxAscent; const nun = Math.max(c.measureText('ن').actualBoundingBoxDescent, c.measureText('ج').actualBoundingBoxDescent * 0.8);
+    const base = Math.round(H * 0.6); const top = base - alif, bot = base + nun;
+    const cx = v.zones ? (W + 120) / 2 : W / 2;
+    if (v.zones) {
+      c.fillStyle = col.soft; c.fillRect(110, top, W - 120, base - top);
+      c.globalAlpha = .55; c.fillRect(110, base, W - 120, bot - base); c.globalAlpha = 1;
+      c.font = '12px ' + (getComputedStyle(box).fontFamily || 'sans-serif'); c.direction = 'ltr'; c.textAlign = 'left'; c.fillStyle = col.muted;
+      c.fillText('au-dessus', 8, top + 14); c.fillText('hauteur du alif', 8, top - 4);
+      c.fillText('ligne de base', 8, base - 5); c.fillText('sous la ligne', 8, base + 16);
+      c.direction = 'rtl'; c.textAlign = 'center';
+    }
+    const line = (y, dash, w) => { c.save(); c.strokeStyle = col.faint; c.lineWidth = w || 1; if (dash) c.setLineDash(dash); c.beginPath(); c.moveTo(v.zones ? 110 : 10, y); c.lineTo(W - 10, y); c.stroke(); c.restore(); };
+    line(top, [3, 5]); line(base, null, 1.6); line(bot, [3, 5]);
+    c.font = font(fs); c.fillStyle = col.ink; c.fillText(v.text, cx, base);
+    if (v.arrow) { c.save(); c.strokeStyle = col.accent; c.fillStyle = col.accent; c.lineWidth = 2.5; const y = Math.max(16, top - 26); const x1 = cx + m.width / 2, x0 = cx - m.width / 2; c.beginPath(); c.moveTo(x1, y); c.lineTo(x0, y); c.stroke(); c.beginPath(); c.moveTo(x0 - 2, y); c.lineTo(x0 + 10, y - 6); c.lineTo(x0 + 10, y + 6); c.fill(); c.font = '12px sans-serif'; c.direction = 'ltr'; c.textAlign = 'center'; c.fillText('sens de l\'écriture', cx, y - 9); c.fillText('début', x1, y + 18); c.restore(); }
+  };
+  const go = () => draw(); (document.fonts && document.fonts.load ? ensureFont('naskh').then(() => document.fonts.load('40px ' + WC_FONTS.naskh, v.text)) : Promise.resolve()).then(go, go);
+  setTimeout(go, 50);
+}
+/* --- le alif mesuré en points --- */
+function wcAlifDots(parent) {
+  const box = h(parent, 'div', 'aa-wc-canvas'); const cv = h(box, 'canvas');
+  const draw = () => {
+    const W = Math.max(260, Math.min(520, box.clientWidth || 400)), H = 240; const dpr = window.devicePixelRatio || 1;
+    cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); const col = wcColors(box);
+    const base = 200; c.font = '190px ' + WC_FONTS.naskh; c.textBaseline = 'alphabetic'; c.textAlign = 'center'; c.direction = 'rtl';
+    const mA = c.measureText('ا'); const hA = mA.actualBoundingBoxAscent; const top = base - hA;
+    c.strokeStyle = col.faint; c.setLineDash([3, 5]); c.beginPath(); c.moveTo(10, top); c.lineTo(W - 10, top); c.moveTo(10, base); c.lineTo(W - 10, base); c.stroke(); c.setLineDash([]);
+    c.fillStyle = col.ink; c.fillText('ا', W * 0.62, base);
+    const n = 5, d = hA / n; const x = W * 0.36;
+    for (let i = 0; i < n; i++) { const y = base - d * (i + 0.5); c.save(); c.translate(x, y); c.rotate(Math.PI / 4); c.fillStyle = col.accent; c.globalAlpha = 0.85; c.fillRect(-d * 0.34, -d * 0.34, d * 0.68, d * 0.68); c.restore(); }
+    c.fillStyle = col.muted; c.font = '13px sans-serif'; c.direction = 'ltr'; c.textAlign = 'left'; c.fillText('5 points', x + d * 0.6, top + hA / 2);
+  };
+  const go = () => draw(); ensureFont('naskh').then(() => document.fonts && document.fonts.load('80px ' + WC_FONTS.naskh, 'ا')).then(go, go);
+  setTimeout(go, 50);
+}
+/* --- un mot coupé en morceaux --- */
+const WC_HUES = ['#d0675e', '#4f86c6', '#3e9e6b', '#c48a2c', '#8e63c7', '#2f9aa8'];
+function wcPiecesViz(parent, v) {
+  const box = h(parent, 'div', 'aa-wc-pieces');
+  const big = h(box, 'div', 'aa-wc-word'); big.setAttribute('dir', 'rtl'); big.textContent = v.text; wcFont(big, 'naskh');
+  const row = h(box, 'div', 'aa-wc-prow'); row.setAttribute('dir', 'rtl');
+  let k = 0; const words = v.text.split(/\s+/).filter(Boolean); let total = 0;
+  words.forEach((w, wi) => {
+    const wb = h(row, 'span', 'aa-wc-pword');
+    const parts = v.letters ? wcLetters(w) : wcPieces(w); total += parts.length;
+    parts.forEach(p => { const s = h(wb, 'span', 'aa-wc-piece', p); s.style.color = WC_HUES[k++ % WC_HUES.length]; wcFont(s, 'naskh'); });
+    void wi;
+  });
+  h(box, 'div', 'aa-muted aa-small aa-wc-cap', v.letters ? 'Lettre par lettre (chaque couleur = une lettre, le trait ـ montre l\'attache)' : (words.length > 1 ? total + ' morceaux en tout · chaque couleur = un morceau tracé d\'un seul trait' : total + (total > 1 ? ' morceaux' : ' morceau') + ' · chaque couleur = un morceau tracé d\'un seul trait'));
+}
+function wcLetters(word) {
+  const gs = []; for (const ch of word) { if (/[ً-ٰٟۖ-ۭ]/.test(ch) && gs.length) gs[gs.length - 1] += ch; else gs.push(ch); }
+  return gs.map((g, i) => { const prevJoins = i > 0 && !NON_JOIN_NEXT.includes(gs[i - 1][0]); const nextJoins = i < gs.length - 1 && !NON_JOIN_NEXT.includes(g[0]); return (prevJoins ? 'ـ' : '') + g + (nextJoins ? 'ـ' : ''); });
+}
+/* --- squelettes et points --- */
+function wcSkel(parent, v) {
+  const t = h(parent, 'div', 'aa-wc-skel');
+  v.rows.forEach(([sk, letters]) => {
+    const r = h(t, 'div', 'aa-wc-skrow');
+    const a = h(r, 'span', 'aa-wc-sk', sk); wcFont(a, 'naskh');
+    h(r, 'span', 'aa-wc-arrow', '→');
+    const ls = h(r, 'span', 'aa-wc-sklet'); ls.setAttribute('dir', 'rtl');
+    letters.forEach(l => { const s = h(ls, 'span', null, l); wcFont(s, 'naskh'); });
+  });
+}
+/* --- les 4 formes --- */
+function wcForms(parent, v) {
+  const t = h(parent, 'div', 'aa-wc-forms');
+  const head = h(t, 'div', 'aa-wc-frow aa-wc-fhead'); ['seule', 'début', 'milieu', 'fin'].forEach(x => h(head, 'span', 'aa-muted aa-small', x));
+  v.letters.forEach(l => {
+    const r = h(t, 'div', 'aa-wc-frow');
+    const fs = writeForms(l); const by = {}; fs.forEach(([f, where]) => { by[where] = f; });
+    ['seule', 'au début', 'au milieu', 'à la fin'].forEach(k => { const s = h(r, 'span', 'aa-wc-f', by[k] || '—'); if (by[k]) { s.setAttribute('dir', 'rtl'); wcFont(s, 'naskh'); } else s.classList.add('aa-muted'); });
+  });
+}
+/* --- cartes côte à côte --- */
+function wcCmp(parent, v) {
+  const g = h(parent, 'div', 'aa-wc-cmp');
+  v.items.forEach(([txt, lab, ok]) => {
+    const c = h(g, 'div', 'aa-wc-card' + (ok === true ? ' aa-wc-ok' : ok === false ? ' aa-wc-bad' : ''));
+    const a = h(c, 'div', 'aa-wc-cardar', txt); a.setAttribute('dir', 'rtl'); wcFont(a, 'naskh');
+    h(c, 'div', 'aa-small', (ok === true ? '✅ ' : ok === false ? '❌ ' : '') + lab);
+  });
+}
+function wcBig(parent, v) {
+  const g = h(parent, 'div', 'aa-wc-cmp');
+  v.items.forEach(([txt, lab]) => { const c = h(g, 'div', 'aa-wc-card'); const a = h(c, 'div', 'aa-wc-cardar', txt); a.setAttribute('dir', 'rtl'); wcFont(a, 'naskh'); h(c, 'div', 'aa-muted aa-small', lab); });
+}
+function wcMarks(parent, v) {
+  const g = h(parent, 'div', 'aa-wc-cmp');
+  v.items.forEach(([txt, name, say]) => {
+    const c = h(g, 'div', 'aa-wc-card'); const a = h(c, 'div', 'aa-wc-cardar aa-wc-marks', txt); a.setAttribute('dir', 'rtl'); wcFont(a, 'amiri');
+    h(c, 'div', null, name); h(c, 'div', 'aa-tr aa-small', say);
+    const b = btn(c, '🔊', () => speak(txt), 'aa-btn-quiet aa-sound'); b.title = 'Écouter';
+  });
+}
+function wcStyles(parent, v) {
+  const g = h(parent, 'div', 'aa-wc-styles');
+  v.fonts.forEach(id => { const c = h(g, 'div', 'aa-wc-card'); h(c, 'div', 'aa-muted aa-small', WC_FONT_NAMES[id] || id); const a = h(c, 'div', 'aa-wc-stylear', v.text); a.setAttribute('dir', 'rtl'); a.setAttribute('lang', 'ar'); wcFont(a, id); });
+}
+function wcViz(ctx, parent, v) {
+  if (!v) return;
+  const wrap = h(parent, 'div', 'aa-wc-viz');
+  if (v.t === 'ruler') wcRuler(wrap, v);
+  else if (v.t === 'alifdots') wcAlifDots(wrap);
+  else if (v.t === 'pieces') wcPiecesViz(wrap, v);
+  else if (v.t === 'skel') wcSkel(wrap, v);
+  else if (v.t === 'forms') wcForms(wrap, v);
+  else if (v.t === 'cmp') wcCmp(wrap, v);
+  else if (v.t === 'big') wcBig(wrap, v);
+  else if (v.t === 'marks') wcMarks(wrap, v);
+  else if (v.t === 'styles') wcStyles(wrap, v);
+  else if (v.t === 'demo') makeWritePad(ctx, wrap, { text: v.text, mode: 'view', autoDemo: true });
+  else if (v.t === 'trace') makeWritePad(ctx, wrap, { text: v.text, mode: 'trace', autoDemo: false, onScore: () => {} });
+}
+
+/* --- la liste des leçons (dans l'onglet Écrire) --- */
+function renderWriteCourseList(ctx, root, state, go) {
+  const C = wcState(ctx);
+  const nDone = WRITE_COURSE.filter(L => C[L.id] && C[L.id].done).length;
+  const sec = h(root, 'div', 'aa-wc-list');
+  const head = h(sec, 'div', 'aa-wc-listhead');
+  h(head, 'h3', 'aa-fc-group', '📘 Le cours d\'écriture');
+  h(head, 'span', 'aa-muted aa-small', nDone + ' / ' + WRITE_COURSE.length + ' leçons validées');
+  mdText(sec, 'p', 'aa-muted', 'Les **règles** de l\'écriture arabe, expliquées pas à pas, avec des schémas et le geste animé. À faire **avant ou en même temps** que le cahier lettre par lettre.');
+  const grid = h(sec, 'div', 'aa-lesson-grid');
+  const next = WRITE_COURSE.find(L => !(C[L.id] && C[L.id].done));
+  WRITE_COURSE.forEach((L, k) => {
+    const st = C[L.id];
+    const c = h(grid, 'div', 'aa-lesson-card' + (st && st.done ? ' aa-lesson-done' : '') + (L === next ? ' aa-lesson-next' : ''));
+    const top = h(c, 'div', 'aa-lesson-top'); h(top, 'span', 'aa-lesson-num', String(k + 1));
+    if (st && st.done) h(top, 'span', 'aa-tag', '✓ ' + st.best + ' %'); else if (L === next) h(top, 'span', 'aa-tag', '→ maintenant');
+    h(c, 'div', 'aa-lesson-title', L.title);
+    const a = arSpan(c, L.ar, 'aa-lesson-ar'); void a;
+    h(c, 'div', 'aa-muted aa-small', '≈ ' + L.min + ' min · ' + L.steps.length + ' étapes · ' + L.quiz.length + ' questions');
+    c.addEventListener('click', () => { state.course = L.id; state.cstep = (C.place && C.place[0] === L.id) ? C.place[1] : 0; go(); });
+  });
+  return next;
+}
+
+/* --- une leçon : une étape à la fois, puis le quiz --- */
+function renderWriteCourse(ctx, root, state, go) {
+  const L = WRITE_COURSE.find(x => x.id === state.course); if (!L) { state.course = null; return go(); }
+  const C = wcState(ctx); const k = WRITE_COURSE.indexOf(L);
+  const n = L.steps.length; let step = Math.max(0, Math.min(n, state.cstep || 0));
+  C.place = [L.id, step]; ctx.save();
+  const top = h(root, 'div', 'aa-fc-head');
+  btn(top, '← Le cours', () => { state.course = null; go(); }, 'aa-btn-quiet');
+  h(top, 'span', 'aa-muted aa-small', 'Leçon ' + (k + 1) + ' · ' + L.title);
+  h(top, 'span', 'aa-muted aa-small aa-fc-left', step < n ? 'Étape ' + (step + 1) + ' / ' + n : 'Quiz');
+  const bar = h(root, 'div', 'aa-lesson-progress'); const fl = h(bar, 'div', 'aa-lesson-fill'); fl.style.width = Math.round(100 * step / (n + 1)) + '%';
+  const dots = h(root, 'div', 'aa-wc-dots');
+  for (let i = 0; i <= n; i++) { const d = h(dots, 'button', 'aa-wc-dot' + (i === step ? ' aa-on' : i < step ? ' aa-wc-dot-done' : ''), i < n ? String(i + 1) : '?'); d.title = i < n ? L.steps[i].h : 'Quiz'; d.addEventListener('click', () => { state.cstep = i; go(); root.scrollTop = 0; }); }
+  if (step < n) {
+    const S = L.steps[step];
+    if (step === 0) { const t = h(root, 'div', 'aa-wc-title'); h(t, 'h2', null, L.title); arSpan(t, L.ar, 'aa-wc-titlear'); }
+    h(root, 'h3', 'aa-wc-h', S.h);
+    const body = h(root, 'div', 'aa-wc-body'); wcMdBlock(body, S.md);
+    wcViz(ctx, root, S.viz);
+    if (S.copyBtn) btn(h(root, 'div', 'aa-actions'), '📜 Recopier le Coran dans mon cahier', () => { state.course = null; state.copy = true; go(); }, 'aa-btn-quiet');
+    const nav = h(root, 'div', 'aa-wc-nav');
+    if (step > 0) btn(nav, '← Précédent', () => { state.cstep = step - 1; go(); root.scrollTop = 0; }, 'aa-btn-quiet');
+    btn(nav, step < n - 1 ? 'Suivant →' : 'Le quiz →', () => { state.cstep = step + 1; go(); root.scrollTop = 0; }, 'mod-cta');
+    return;
+  }
+  // le quiz
+  h(root, 'h3', 'aa-wc-h', '❓ Vérifie que tu as compris');
+  mdText(root, 'p', 'aa-muted', 'Réponds à toutes les questions. À **70 %** de bonnes réponses, la leçon est validée ✓.');
+  const ans = new Array(L.quiz.length).fill(null);
+  const res = h(document.createElement('div'), 'div', 'aa-wc-res');
+  L.quiz.forEach((Q, qi) => {
+    const q = h(root, 'div', 'aa-wc-q');
+    mdText(q, 'div', 'aa-wc-qtxt', (qi + 1) + '. ' + Q.q);
+    // les réponses dans un ordre mélangé, mais toujours le même pour une question
+    const order = Q.o.map((o, i) => i).sort((a, b) => ((a * 7 + qi * 3) % 5) - ((b * 7 + qi * 3) % 5));
+    const opts = h(q, 'div', 'aa-wc-opts'); const fb = h(q, 'div', 'aa-wc-fb');
+    order.forEach(i => {
+      const o = Q.o[i]; const b = btn(opts, o, () => {
+        if (ans[qi] != null) return; ans[qi] = i === Q.a;
+        b.classList.add(i === Q.a ? 'aa-good' : 'aa-bad');
+        opts.querySelectorAll('button').forEach((x, j) => { if (order[j] === Q.a) x.classList.add('aa-good'); x.disabled = true; });
+        mdText(fb, 'div', null, (i === Q.a ? '✅ ' : '❌ ') + Q.why);
+        if (ans.every(x => x != null)) finish();
+      }, 'aa-btn-quiet aa-wc-opt');
+      if (/[\u0600-\u06FF]/.test(o)) { b.textContent = ''; mdText(b, 'span', null, o); b.classList.add('aa-wc-optar'); }
+    });
+  });
+  root.appendChild(res);
+  const finish = () => {
+    clear(res);
+    const good = ans.filter(Boolean).length; const pct = Math.round(100 * good / ans.length);
+    const st = C[L.id] || (C[L.id] = { best: 0 }); st.best = Math.max(st.best || 0, pct); if (pct >= 70) st.done = true; st.d = todayNum(); ctx.save();
+    if (ctx.markActivity) ctx.markActivity('w');
+    const box = h(res, 'div', 'aa-fc-end');
+    h(box, 'div', 'aa-fc-end-ic', pct >= 70 ? '🌿' : '✍️');
+    h(box, 'h3', null, (pct >= 70 ? 'Leçon validée : ' : 'Pas encore : ') + good + ' / ' + ans.length);
+    h(box, 'p', 'aa-muted', pct >= 70 ? 'Bravo. Passe à la suite, ou entraîne-toi dans le cahier lettre par lettre.' : 'Relis les étapes (les numéros en haut), puis refais le quiz.');
+    const a = h(box, 'div', 'aa-fc-start');
+    const nx = WRITE_COURSE[k + 1];
+    if (pct >= 70 && nx) btn(a, 'Leçon suivante : ' + nx.title + ' →', () => { state.course = nx.id; state.cstep = 0; go(); root.scrollTop = 0; }, 'mod-cta aa-fc-big');
+    btn(a, '↻ Refaire le quiz', () => go(), 'aa-fc-big2');
+    btn(a, 'Revoir la leçon', () => { state.cstep = 0; go(); root.scrollTop = 0; }, 'aa-btn-quiet');
+  };
+}
+/* texte en paragraphes, listes « - » et « 1. » */
+function wcMdBlock(parent, md) {
+  let list = null, ltype = '';
+  String(md).split('\n').forEach(line => {
+    const m1 = line.match(/^- (.*)$/), m2 = line.match(/^(\d+)\. (.*)$/);
+    if (m1 || m2) { const t = m1 ? 'ul' : 'ol'; if (!list || ltype !== t) { list = h(parent, t, 'aa-wc-list-ul'); ltype = t; } mdText(list, 'li', null, m1 ? m1[1] : m2[2]); return; }
+    list = null; if (line.trim()) mdText(parent, 'p', null, line);
+  });
 }
 /* ====================================================================
  * 07 - Le plugin Obsidian : vue, commandes, blocs de code, réglages

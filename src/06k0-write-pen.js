@@ -39,7 +39,7 @@ function penDist(img, w, h) {
   return d;
 }
 /* mask : Uint8Array (1 = encre), w × h, fs = taille de la police (pour les seuils) */
-function penPlan(mask, w, h, fs) {
+function penPlan(mask, w, h, fs, bare) { // bare : le même texte sans voyelles (pour garder les voyelles pour la fin)
   const dist = penDist(mask, w, h);
   const sk = penThin(Uint8Array.from(mask), w, h);
   const isS = (x, y) => x >= 0 && y >= 0 && x < w && y < h && sk[y * w + x] === 1;
@@ -96,40 +96,121 @@ function penPlan(mask, w, h, fs) {
     mains.forEach(m => { const d = cx < m.x0 ? m.x0 - cx : cx > m.x1 ? cx - m.x1 : 0; if (d < bd) { bd = d; best = m; } });
     best.kids.push(s);
   });
-  const order = []; mains.forEach(m => { order.push(m); m.kids.sort((a, b) => b.x1 - a.x1 || a.y0 - b.y0).forEach(k => order.push(k)); });
-  // on parcourt chaque morceau comme un stylo
+  smalls.forEach(s => { if (!bare) return; let inB = 0; s.px.forEach(([x, y]) => { if (bare[y * w + x]) inB++; }); s.mark = inB < s.px.length * 0.3; });
+  // chaque morceau, puis ses points ; les voyelles et les signes à la toute fin, de droite à gauche
+  const order = []; mains.forEach(m => { order.push(m); m.kids.filter(k => !k.mark).sort((a, b) => b.x1 - a.x1 || a.y0 - b.y0).forEach(k => order.push(k)); });
+  smalls.filter(s => s.mark).sort((a, b) => b.x1 - a.x1 || a.y0 - b.y0).forEach(k => order.push(k));
+  // on parcourt chaque morceau comme un stylo : graphe du squelette (bouts, croisements, traits),
+  // puis un chemin qui fait les dents et les hampes en montant puis en redescendant, comme la main.
   const strokes = [];
   const R = (x, y) => Math.max(1, dist[y * w + x]);
-  const startScore = (x, y) => x - y; // en haut à droite d'abord
   for (const c of order) {
-    if (c.dot) { strokes.push({ pts: c.px.map(([x, y]) => [x, y, c.r]), first: true, comp: 'small' }); continue; }
-    const left = new Set(c.px.map(([x, y]) => y * w + x));
-    // départ : le point le plus en haut à droite ; une extrémité de trait est préférée si elle est presque aussi haute
-    const bonus = (x, y) => startScore(x, y) + (deg(x, y) === 1 ? fs * 0.15 : 0);
-    let cur = c.px.reduce((a, b) => bonus(b[0], b[1]) > bonus(a[0], a[1]) ? b : a);
-    let seg = []; let first = true;
-    while (left.size) {
-      if (!cur) {
-        // reprise : un pixel pas encore tracé, collé à ce qui est déjà tracé (une branche)
-        let pick = null, ps = -1e9;
-        for (const k of left) { const x = k % w, y = (k / w) | 0; const touch = N8.some(([dx, dy]) => isS(x + dx, y + dy) && !left.has((y + dy) * w + x + dx)); const s = (touch ? 1e6 : 0) + startScore(x, y) + (deg(x, y) === 1 ? 5e5 : 0); if (s > ps) { ps = s; pick = [x, y]; } }
-        cur = pick; if (seg.length) strokes.push({ pts: seg, first, comp: (seg.length > Math.max(4, fs * 0.08) || first) ? (c.main ? 'main' : 'small') : 'tiny' });
-        first = false; seg = [];
-        // on part du point déjà tracé voisin, pour que le trait reste continu
-        const nb = N8.map(([dx, dy]) => [cur[0] + dx, cur[1] + dy]).find(([a, b]) => isS(a, b) && !left.has(b * w + a));
-        if (nb) seg.push([nb[0], nb[1], R(nb[0], nb[1])]);
-      }
-      const [x, y] = cur; left.delete(y * w + x); seg.push([x, y, R(x, y)]);
-      const n = seg.length; const back = seg[Math.max(0, n - 5)];
-      let dx0 = x - back[0], dy0 = y - back[1]; const dl = Math.hypot(dx0, dy0) || 1; dx0 /= dl; dy0 /= dl;
-      let nx = null, nb = -1e9;
-      for (const [ddx, ddy] of N8) { const a = x + ddx, b = y + ddy; if (!left.has(b * w + a)) continue; const l = Math.hypot(ddx, ddy); const s = n > 1 ? (ddx * dx0 + ddy * dy0) / l : (-ddx + ddy * 0.6) / l; if (s > nb) { nb = s; nx = [a, b]; } }
-      if (nx) N8.forEach(([ddx, ddy]) => { const a = x + ddx, b = y + ddy; const k = b * w + a; if (left.has(k) && (a !== nx[0] || b !== nx[1]) && Math.abs(a - nx[0]) <= 1 && Math.abs(b - nx[1]) <= 1 && deg(a, b) <= 2) left.delete(k); });
-      cur = nx;
-    }
-    if (seg.length) strokes.push({ pts: seg, first, comp: (seg.length > Math.max(4, fs * 0.08) || first) ? (c.main ? 'main' : 'small') : 'tiny' });
+    if (c.dot) { strokes.push({ pts: c.px.map(([x, y]) => [x, y, c.r]), first: true, comp: c.mark ? 'mark' : 'small' }); continue; }
+    penWalk(c, w, isS, deg, fs, R).forEach((pts, k) => strokes.push({ pts, first: k === 0, comp: c.main ? 'main' : (c.mark ? 'mark' : 'small') }));
   }
   // on lisse un peu les traits (les escaliers de pixels)
   strokes.forEach(s => { const p = s.pts; if (p.length < 5) return; const q = p.map((pt, i) => { if (i === 0 || i === p.length - 1) return pt; const a = p[i - 1], b = p[i + 1]; return [(a[0] + 2 * pt[0] + b[0]) / 4, (a[1] + 2 * pt[1] + b[1]) / 4, pt[2]]; }); s.pts = q; });
   return { strokes: strokes.filter(s => s.pts.length) };
+}
+
+/* parcours d'un morceau : renvoie une liste de traits (chaque trait = [[x, y, r], …]) */
+function penWalk(c, w, isS, deg, fs, R) {
+  const key = (x, y) => y * w + x;
+  const inC = new Set(c.px.map(([x, y]) => key(x, y)));
+  const isNode = (x, y) => deg(x, y) !== 2;
+  // 1. les nœuds : bouts (1 voisin) et croisements (3 voisins ou plus), regroupés s'ils se touchent
+  const nodeOf = new Map(); const nodes = [];
+  for (const [x, y] of c.px) {
+    if (!isNode(x, y) || nodeOf.has(key(x, y))) continue;
+    const id = nodes.length; const px = []; const st = [[x, y]]; nodeOf.set(key(x, y), id);
+    while (st.length) { const [a, b] = st.pop(); px.push([a, b]); for (const [dx, dy] of N8) { const u = a + dx, v = b + dy, k = key(u, v); if (inC.has(k) && isNode(u, v) && !nodeOf.has(k)) { nodeOf.set(k, id); st.push([u, v]); } } }
+    const cx = px.reduce((s, p) => s + p[0], 0) / px.length, cy = px.reduce((s, p) => s + p[1], 0) / px.length;
+    nodes.push({ id, px, x: cx, y: cy, end: px.length === 1 && deg(x, y) === 1, edges: [] });
+  }
+  // 2. les traits entre nœuds
+  const used = new Set(); const edges = [];
+  const addEdge = (chain, a, b) => { const e = { id: edges.length, chain, a, b, len: chain.length, done: false }; edges.push(e); nodes[a].edges.push(e); if (b !== a) nodes[b].edges.push(e); };
+  for (const n of nodes) for (const [sx, sy] of n.px) for (const [dx, dy] of N8) {
+    const x1 = sx + dx, y1 = sy + dy, k1 = key(x1, y1);
+    if (!inC.has(k1) || nodeOf.get(k1) === n.id || used.has(k1)) continue;
+    if (nodeOf.has(k1)) { // deux nœuds collés
+      const o = nodeOf.get(k1); if (o > n.id && !edges.some(e => (e.a === n.id && e.b === o) || (e.a === o && e.b === n.id))) addEdge([[sx, sy], [x1, y1]], n.id, o); continue;
+    }
+    const chain = [[sx, sy], [x1, y1]]; used.add(k1); let px = sx, py = sy, cx = x1, cy = y1, end = -1;
+    for (let guard = 0; guard < 100000; guard++) {
+      let nx = null;
+      for (const [ex, ey] of N8) { const u = cx + ex, v = cy + ey, k = key(u, v); if (!inC.has(k) || (u === px && v === py)) continue; if (nodeOf.has(k) && !(chain.length === 2 && nodeOf.get(k) === n.id && u === sx && v === sy)) { if (chain.length > 2 || nodeOf.get(k) !== n.id) { nx = [u, v]; end = nodeOf.get(k); break; } } }
+      if (nx) { chain.push(nx); break; }
+      for (const [ex, ey] of N8) { const u = cx + ex, v = cy + ey, k = key(u, v); if (inC.has(k) && !used.has(k) && !nodeOf.has(k)) { nx = [u, v]; break; } }
+      if (!nx) break;
+      used.add(key(nx[0], nx[1])); chain.push(nx); px = cx; py = cy; [cx, cy] = nx;
+    }
+    if (end < 0) end = n.id;
+    addEdge(chain, n.id, end);
+  }
+  // un anneau sans nœud (ه seul, la boucle d'un و parfois) : on le coupe en haut à droite
+  const rest = c.px.filter(([x, y]) => !nodeOf.has(key(x, y)) && !used.has(key(x, y)));
+  if (rest.length > 3) {
+    const st0 = rest.reduce((a, b) => (b[0] - b[1] > a[0] - a[1] ? b : a));
+    const id = nodes.length; nodes.push({ id, px: [st0], x: st0[0], y: st0[1], end: false, edges: [] });
+    const chain = [st0]; const seen = new Set([key(st0[0], st0[1])]); let cur = st0;
+    for (;;) { let nx = null; let best = -1e9; for (const [dx, dy] of N8) { const u = cur[0] + dx, v = cur[1] + dy, k = key(u, v); if (!inC.has(k) || seen.has(k) || nodeOf.has(k)) continue; const s = chain.length === 1 ? (-dx * 2 + dy) : 0; if (s > best) { best = s; nx = [u, v]; } } if (!nx) break; seen.add(key(nx[0], nx[1])); chain.push(nx); cur = nx; }
+    chain.push(st0); addEdge(chain, id, id);
+  }
+  if (!edges.length) return c.px.length ? [c.px.map(([x, y]) => [x, y, R(x, y)])] : [];
+  // 3. le chemin
+  const dirOf = (chain, rev) => { const L = chain.length; const n = Math.max(1, Math.min(L - 1, Math.round(fs * 0.1))); const p0 = rev ? chain[L - 1] : chain[0], p1 = rev ? chain[L - 1 - n] : chain[n]; const dx = p1[0] - p0[0], dy = p1[1] - p0[1]; const l = Math.hypot(dx, dy) || 1; return [dx / l, dy / l]; };
+  const other = (e, at) => (e.a === at ? e.b : e.a);
+  const oriented = (e, at) => (e.a === at ? e.chain : e.chain.slice().reverse());
+  const subtreeOpen = (nodeId, from) => nodes[nodeId].edges.some(x => !x.done && x !== from);
+  const strokes = []; let stroke = null; let dirIn = [-1, 0];
+  const push = (chain) => { for (const [x, y] of chain) { const l = stroke[stroke.length - 1]; if (l && l[0] === x && l[1] === y) continue; stroke.push([x, y, R(x, y)]); } };
+  const startScore = n => n.x - n.y * 1.3 + (n.end ? fs * 0.25 : 0);
+  let cur = null;
+  const left = () => edges.some(e => !e.done);
+  while (left()) {
+    if (cur == null) { // poser le stylo : un nœud avec un trait pas encore fait, le plus en haut à droite
+      let best = null; for (const n of nodes) if (n.edges.some(e => !e.done)) { const s = startScore(n) + (n.edges.filter(e => !e.done).length === 1 ? fs * 0.2 : 0); if (!best || s > best.s) best = { n, s }; }
+      cur = best.n.id; stroke = []; strokes.push(stroke); dirIn = [-1, 0.3];
+    }
+    const cand = nodes[cur].edges.filter(e => !e.done);
+    if (!cand.length) { cur = null; continue; }
+    const info = cand.map(e => {
+      const o = other(e, cur); const ch = oriented(e, cur); const d = dirOf(ch, false);
+      const deadEnd = o !== cur && nodes[o].end && !subtreeOpen(o, e);
+      const up = (ch[ch.length - 1][1] - ch[0][1]) < -fs * 0.08; // le bout est plus haut : une dent ou une hampe
+      const cont = d[0] * dirIn[0] + d[1] * dirIn[1];
+      return { e, o, ch, d, deadEnd, up, cont, loop: o === cur };
+    });
+    let pick;
+    const others = n => info.length - 1;
+    // a) une dent ou une hampe : on monte et on redescend (seulement si autre chose reste à faire ici)
+    pick = info.filter(i => i.deadEnd && i.up && i.e.len < fs * 1.1 && others() > 0).sort((a, b) => a.e.len - b.e.len)[0];
+    if (pick) { pick.e.done = true; push(pick.ch); push(pick.ch.slice().reverse()); dirIn = dirOf(pick.ch, true).map(v => -v); dirIn = [ -Math.abs(dirIn[0]) || -1, 0 ]; continue; }
+    // b) un petit crochet vers le bas, s'il reste d'autres traits ici : aller-retour aussi
+    pick = info.filter(i => i.deadEnd && !i.up && i.e.len < fs * 0.25 && others() > 0)[0];
+    if (pick) { pick.e.done = true; push(pick.ch); push(pick.ch.slice().reverse()); continue; }
+    // c) une boucle (deux traits qui vont au même endroit, comme la tête du م ou du و) : on fait le tour et on revient ici
+    const par = info.filter(i => !i.loop && info.some(j => j !== i && j.o === i.o && !j.loop));
+    if (par.length >= 2) {
+      // a : l'arc du haut (on monte d'abord), b : l'arc du bas
+      const midY = i => i.ch[Math.floor(i.ch.length / 2)][1];
+      const a = par.slice().sort((x, y) => midY(x) - midY(y))[0]; const b = par.find(j => j !== a && j.o === a.o);
+      a.e.done = true; b.e.done = true; push(a.ch); push(b.ch.slice().reverse());
+      if (info.length > 2) continue; // d'autres traits partent d'ici : on repart d'ici
+      push(b.ch); cur = a.o; // sinon on repasse sur le bas de la boucle et on continue de l'autre côté
+      const L = b.ch.length; const p1 = b.ch[L - 1], p0 = b.ch[Math.max(0, L - 4)]; const dl = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1; dirIn = [(p1[0] - p0[0]) / dl, (p1[1] - p0[1]) / dl];
+      continue;
+    }
+    pick = info.find(i => i.loop && info.length > 1);
+    if (pick) { pick.e.done = true; push(pick.ch); continue; }
+    // d) sinon on continue dans le sens de la main (vers la gauche, sans casser le mouvement) ; un bout libre en dernier
+    info.forEach(i => { i.score = i.cont * 1.2 - i.d[0] * 0.6 + (i.deadEnd ? -0.8 : 0) + (i.loop ? 0.3 : 0); });
+    pick = info.sort((a, b) => b.score - a.score)[0];
+    pick.e.done = true; push(pick.ch);
+    const L = pick.ch.length; const n = Math.max(1, Math.min(L - 1, Math.round(fs * 0.1))); const p1 = pick.ch[L - 1], p0 = pick.ch[L - 1 - n]; const dl = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1; dirIn = [(p1[0] - p0[0]) / dl, (p1[1] - p0[1]) / dl];
+    cur = pick.o;
+    if (nodes[cur].end) cur = null; // au bout du trait : on lève le stylo
+  }
+  return strokes.filter(s => s.length);
 }

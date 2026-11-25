@@ -1090,3 +1090,62 @@ body.is-mobile .aa-root .aa-body, body.is-mobile .aa-root.aa-reading .aa-body { 
 .aa-player button { border-radius: 999px !important; height: 34px; padding: 0 14px; font-size: 14px; cursor: pointer; }
 .aa-player .aa-player-pp { background: var(--interactive-accent) !important; color: var(--text-on-accent, #fff) !important; font-weight: 600; min-width: 112px; }
 .aa-player.aa-player-paused .aa-player-pp { background: var(--interactive-normal) !important; color: var(--text-normal) !important; }
+
+/* 2.29 : le cours d'écriture */
+.aa-wc-list { margin: 14px 0 22px; }
+.aa-wc-listhead { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.aa-wc-cahier { margin-top: 26px; }
+.aa-wc-title { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-top: 6px; }
+.aa-wc-title h2 { margin: 0; }
+.aa-wc-titlear { font-size: 1.6em; color: var(--text-muted); }
+.aa-wc-h { margin: 18px 0 8px; }
+.aa-wc-body { font-size: 1.02em; line-height: 1.65; max-width: 720px; }
+.aa-wc-body p { margin: 0 0 10px; }
+.aa-wc-list-ul { margin: 4px 0 12px; padding-left: 22px; }
+.aa-wc-list-ul li { margin: 3px 0; }
+.aa-wc-body .aa-ari { font-size: 1.25em; }
+.aa-wc-viz { margin: 16px 0 18px; padding: 14px; border: 1px solid var(--background-modifier-border); border-radius: 14px; background: var(--background-primary); max-width: 760px; }
+.aa-wc-canvas { width: 100%; display: flex; justify-content: center; }
+.aa-wc-dots { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 2px; }
+.aa-wc-dot { width: 32px; height: 32px; border-radius: 999px !important; padding: 0 !important; border: 1px solid var(--background-modifier-border) !important; background: transparent !important; box-shadow: none !important; color: var(--text-muted); font-size: 13px; cursor: pointer; }
+.aa-wc-dot.aa-wc-dot-done { background: color-mix(in srgb, var(--interactive-accent) 15%, transparent) !important; color: var(--text-normal); }
+.aa-wc-dot.aa-on { background: var(--interactive-accent) !important; color: var(--text-on-accent) !important; border-color: transparent !important; font-weight: 700; }
+.aa-wc-nav { display: flex; gap: 10px; justify-content: flex-end; margin: 18px 0 8px; }
+.aa-wc-nav .mod-cta { min-width: 140px; }
+.aa-wc-pieces { text-align: center; }
+.aa-wc-word { font-size: 54px; line-height: 1.7; }
+.aa-wc-prow { display: flex; justify-content: center; flex-wrap: wrap; gap: 26px; margin-top: 4px; }
+.aa-wc-pword { display: inline-flex; gap: 12px; padding: 4px 12px; border-radius: 12px; background: var(--background-secondary); }
+.aa-wc-piece { font-size: 46px; line-height: 1.7; font-weight: 600; }
+.aa-wc-cap { margin-top: 8px; }
+.aa-wc-skel { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 18px; }
+.aa-wc-skrow { display: flex; align-items: center; gap: 12px; padding: 4px 8px; border-radius: 10px; }
+.aa-wc-sk { font-size: 38px; color: var(--text-faint); min-width: 52px; text-align: center; line-height: 1.6; }
+.aa-wc-arrow { color: var(--text-faint); }
+.aa-wc-sklet { display: flex; gap: 14px; font-size: 38px; line-height: 1.6; }
+.aa-wc-forms { display: grid; gap: 4px; }
+.aa-wc-frow { display: grid; grid-template-columns: repeat(4, 1fr); text-align: center; align-items: center; border-bottom: 1px solid var(--background-modifier-border); padding: 2px 0; }
+.aa-wc-frow:last-child { border-bottom: 0; }
+.aa-wc-fhead { border-bottom: 0; }
+.aa-wc-f { font-size: 42px; line-height: 1.75; }
+.aa-wc-cmp { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.aa-wc-styles { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.aa-wc-card { border: 1px solid var(--background-modifier-border); border-radius: 12px; padding: 10px 12px; text-align: center; background: var(--background-primary); }
+.aa-wc-card.aa-wc-ok { border-color: color-mix(in srgb, var(--aa-acc, #2e8358) 60%, transparent); background: color-mix(in srgb, var(--aa-acc, #2e8358) 7%, var(--background-primary)); }
+.aa-wc-card.aa-wc-bad { border-color: color-mix(in srgb, var(--aa-verb, #ad4a43) 60%, transparent); background: color-mix(in srgb, var(--aa-verb, #ad4a43) 7%, var(--background-primary)); }
+.aa-wc-cardar { font-size: 40px; line-height: 1.8; }
+.aa-wc-marks { font-size: 52px; line-height: 1.9; }
+.aa-wc-stylear { font-size: 36px; line-height: 2.1; }
+.aa-wc-card .aa-sound { margin-top: 4px; }
+.aa-wc-viz .aa-wr-pad { margin: 0; }
+.aa-wc-q { border: 1px solid var(--background-modifier-border); border-radius: 12px; padding: 12px 14px; margin: 10px 0; max-width: 760px; }
+.aa-wc-qtxt { font-weight: 600; margin-bottom: 8px; }
+.aa-wc-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.aa-wc-opt { height: auto !important; min-height: 36px; white-space: normal; text-align: left; }
+.aa-wc-fb { margin-top: 8px; color: var(--text-muted); }
+@media (max-width: 600px) {
+  .aa-wc-word { font-size: 42px; } .aa-wc-piece { font-size: 36px; } .aa-wc-f { font-size: 34px; } .aa-wc-cardar { font-size: 34px; } .aa-wc-sk, .aa-wc-sklet { font-size: 32px; }
+  .aa-wc-viz { padding: 10px; } .aa-wc-nav { justify-content: stretch; } .aa-wc-nav button { flex: 1; }
+}
+.aa-wc-opt .aa-ari, .aa-wc-optar .aa-ari { font-size: 1.7em; line-height: 1.5; font-family: "Atelier Noto Naskh", "Atelier Amiri Quran", serif; }
+.aa-wc-qtxt .aa-ari { font-size: 1.35em; }
