@@ -963,4 +963,4 @@ li.aa-rule-inline { list-style: none; border: none; background: none; }
 .aa-al-cmptxt { font-size: calc(var(--aa-ar-size, 30px) * 1.05); line-height: 2.1; text-align: right; overflow-wrap: anywhere; min-height: 1.5em; }
 .aa-al-cmpcard .aa-btn-quiet { align-self: flex-start; margin-top: 2px; }
 .aa-font-nastaliq .aa-al-cmptxt, .aa-font-gulzar .aa-al-cmptxt { line-height: 2.8; }
-.aa-al-cmpin { height: auto !important; min-height: 2.4em; line-height: 1.8; padding: 6px 12px; }
+.aa-al-cmpin { height: auto !important; min-height: 2.9em; line-height: 2.2; padding: 10px 12px 8px; box-sizing: border-box; }
