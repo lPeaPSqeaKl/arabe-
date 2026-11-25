@@ -286,13 +286,24 @@ function setReading(rootEl, on, ctx) {
       const sel = h(wrap, 'select', 'aa-rd-font-sel');
       AR_FONTS.forEach(f => { const o = h(sel, 'option', null, f[1].replace(/ \(.*\)$/, '')); o.value = f[0]; });
       sel.value = S.arFont || 'amiri';
+      const mb = btn(bar, S.verseLayout === 'mushaf' ? '☰' : '📖', () => {
+        S.verseLayout = S.verseLayout === 'mushaf' ? (S.prevLayout || 'auto') : (S.prevLayout = S.verseLayout || 'auto', 'mushaf');
+        ctx.save(); mb.textContent = S.verseLayout === 'mushaf' ? '☰' : '📖'; if (ctx.refresh) ctx.refresh();
+      }, 'aa-btn-quiet');
+      mb.title = 'Basculer : mushaf (versets à la suite) ou verset par verset';
+      const aw = h(bar, 'label', 'aa-rd-font'); aw.title = 'Ambiance : nuit, sépia, clair';
+      h(aw, 'span', 'aa-rd-font-lab', '🌓');
+      const asel = h(aw, 'select', 'aa-rd-font-sel');
+      AMBIANCES.forEach(a => { const o = h(asel, 'option', null, a[1]); o.value = a[0]; });
+      asel.value = ambianceOf(S);
+      asel.addEventListener('change', () => { S.ambiance = asel.value; S.paper = false; ctx.save(); applyAmbiance(rootEl, asel.value); });
       sel.addEventListener('change', () => {
         S.arFont = sel.value; ctx.save();
         ensureFont(sel.value).catch(() => {});
         AR_FONTS.forEach(f => rootEl.classList.toggle('aa-font-' + f[0], sel.value === f[0]));
       });
     }
-    btn(bar, '✕ Quitter la lecture', () => setReading(rootEl, false), 'aa-btn-quiet');
+    btn(bar, '✕', () => setReading(rootEl, false, ctx), 'aa-btn-quiet aa-rd-quit').title = 'Quitter la lecture (Échap)';
   }
   if (!on && bar) bar.remove();
 }

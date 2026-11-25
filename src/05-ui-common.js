@@ -392,7 +392,7 @@ function shortGloss(data, w) {
   if (lem[1] === 'P' && st.seg[1] === 'P' && lem[2] && sub && sub !== lem[2]) return PART_GLOSS[sub] || '';
   return lem[4] ? String(lem[4]).split(/[;,]/)[0].trim() : '';
 }
-const VERSE_LAYOUTS = [['auto', 'longs versets en morceaux (conseillé)'], ['ligne', 'tout sur une ligne'], ['morceaux', 'toujours en morceaux'], ['mot', 'mot à mot (arabe, transcription, sens)']];
+const VERSE_LAYOUTS = [['mushaf', 'mushaf : versets à la suite, comme un Coran imprimé'], ['auto', 'longs versets en morceaux (conseillé)'], ['ligne', 'tout sur une ligne'], ['morceaux', 'toujours en morceaux'], ['mot', 'mot à mot (arabe, transcription, sens)']];
 function verseLayout(S, n) {
   const m = S.verseLayout || 'auto';
   if (m === 'auto') return n >= LONG_VERSE ? 'morceaux' : 'ligne';
@@ -421,6 +421,7 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
   if (from === 1 && surahN !== 1 && surahN !== 9 && opts.basmala !== false) {
     const b = h(container, 'div', 'aa-basmala'); arSpan(b, 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ');
   }
+  if (S.verseLayout === 'mushaf' && !opts.noMushaf) return renderMushaf(ctx, container, d, surahN, from, to);
   for (let vn = from; vn <= to; vn++) {
     const v = d.v[vn - 1]; const words = v[2];
     const box = h(container, 'div', 'aa-verse'); box.dataset.ref = surahN + ':' + vn;
@@ -624,4 +625,39 @@ function renderIrab(ctx, el, words, ref, opts) {
   linkTerms(ctx, el);
   mdText(el, 'p', 'aa-muted aa-small', 'Analyse **déduite automatiquement** de la morphologie du Coran (Quranic Arabic Corpus) : très fiable pour les cas, les annexions, les prépositions et les adjectifs ; les rôles marqués « probable » sont à vérifier dans un livre d\'iʿrāb pour les versets longs.');
   return res;
+}
+
+/* Mode « mushaf » : les versets à la suite, comme dans un Coran imprimé. On touche un verset :
+ * sa transcription et sa traduction s'ouvrent juste après lui, avec le détail mot par mot si on veut. */
+function renderMushaf(ctx, container, d, surahN, from, to) {
+  const S = ctx.settings;
+  const para = h(container, 'div', 'aa-mushaf' + (S.tajwid ? ' aa-tj-on' : '')); para.setAttribute('dir', 'rtl'); para.setAttribute('lang', 'ar');
+  para.style.fontSize = S.arSize + 'px';
+  let open = null;
+  const close = () => { if (open) { open.panel.remove(); open.span.classList.remove('aa-mv-on'); open = null; } };
+  for (let vn = from; vn <= to; vn++) {
+    const v = d.v[vn - 1]; const words = v[2];
+    const vs = h(para, 'span', 'aa-mv'); vs.dataset.ref = surahN + ':' + vn; vs.dataset.verse = String(vn);
+    const tj = S.tajwid ? tajwidVerse(words) : null;
+    words.forEach((w, wi) => {
+      const st = stemOf(w);
+      const sp = h(vs, 'span', 'aa-w ' + (POS_CLASS[st.f.pos] || '') + (isInitials(w) ? ' aa-pos-inl' : ''));
+      if (tj) fillTajwid(sp, tj[wi]); else sp.textContent = S.noVowels ? noVowels(wordText(w)) : wordText(w);
+      vs.appendChild(document.createTextNode(' '));
+    });
+    h(vs, 'span', 'aa-mv-num', '﴿' + arNum(vn) + '﴾');
+    vs.appendChild(document.createTextNode(' '));
+    vs.addEventListener('click', () => {
+      const same = open && open.span === vs; close(); if (same) return;
+      const panel = document.createElement('div'); panel.className = 'aa-mv-panel'; panel.setAttribute('dir', 'ltr');
+      vs.after(panel); vs.classList.add('aa-mv-on'); open = { panel, span: vs };
+      if (S.showTr !== false) h(panel, 'div', 'aa-tr', translitVerse(words, S.style));
+      const fr = h(panel, 'div', 'aa-mv-fr'); h(fr, 'span', 'aa-ref', surahN + ':' + vn + ' '); fr.appendChild(document.createTextNode(v[0]));
+      const act = h(panel, 'div', 'aa-actions');
+      if (S.audio !== false) btn(act, '▶ Écouter', () => playVerse(surahN, vn), 'aa-btn-quiet');
+      btn(act, '🔎 Mot par mot', ev => { ev.target.remove(); const sub = h(panel, 'div', 'aa-mv-detail'); renderVerses(ctx, sub, surahN, vn, vn, { noMushaf: true }); }, 'aa-btn-quiet');
+      btn(act, '✕', () => close(), 'aa-btn-quiet').title = 'Fermer';
+      panel.addEventListener('click', ev => ev.stopPropagation());
+    });
+  }
 }

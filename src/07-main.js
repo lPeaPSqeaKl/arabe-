@@ -30,6 +30,10 @@ const AR_FONTS = [
   ['lalezar', 'Lalezar (affiche)', 'Police d\'affiche, ronde et grasse. Pour les titres, pas pour lire longtemps. Petits signes du Coran pris dans Amiri Quran.'],
   ['device', 'Police de l\'appareil', 'La police arabe de ton PC ou de ton iPad.'],
 ];
+/* Ambiances : un seul fond pour tout l'atelier, choisi indépendamment du thème d'Obsidian */
+const AMBIANCES = [['', 'Comme Obsidian'], ['nuit', 'Nuit (noir doux)'], ['sepia', 'Sépia (papier chaud)'], ['clair', 'Clair (blanc)']];
+function ambianceOf(S) { return S.ambiance != null ? S.ambiance : (S.paper === true ? 'sepia' : ''); }
+function applyAmbiance(el, a) { AMBIANCES.forEach(x => x[0] && el.classList.toggle('aa-amb-' + x[0], x[0] === a)); el.classList.remove('aa-paper'); }
 const TAB_ICONS = { home: 'home', write: 'pencil', coran: 'book-open', alphabet: 'a-large-small', lessons: 'graduation-cap', rules: 'book-marked', review: 'layers', dict: 'library', analyse: 'scan-search', build: 'blocks', signs: 'flask-conical', quiz: 'target' };
 const TABS = [
   ['home', 'Accueil', 'Ton tableau de bord du jour'], ['coran', 'Coran', 'Lire une sourate mot par mot'], ['alphabet', 'Alphabet', 'Les lettres et leur prononciation'], ['write', 'Écrire', 'Apprendre à écrire les lettres et les mots'], ['lessons', 'Leçons', 'Parcours de grammaire guidé'], ['rules', 'Règles', 'Les règles expliquées simplement'], ['review', 'Révision', 'Réviser les cartes de chaque règle'], ['dict', 'Dictionnaire', 'Tous les mots du Coran'], ['analyse', 'Analyser', 'Analyser un texte arabe'],
@@ -113,7 +117,7 @@ class AtelierView extends ItemView {
     const phone = document.body.classList.contains('is-phone') || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && (this.contentEl.clientWidth || 1000) < 600);
     this.contentEl.classList.toggle('aa-bottomnav', phone);
     if (this.contentEl.firstChild !== this.nav) this.contentEl.insertBefore(this.nav, this.contentEl.firstChild);
-    this.contentEl.classList.toggle('aa-paper', this.plugin.settings.paper === true);
+    applyAmbiance(this.contentEl, ambianceOf(this.plugin.settings));
     this.contentEl.classList.toggle('aa-nocolor', this.plugin.settings.wordColors === false);
     ensureFont(this.plugin.settings.arFont).catch(() => {});
     AR_FONTS.forEach(f => this.contentEl.classList.toggle('aa-font-' + f[0], (this.plugin.settings.arFont || 'amiri') === f[0]));
@@ -217,8 +221,8 @@ function fillSettings(el, plugin, inObsidian, ctx) {
     const showFont = v => { ensureFont(v).catch(() => {}); AR_FONTS.forEach(f => preview.classList.toggle('aa-font-' + f[0], v === f[0])); const f = AR_FONTS.find(x => x[0] === v) || AR_FONTS[0]; preview.empty(); const ar = preview.createDiv({ text: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ · قُلْ هُوَ ٱللَّهُ أَحَدٌ' }); ar.className = 'aa-ar aa-font-preview-ar'; ar.setAttribute('dir', 'rtl'); ar.setAttribute('lang', 'ar'); const d = preview.createDiv({ text: f[2] }); d.style.cssText = 'font-size:12px;direction:ltr;text-align:left;color:var(--text-muted);font-family:var(--font-interface)'; };
     fontSet.addDropdown(d => { AR_FONTS.forEach(f => d.addOption(f[0], f[1])); d.setValue(s.arFont || 'amiri').onChange(async v => { s.arFont = v; showFont(v); await p.saveSettings(); p.refreshViews && p.refreshViews(); }); });
     showFont(s.arFont || 'amiri');
-    new Setting(el).setName('Fond « papier »').setDesc('Un fond crème (ou brun très sombre en thème sombre), plus doux pour les yeux quand tu lis longtemps.')
-      .addToggle(t => t.setValue(s.paper === true).onChange(async v => { s.paper = v; await p.saveSettings(); p.refreshViews && p.refreshViews(); }));
+    new Setting(el).setName('Ambiance').setDesc('Les couleurs de tout l\'atelier. « Nuit » : noir doux, reposant le soir. « Sépia » : papier chaud, comme un livre. « Clair » : blanc. « Comme Obsidian » suit ton thème. Aussi dans la lecture plein écran (bouton 🌓).')
+      .addDropdown(d => { AMBIANCES.forEach(a => d.addOption(a[0], a[1])); d.setValue(ambianceOf(s)).onChange(async v => { s.ambiance = v; s.paper = false; await p.saveSettings(); p.refreshViews && p.refreshViews(); }); });
     new Setting(el).setName('Couleurs des mots').setDesc('Dans le Coran : bleu = nom, rouge = verbe, gris = particule. Désactivé : texte d\'une seule couleur, plus reposant.')
       .addToggle(t => t.setValue(s.wordColors !== false).onChange(async v => { s.wordColors = v; await p.saveSettings(); }));
     new Setting(el).setName('Taille du texte arabe').setDesc('En pixels (30 par défaut).')

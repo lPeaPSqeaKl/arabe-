@@ -1020,3 +1020,42 @@ body.is-mobile .aa-root .aa-body, body.is-mobile .aa-root.aa-reading .aa-body { 
 .aa-rd-font:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
 .aa-rd-font-sel { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; }
 .aa-rd-font:has(.aa-rd-font-sel:focus-visible) { outline: 2px solid var(--interactive-accent); }
+
+/* 2.27 : ambiances (un seul fond pour tout l'atelier, quelles que soient les couleurs d'Obsidian) */
+.aa-root.aa-amb-nuit, .aa-root.aa-amb-sepia, .aa-root.aa-amb-clair { background: var(--background-primary) !important; color: var(--text-normal); }
+.aa-root.aa-amb-nuit {
+  --background-primary: #121212; --background-primary-alt: #181818; --background-secondary: #1c1c1c; --background-secondary-alt: #202020;
+  --background-modifier-border: #2c2c2c; --background-modifier-hover: rgba(255,255,255,.06); --aa-line: #262626; --aa-soft: #191919;
+  --text-normal: #e6e1d7; --text-muted: #a39d92; --text-faint: #6d6860; --interactive-normal: #222; --aa-paper-bg: #121212;
+  --aa-nom: #8fa9db; --aa-acc: #7dbf98; --aa-gen: #d9a477; --aa-verb: #dc928b; --aa-part: #9ba2ac; --aa-pron: #b49bdc; color-scheme: dark;
+}
+.aa-root.aa-amb-sepia {
+  --background-primary: #f4ecd8; --background-primary-alt: #efe5cd; --background-secondary: #ebe0c5; --background-secondary-alt: #e6dabd;
+  --background-modifier-border: #d8c9a8; --background-modifier-hover: rgba(90,60,20,.07); --aa-line: #dccfb2; --aa-soft: #ede3ca;
+  --text-normal: #3b3024; --text-muted: #6d5f4b; --text-faint: #9c8d74; --interactive-normal: #f8f1e1; --aa-paper-bg: #f4ecd8;
+  --aa-nom: #3d64a8; --aa-acc: #2e8358; --aa-gen: #b06a2c; --aa-verb: #ad4a43; --aa-part: #776a58; --aa-pron: #7a59b0; color-scheme: light;
+}
+.aa-root.aa-amb-clair {
+  --background-primary: #ffffff; --background-primary-alt: #fafafa; --background-secondary: #f4f4f5; --background-secondary-alt: #efefef;
+  --background-modifier-border: #e3e3e6; --background-modifier-hover: rgba(0,0,0,.05); --aa-line: #ebebed; --aa-soft: #f6f6f7;
+  --text-normal: #1f1f22; --text-muted: #5f6067; --text-faint: #a0a1a8; --interactive-normal: #fff; --aa-paper-bg: #ffffff;
+  --aa-nom: #3d64a8; --aa-acc: #2e8358; --aa-gen: #b06a2c; --aa-verb: #ad4a43; --aa-part: #6f7782; --aa-pron: #7a59b0; color-scheme: light;
+}
+.aa-root[class*="aa-amb-"] .aa-tabs, .aa-root[class*="aa-amb-"] .aa-reading-bar { background: var(--background-primary); }
+.aa-root[class*="aa-amb-"] .aa-verse { background: transparent; }
+.aa-root[class*="aa-amb-"] button:not(.mod-cta):not(.aa-tab), .aa-root[class*="aa-amb-"] select, .aa-root[class*="aa-amb-"] input, .aa-root[class*="aa-amb-"] textarea { color: var(--text-normal); }
+.aa-root[class*="aa-amb-"] select, .aa-root[class*="aa-amb-"] input, .aa-root[class*="aa-amb-"] textarea { background-color: var(--background-primary-alt); border-color: var(--background-modifier-border); }
+
+/* 2.27 : mode mushaf */
+.aa-mushaf { font-family: var(--aa-ar-font); line-height: 2.3; text-align: right; padding: 8px 2px 16px; color: var(--text-normal); }
+.aa-mushaf .aa-mv { cursor: pointer; border-radius: 8px; transition: background .15s; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.aa-mushaf .aa-mv:hover { background: var(--background-modifier-hover); }
+.aa-mushaf .aa-mv.aa-mv-on, .aa-mushaf .aa-mv.aa-verse-playing { background: color-mix(in srgb, var(--interactive-accent) 14%, transparent); }
+.aa-mushaf .aa-mv-num { color: var(--text-faint); font-size: .8em; white-space: nowrap; }
+.aa-mushaf .aa-w { cursor: inherit; }
+.aa-mv-panel { display: block; font-family: var(--font-interface); font-size: 16px; line-height: 1.55; text-align: left; text-align-last: auto; margin: 6px 0 12px; padding: 10px 14px; border-radius: 12px; background: var(--background-secondary); border: 1px solid var(--background-modifier-border); cursor: default; }
+.aa-mv-panel .aa-tr { font-style: italic; color: var(--text-muted); margin-bottom: 4px; }
+.aa-mv-fr { margin-bottom: 6px; }
+.aa-mv-detail { margin-top: 8px; }
+.aa-mv-detail .aa-verse { border-bottom: none; padding: 4px 0; }
+.aa-root.aa-reading .aa-mv-panel .aa-verse-tools { display: none; }
