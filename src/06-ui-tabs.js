@@ -90,7 +90,7 @@ function renderQuranTab(ctx, root, state) {
   btn(quick, 'A+', () => setArSize(ctx, root, +2), 'aa-btn-quiet aa-asize').title = 'Texte arabe plus grand';
   const quick2 = small ? h(bar, 'div', 'aa-actions aa-quick aa-quick-sm') : quick;
   if (small) opt.parentNode.insertBefore(quick2, opt);
-  btn(quick2, small ? '⤢' : '⤢ Lecture', () => setReading(root.closest('.aa-root') || root, true), 'aa-btn-quiet').title = 'Plein écran : seulement le texte (Échap ou ✕ pour sortir)';
+  btn(quick2, small ? '⤢' : '⤢ Lecture', () => setReading(root.closest('.aa-root') || root, true, ctx), 'aa-btn-quiet').title = 'Plein écran : seulement le texte (Échap ou ✕ pour sortir)';
   btn(quick2, small ? '🔎' : '🔎 Chercher', () => { state.searchOpen = !state.searchOpen; renderQuranTab(ctx, root, state); }, 'aa-btn-quiet' + (state.searchOpen ? ' aa-on' : '')).title = 'Chercher un mot dans tout le Coran';
   checkbox(tg, 'translittération', ctx.settings.showTr, v => { ctx.settings.showTr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'français', ctx.settings.showFr, v => { ctx.settings.showFr = v; ctx.save(); renderQuranTab(ctx, root, state); });
@@ -268,7 +268,7 @@ function setArSize(ctx, root, d) {
   ctx.save();
 }
 /* mode lecture : on cache tout sauf le texte */
-function setReading(rootEl, on) {
+function setReading(rootEl, on, ctx) {
   rootEl.classList.toggle('aa-reading', on);
   let bar = rootEl.querySelector(':scope > .aa-reading-bar');
   if (on && !bar) {
@@ -278,6 +278,20 @@ function setReading(rootEl, on) {
     const ctxRoot = body;
     btn(bar, 'A−', () => { const b = rootEl.querySelector('.aa-body button.aa-asize'); if (b) b.click(); }, 'aa-btn-quiet');
     btn(bar, 'A+', () => { const b = rootEl.querySelectorAll('.aa-body button.aa-asize')[1]; if (b) b.click(); }, 'aa-btn-quiet');
+    /* petit choix de police, discret : un « Aa » qui ouvre la liste du système (iPhone, iPad, ordinateur) */
+    if (ctx) {
+      const S = ctx.settings;
+      const wrap = h(bar, 'label', 'aa-rd-font'); wrap.title = 'Changer la police arabe';
+      h(wrap, 'span', 'aa-rd-font-lab', 'Aa');
+      const sel = h(wrap, 'select', 'aa-rd-font-sel');
+      AR_FONTS.forEach(f => { const o = h(sel, 'option', null, f[1].replace(/ \(.*\)$/, '')); o.value = f[0]; });
+      sel.value = S.arFont || 'amiri';
+      sel.addEventListener('change', () => {
+        S.arFont = sel.value; ctx.save();
+        ensureFont(sel.value).catch(() => {});
+        AR_FONTS.forEach(f => rootEl.classList.toggle('aa-font-' + f[0], sel.value === f[0]));
+      });
+    }
     btn(bar, '✕ Quitter la lecture', () => setReading(rootEl, false), 'aa-btn-quiet');
   }
   if (!on && bar) bar.remove();
