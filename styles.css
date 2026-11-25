@@ -1092,3 +1092,8 @@ body.is-mobile .aa-root .aa-body, body.is-mobile .aa-root.aa-reading .aa-body { 
 .aa-tour .aa-actions .mod-cta { margin-left: auto; }
 .aa-tour-target { outline: 3px solid color-mix(in srgb, var(--interactive-accent) 70%, transparent); outline-offset: 3px; border-radius: 12px; animation: aa-tour-pulse 1.6s ease-in-out infinite; }
 @keyframes aa-tour-pulse { 50% { outline-color: color-mix(in srgb, var(--interactive-accent) 25%, transparent); } }
+
+/* 2.28.2 : par cœur, toute la sourate */
+.aa-hz-whole .aa-hz-text { line-height: 2.4; }
+.aa-hz-v { scroll-margin: 120px 0 170px; }
+.aa-hz-fr summary { cursor: pointer; margin-top: 8px; }
