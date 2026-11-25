@@ -42,6 +42,7 @@ function renderReciteBar(ctx, root, bar, state, nV) {
 const rankFr = n => n === 1 ? '1re' : n + 'e';
 function renderQuranTab(ctx, root, state) {
   clear(root);
+  if (state.hifz) { renderHifz(ctx, root, state, () => { state.hifz = null; renderQuranTab(ctx, root, state); }).catch(e => h(root, 'p', 'aa-warn', 'Erreur : ' + e.message)); return; }
   const data = ctx.data;
   const PAGE = 20;
   /* petit écran (iPhone) : une barre compacte, le reste se replie pour que le texte commence tout de suite */
@@ -91,6 +92,7 @@ function renderQuranTab(ctx, root, state) {
   const quick2 = small ? h(bar, 'div', 'aa-actions aa-quick aa-quick-sm') : quick;
   if (small) opt.parentNode.insertBefore(quick2, opt);
   btn(quick2, small ? '⤢' : '⤢ Lecture', () => setReading(root.closest('.aa-root') || root, true, ctx), 'aa-btn-quiet').title = 'Plein écran : seulement le texte (Échap ou ✕ pour sortir)';
+  btn(quick2, small ? '🧠' : '🧠 Par cœur', () => { state.hifz = { s: state.surah, v: Math.max(1, state.focus || (ctx.settings.lastSurah === state.surah ? ctx.settings.lastVerse : 1) || 1), level: 0 }; renderQuranTab(ctx, root, state); }, 'aa-btn-quiet').title = 'Apprendre par cœur, verset par verset';
   btn(quick2, small ? '🔎' : '🔎 Chercher', () => { state.searchOpen = !state.searchOpen; renderQuranTab(ctx, root, state); }, 'aa-btn-quiet' + (state.searchOpen ? ' aa-on' : '')).title = 'Chercher un mot dans tout le Coran';
   checkbox(tg, 'translittération', ctx.settings.showTr, v => { ctx.settings.showTr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'français', ctx.settings.showFr, v => { ctx.settings.showFr = v; ctx.save(); renderQuranTab(ctx, root, state); });
@@ -98,6 +100,7 @@ function renderQuranTab(ctx, root, state) {
   checkbox(tg, '🎨 prononciation', !!ctx.settings.tajwid, v => { ctx.settings.tajwid = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'sans voyelles', !!ctx.settings.noVowels, v => { ctx.settings.noVowels = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, '📜 toute la sourate en continu', all, v => { ctx.settings.scrollAll = v; ctx.save(); state.focus = 0; state.resume = ctx.settings.lastSurah === state.surah ? ctx.settings.lastVerse : 0; renderQuranTab(ctx, root, state); });
+  checkbox(tg, '✨ suivre le mot récité', ctx.settings.followWords !== false, v => { ctx.settings.followWords = v; AUDIO.follow = v; ctx.save(); });
   checkbox(tg, '👁 m\'entraîner à lire', !!ctx.settings.practice, v => { ctx.settings.practice = v; ctx.save(); const b = root.querySelector('.aa-verses'); if (b) b.classList.toggle('aa-practice', v); });
   {
     const lr = h(opt, 'label', 'aa-layout-row'); h(lr, 'span', null, 'Affichage des versets : ');

@@ -1059,3 +1059,31 @@ body.is-mobile .aa-root .aa-body, body.is-mobile .aa-root.aa-reading .aa-body { 
 .aa-mv-detail { margin-top: 8px; }
 .aa-mv-detail .aa-verse { border-bottom: none; padding: 4px 0; }
 .aa-root.aa-reading .aa-mv-panel .aa-verse-tools { display: none; }
+
+/* 2.28 : le mot récité s'allume */
+.aa-root .aa-w.aa-w-now { background: color-mix(in srgb, var(--interactive-accent) 26%, transparent); border-radius: 6px; box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 26%, transparent); transition: background .12s; }
+
+/* 2.28 : apprendre par cœur */
+.aa-hz-steps { display: flex; gap: 6px; margin: 12px 0 4px; }
+.aa-hz-step { width: 36px; height: 36px; border-radius: 999px !important; padding: 0 !important; border: 1px solid var(--background-modifier-border) !important; background: transparent !important; box-shadow: none !important; color: var(--text-muted); cursor: pointer; }
+.aa-hz-step.aa-hz-done { background: color-mix(in srgb, var(--interactive-accent) 15%, transparent) !important; color: var(--text-normal); }
+.aa-hz-step.aa-on { background: var(--interactive-accent) !important; color: var(--text-on-accent) !important; border-color: transparent !important; font-weight: 700; }
+.aa-hz-lev { color: var(--text-muted); font-size: .92em; margin-bottom: 10px; }
+.aa-hz-card { border: 1px solid var(--background-modifier-border); border-radius: 14px; padding: 16px 16px 12px; margin-bottom: 12px; background: var(--background-primary); }
+.aa-hz-text { font-family: var(--aa-ar-font); line-height: 2.3; text-align: right; }
+.aa-hz-hide { color: transparent !important; background: var(--background-secondary); border-bottom: 2px solid var(--background-modifier-border); border-radius: 6px; cursor: pointer; user-select: none; }
+.aa-hz-hint { color: var(--text-muted); cursor: pointer; }
+.aa-hz-peek { color: var(--interactive-accent) !important; }
+.aa-hz-num { color: var(--text-faint); font-size: .8em; }
+.aa-hz-tr { margin-top: 8px; }
+.aa-hz-fr { margin-top: 6px; font-size: .95em; }
+.aa-hz-act .mod-cta { margin-left: auto; }
+
+/* 2.28 : visite guidée (en haut, jamais collée en bas) */
+.aa-tour { position: sticky; top: 52px; z-index: 6; box-sizing: border-box; max-width: min(560px, calc(100% - 24px)); margin: 10px auto 4px; padding: 14px 16px 12px; border-radius: 14px; background: var(--background-primary); border: 2px solid var(--interactive-accent); box-shadow: 0 6px 24px rgba(0,0,0,.18); }
+.aa-tour-n { font-size: .78em; color: var(--text-muted); }
+.aa-tour-t { font-weight: 700; font-size: 1.08em; margin: 2px 0 6px; }
+.aa-tour-x { line-height: 1.5; margin-bottom: 10px; }
+.aa-tour .aa-actions .mod-cta { margin-left: auto; }
+.aa-tour-target { outline: 3px solid color-mix(in srgb, var(--interactive-accent) 70%, transparent); outline-offset: 3px; border-radius: 12px; animation: aa-tour-pulse 1.6s ease-in-out infinite; }
+@keyframes aa-tour-pulse { 50% { outline-color: color-mix(in srgb, var(--interactive-accent) 25%, transparent); } }

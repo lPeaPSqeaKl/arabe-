@@ -90,6 +90,7 @@ function renderHomeTab(ctx, root, state) {
 
   const set = h(root, 'div', 'aa-home-settings');
   btn(set, '⚙ Réglages : taille du texte, police, récitateur, son hors ligne', () => ctx.openTab('settings'), 'aa-btn-quiet');
+  if (ctx.startTour) btn(set, '🧭 Revoir la visite guidée', () => ctx.startTour(), 'aa-btn-quiet');
 }
 
 function surahRow(ctx, parent, k) {

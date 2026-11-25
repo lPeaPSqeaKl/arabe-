@@ -73,6 +73,7 @@ class AtelierView extends ItemView {
       return;
     }
     this.render();
+    if (this.plugin.fresh && !this.plugin.settings.tourDone) setTimeout(() => this.startTour(), 400);
     /* ordinateur : flèches ← → dans l'onglet Coran (sourate / versets suivants) */
     this.registerDomEvent(document, 'keydown', ev => {
       if (ev.altKey && ev.key === 'ArrowLeft' && this.back && this.back.length) { const t = ev.target; if (!(t && t.closest && t.closest('input, textarea'))) { ev.preventDefault(); this.goBack(); return; } }
@@ -99,6 +100,35 @@ class AtelierView extends ItemView {
     if (this.plugin.settings.lastTab !== b.tab) { this.plugin.settings.lastTab = b.tab; this.plugin.saveData(this.plugin.settings); }
     this._lastTab = b.tab; this.render();
     if (b.tab !== 'coran') setTimeout(() => { try { this.contentEl.scrollTop = b.top; } catch (e) { /* */ } }, 60);
+  }
+  /* Visite guidée : 6 bulles qui montrent où est quoi (au premier lancement, puis à la demande) */
+  startTour() {
+    const steps = [
+      [null, null, '👋 Bienvenue dans l\'Atelier arabe', 'Tout ce qu\'il faut pour apprendre à lire le Coran et l\'arabe, sans internet. Cette petite visite dure 30 secondes.'],
+      ['home', '.aa-tabs', '🧭 Les grandes parties', 'En haut : **Accueil** (ton tableau du jour), **Coran**, **Apprendre** (alphabet, écriture, leçons, règles), **Réviser**, **Dictionnaire** et **Atelier**.'],
+      ['home', '.aa-home-search', '🔎 Chercher', 'Tape un mot (كتاب, livre), une règle (génitif) ou une sourate (Yasin, 36) : tout se trouve ici.'],
+      ['coran', '.aa-verses', '📖 Lire le Coran', '**Touche un mot** : son sens, sa racine, sa grammaire. Sous chaque verset, **▶** pour écouter et **⋯** pour la suite (analyse, signet, apprendre par cœur, recopier).'],
+      ['coran', '.aa-quick', '⤢ 🧠 Lecture et mémoire', '**⤢** : lecture plein écran, avec la police (Aa), l\'ambiance (🌓) et le mode mushaf (📖). **🧠** : apprendre un verset par cœur.'],
+      ['review', '.aa-body', '🃏 Réviser chaque jour', 'Quelques minutes par jour : les cartes reviennent juste avant que tu les oublies. C\'est le meilleur moyen de retenir les mots.'],
+      ['settings', '.aa-settings-inview', '⚙ Réglages', 'Police arabe, ambiance, taille, récitateur, son hors ligne. Tu peux revoir cette visite depuis l\'Accueil. **Bon apprentissage !**'],
+    ];
+    let i = 0;
+    const end = () => { document.querySelectorAll('.aa-tour, .aa-tour-target').forEach(e => e.classList.contains('aa-tour') ? e.remove() : e.classList.remove('aa-tour-target')); this.plugin.settings.tourDone = true; this.plugin.saveData(this.plugin.settings); };
+    const show = () => {
+      document.querySelectorAll('.aa-tour').forEach(e => e.remove()); this.contentEl.querySelectorAll('.aa-tour-target').forEach(e => e.classList.remove('aa-tour-target'));
+      const [tab, sel, title, text] = steps[i];
+      if (tab && this.tab !== tab) { this.back = []; this.setTab(tab); }
+      const card = document.createElement('div'); card.className = 'aa-tour';
+      this.contentEl.insertBefore(card, this.sub);
+      h(card, 'div', 'aa-tour-n', (i + 1) + ' / ' + steps.length);
+      h(card, 'div', 'aa-tour-t', title); mdText(card, 'div', 'aa-tour-x', text);
+      const row = h(card, 'div', 'aa-actions');
+      btn(row, 'Passer', end, 'aa-btn-quiet');
+      if (i > 0) btn(row, '← Retour', () => { i--; show(); }, 'aa-btn-quiet');
+      btn(row, i < steps.length - 1 ? 'Suivant →' : 'Terminer ✓', () => { if (i < steps.length - 1) { i++; show(); } else end(); }, 'mod-cta');
+      setTimeout(() => { const t = sel && this.contentEl.querySelector(sel); if (t) t.classList.add('aa-tour-target'); try { this.contentEl.scrollTop = 0; } catch (e) { /* */ } }, 350);
+    };
+    show();
   }
   setTab(tab, opts) {
     this.tab = tab;
@@ -266,11 +296,12 @@ function fillSettings(el, plugin, inObsidian, ctx) {
 
 class AtelierArabePlugin extends Plugin {
   async onload() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const raw = await this.loadData(); this.fresh = !raw;
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, raw);
     if (!this.settings.progress) this.settings.progress = emptyProgress();
     if (!this.settings.myWords) this.settings.myWords = {};
     if (!this.settings.lessons) this.settings.lessons = {};
-    AUDIO.reciter = this.settings.reciter || 'Alafasy_128kbps'; AUDIO.rate = this.settings.audioRate || 1; AUDIO.repeat = this.settings.audioRepeat == null ? 1 : this.settings.audioRepeat;
+    AUDIO.reciter = this.settings.reciter || 'Alafasy_128kbps'; AUDIO.rate = this.settings.audioRate || 1; AUDIO.repeat = this.settings.audioRepeat == null ? 1 : this.settings.audioRepeat; AUDIO.follow = this.settings.followWords !== false;
     this.data = new QuranData(this.app, this.manifest.dir);
     fontEnv(this.app, this.manifest.dir); ensureFont(this.settings.arFont).catch(() => {});
     this.scanAudio();
@@ -281,6 +312,7 @@ class AtelierArabePlugin extends Plugin {
     this.addCommand({ id: 'accueil', name: 'Accueil', callback: () => this.openView('home') });
     this.addCommand({ id: 'coran', name: 'Coran : reprendre ma lecture', callback: () => this.openView('coran') });
     this.addCommand({ id: 'alphabet', name: 'Apprendre › Alphabet', callback: () => this.openView('alphabet') });
+    this.addCommand({ id: 'par-coeur', name: 'Coran : apprendre par cœur', callback: () => this.openView('coran', { hifz: { s: this.settings.lastSurah || 1, v: this.settings.lastVerse || 1, level: 0 } }) });
     this.addCommand({ id: 'polices', name: 'Apprendre › Comparer les polices', callback: () => this.openView('alphabet', { mode: 'fonts' }) });
     this.addCommand({ id: 'ecrire', name: 'Apprendre › Écrire', callback: () => this.openView('write') });
     this.addCommand({ id: 'recopier', name: 'Apprendre › Recopier le Coran dans mon cahier', callback: () => this.openView('write', { copy: true, letter: null, word: null, unit: null, free: false }) });
@@ -292,6 +324,7 @@ class AtelierArabePlugin extends Plugin {
     this.addCommand({ id: 'analyser', name: 'Dictionnaire › Analyser un texte', callback: () => this.openView('analyse') });
     this.addCommand({ id: 'construire', name: 'Atelier › Construire une phrase', callback: () => this.openView('build') });
     this.addCommand({ id: 'signes', name: 'Atelier › Changer les voyelles', callback: () => this.openView('signs') });
+    this.addCommand({ id: 'visite', name: 'Visite guidée de l\'atelier', callback: async () => { await this.openView('home'); const l = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]; if (l && l.view && l.view.startTour) l.view.startTour(); } });
     this.addCommand({ id: 'reglages', name: 'Réglages de l\'atelier', callback: () => this.openView('settings') });
     this.addCommand({
       id: 'analyser-selection', name: 'Analyser le texte sélectionné',
@@ -350,6 +383,7 @@ class AtelierArabePlugin extends Plugin {
       editNote: (path, initial) => this.editNote(path, initial),
       openRule: (id) => this.openView('rules', { open: id, q: '' }),
       openTab: (tab, opts) => this.openView(tab, opts),
+      startTour: view && view.startTour ? () => view.startTour() : null,
       vaultCardNotes: () => this.vaultCardNotes(),
       openLesson: (id) => this.openView('lessons', { open: id, run: null }),
       openDict: (id) => this.openView('dict', { entry: id, mode: 'search' }),

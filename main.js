@@ -1946,11 +1946,45 @@ const RECITERS = [
   ['Minshawy_Murattal_128kbps', 'al-Minshāwī (lent)'],
   ['Abdul_Basit_Murattal_192kbps', 'ʿAbd al-Bāsiṭ (posé)'],
 ];
-const AUDIO = { reciter: 'Alafasy_128kbps', rate: 1, repeat: 1 };
+const AUDIO = { reciter: 'Alafasy_128kbps', rate: 1, repeat: 1, follow: true };
+/* Suivre le mot récité : on n'a pas le minutage exact des mots, alors on l'estime d'après la longueur
+ * de chaque mot (lettres, voyelles longues, madd ٓ, pauses). C'est approximatif, mais ça suit bien le rythme. */
+let FOLLOW = null;
+function wordWeight(t) {
+  const base = (t.match(/[\u0621-\u064A\u0671-\u06D3]/g) || []).length;
+  const madd = (t.match(/\u0653/g) || []).length * 3.5;
+  const shadda = (t.match(/\u0651/g) || []).length * 0.6;
+  const pause = /[\u06D6-\u06DB]/.test(t) ? 3 : 0;
+  return Math.max(1.5, base + madd + shadda + pause + 1.2);
+}
+function followStop() { if (FOLLOW) { cancelAnimationFrame(FOLLOW.raf); FOLLOW.spans.forEach(sp => sp.classList.remove('aa-w-now')); FOLLOW = null; } }
+function followVerse(s, v) {
+  followStop();
+  if (!AUDIO.follow) return;
+  const box = document.querySelector('.aa-root [data-ref="' + s + ':' + v + '"]');
+  if (!box) return;
+  const spans = [...box.querySelectorAll('.aa-w')].filter(sp => !sp.closest('.aa-mv-panel'));
+  if (!spans.length) return;
+  const w = spans.map(sp => wordWeight(sp.textContent || '')); const tot = w.reduce((a, b) => a + b, 0);
+  const cum = []; let c = 0; w.forEach(x => { c += x; cum.push(c / tot); });
+  const me = { spans, raf: 0, cur: -1 }; FOLLOW = me;
+  const tick = () => {
+    if (FOLLOW !== me) return;
+    const a = currentAudio;
+    if (a && a.duration && isFinite(a.duration) && !a.paused) {
+      const lead = Math.min(0.4, a.duration * 0.05), tail = Math.min(0.6, a.duration * 0.08);
+      const p = Math.max(0, Math.min(1, (a.currentTime - lead) / Math.max(0.1, a.duration - lead - tail)));
+      let i = cum.findIndex(x => p <= x); if (i < 0) i = spans.length - 1;
+      if (i !== me.cur) { if (me.cur >= 0) spans[me.cur].classList.remove('aa-w-now'); spans[i].classList.add('aa-w-now'); me.cur = i; }
+    }
+    me.raf = requestAnimationFrame(tick);
+  };
+  me.raf = requestAnimationFrame(tick);
+}
 function applyRate(a) { try { a.preservesPitch = true; a.mozPreservesPitch = true; a.webkitPreservesPitch = true; a.playbackRate = AUDIO.rate || 1; } catch (e) { /* */ } }
 function setAudioRate(r) { AUDIO.rate = r; if (currentAudio) applyRate(currentAudio); }
 let audioSeq = 0; // chaque nouvelle lecture annule la précédente
-function stopAudio() { audioSeq++; if (currentAudio) { try { currentAudio.pause(); } catch (e) { /* */ } } try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) { /* */ } }
+function stopAudio() { followStop(); audioSeq++; if (currentAudio) { try { currentAudio.pause(); } catch (e) { /* */ } } try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) { /* */ } }
 function playUrl(urls, fallbackText, onEnd, keepSeq) {
   if (!keepSeq) stopAudio();
   const my = audioSeq;
@@ -1989,7 +2023,7 @@ function playVerse(s, v, onEnd, keepSeq) {
   let left = AUDIO.repeat === 0 ? (keepSeq ? 1 : Infinity) : Math.max(1, AUDIO.repeat || 1); // 0 = en boucle
   if (!keepSeq) stopAudio();
   const my = audioSeq;
-  const once = () => playUrl(verseUrls(s, v), null, () => { if (my !== audioSeq) return; left--; if (left > 0) setTimeout(once, 600); else if (onEnd) onEnd(); }, true);
+  const once = () => { playUrl(verseUrls(s, v), null, () => { followStop(); if (my !== audioSeq) return; left--; if (left > 0) setTimeout(once, 600); else if (onEnd) onEnd(); }, true); followVerse(s, v); };
   once();
 }
 /* Joue une suite de versets ; onVerse(v) est appelé au début de chacun */
@@ -2339,6 +2373,7 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
     }
     const vText = () => words.map(wordText).join(' ') + '\n' + tokens.join(' ') + '\n« ' + v[0] + ' » (' + info[1] + ' ' + surahN + ':' + vn + ')';
     btn(tools, canShare() ? '↗ Partager' : 'Copier le verset', () => shareText(vText(), info[1] + ' ' + surahN + ':' + vn), 'aa-btn-quiet');
+    if (ctx.openTab) btn(moreMenu(tools), '🧠 Apprendre par cœur', () => ctx.openTab('coran', { hifz: { s: surahN, v: vn, level: 0 } }), 'aa-btn-quiet');
     if (ctx.openTab) btn(moreMenu(tools), '📜 Recopier dans mon cahier', () => ctx.openTab('write', { copy: true, copyAt: { s: surahN, v: vn }, copyChunk: 0, letter: null, word: null, unit: null, free: false }), 'aa-btn-quiet');
     btn(moreMenu(tools), 'Insérer dans ma note Obsidian', () => ctx.insertText('> [!quote] ' + info[1] + ' ' + surahN + ':' + vn + '\n> ' + words.map(wordText).join(' ') + '\n> *' + tokens.join(' ') + '*\n> ' + v[0] + '\n\n'), 'aa-btn-quiet');
     const key = surahN + ':' + vn; const notes = S.verseNotes || {};
@@ -2541,6 +2576,7 @@ function renderReciteBar(ctx, root, bar, state, nV) {
 const rankFr = n => n === 1 ? '1re' : n + 'e';
 function renderQuranTab(ctx, root, state) {
   clear(root);
+  if (state.hifz) { renderHifz(ctx, root, state, () => { state.hifz = null; renderQuranTab(ctx, root, state); }).catch(e => h(root, 'p', 'aa-warn', 'Erreur : ' + e.message)); return; }
   const data = ctx.data;
   const PAGE = 20;
   /* petit écran (iPhone) : une barre compacte, le reste se replie pour que le texte commence tout de suite */
@@ -2590,6 +2626,7 @@ function renderQuranTab(ctx, root, state) {
   const quick2 = small ? h(bar, 'div', 'aa-actions aa-quick aa-quick-sm') : quick;
   if (small) opt.parentNode.insertBefore(quick2, opt);
   btn(quick2, small ? '⤢' : '⤢ Lecture', () => setReading(root.closest('.aa-root') || root, true, ctx), 'aa-btn-quiet').title = 'Plein écran : seulement le texte (Échap ou ✕ pour sortir)';
+  btn(quick2, small ? '🧠' : '🧠 Par cœur', () => { state.hifz = { s: state.surah, v: Math.max(1, state.focus || (ctx.settings.lastSurah === state.surah ? ctx.settings.lastVerse : 1) || 1), level: 0 }; renderQuranTab(ctx, root, state); }, 'aa-btn-quiet').title = 'Apprendre par cœur, verset par verset';
   btn(quick2, small ? '🔎' : '🔎 Chercher', () => { state.searchOpen = !state.searchOpen; renderQuranTab(ctx, root, state); }, 'aa-btn-quiet' + (state.searchOpen ? ' aa-on' : '')).title = 'Chercher un mot dans tout le Coran';
   checkbox(tg, 'translittération', ctx.settings.showTr, v => { ctx.settings.showTr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'français', ctx.settings.showFr, v => { ctx.settings.showFr = v; ctx.save(); renderQuranTab(ctx, root, state); });
@@ -2597,6 +2634,7 @@ function renderQuranTab(ctx, root, state) {
   checkbox(tg, '🎨 prononciation', !!ctx.settings.tajwid, v => { ctx.settings.tajwid = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'sans voyelles', !!ctx.settings.noVowels, v => { ctx.settings.noVowels = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, '📜 toute la sourate en continu', all, v => { ctx.settings.scrollAll = v; ctx.save(); state.focus = 0; state.resume = ctx.settings.lastSurah === state.surah ? ctx.settings.lastVerse : 0; renderQuranTab(ctx, root, state); });
+  checkbox(tg, '✨ suivre le mot récité', ctx.settings.followWords !== false, v => { ctx.settings.followWords = v; AUDIO.follow = v; ctx.save(); });
   checkbox(tg, '👁 m\'entraîner à lire', !!ctx.settings.practice, v => { ctx.settings.practice = v; ctx.save(); const b = root.querySelector('.aa-verses'); if (b) b.classList.toggle('aa-practice', v); });
   {
     const lr = h(opt, 'label', 'aa-layout-row'); h(lr, 'span', null, 'Affichage des versets : ');
@@ -6132,6 +6170,7 @@ function renderHomeTab(ctx, root, state) {
 
   const set = h(root, 'div', 'aa-home-settings');
   btn(set, '⚙ Réglages : taille du texte, police, récitateur, son hors ligne', () => ctx.openTab('settings'), 'aa-btn-quiet');
+  if (ctx.startTour) btn(set, '🧭 Revoir la visite guidée', () => ctx.startTour(), 'aa-btn-quiet');
 }
 
 function surahRow(ctx, parent, k) {
@@ -6335,6 +6374,71 @@ async function renderCopyMode(ctx, root, state, back) {
   if (W.copied) h(root, 'div', 'aa-muted aa-small aa-cp-count', '📜 ' + W.copied + ' verset' + (W.copied > 1 ? 's' : '') + ' recopié' + (W.copied > 1 ? 's' : '') + ' dans ton cahier.');
 }
 /* ====================================================================
+ * 06n - Apprendre par cœur (ḥifẓ) : on écoute un verset plusieurs fois,
+ * puis les mots se cachent petit à petit et on récite. Un toucher montre un mot.
+ * ==================================================================== */
+const HIFZ_LEVELS = [
+  ['Tout visible', 'Écoute et lis en même temps, plusieurs fois.'],
+  ['1 mot sur 3 caché', 'Récite : les mots cachés, tu les dis de mémoire.'],
+  ['1 mot sur 2 caché', 'Encore moins d\'aide.'],
+  ['Premières lettres', 'Seule la première lettre de chaque mot reste.'],
+  ['Tout caché', 'Récite le verset en entier. Touche un mot si tu bloques.'],
+];
+function hifzHidden(level, i) {
+  if (level === 1) return i % 3 === 1;
+  if (level === 2) return i % 2 === 1;
+  return level >= 3;
+}
+async function renderHifz(ctx, root, state, back) {
+  clear(root);
+  const S = ctx.settings; const data = ctx.data;
+  const at = state.hifz; const H = S.hifz || (S.hifz = {});
+  const d = await data.surah(at.s); const nV = d.v.length; if (at.v > nV) at.v = nV;
+  const redraw = () => renderHifz(ctx, root, state, back);
+  btn(h(root, 'div', 'aa-actions'), '← Retour au Coran', back, 'aa-btn-quiet');
+  h(root, 'h2', null, '🧠 Apprendre par cœur');
+  mdText(root, 'p', 'aa-help', '**1.** Écoute le verset plusieurs fois en le lisant. **2.** Passe au niveau suivant : des mots se cachent, tu les récites de mémoire. **3.** Au dernier niveau, tout est caché. Touche un mot caché pour le voir si tu bloques. Quand tu le sais, passe au verset suivant.');
+  const bar = h(root, 'div', 'aa-toolbar');
+  selectEl(field(bar, 'Sourate'), surahSequence('mushaf').map(n => [n, n + '. ' + data.surahInfo(n)[1]]), at.s, v => { state.hifz = { s: +v, v: 1, level: 0 }; redraw(); });
+  selectEl(field(bar, 'Verset'), d.v.map((x, i) => [i + 1, String(i + 1) + (H[at.s + ':' + (i + 1)] ? ' ✓' : '')]), at.v, v => { state.hifz = { s: at.s, v: +v, level: 0 }; redraw(); });
+  const rep = S.hifzRepeat || 3;
+  selectEl(field(bar, 'Écouter'), [['1', '1 fois'], ['3', '3 fois'], ['5', '5 fois'], ['10', '10 fois']], String(rep), v => { S.hifzRepeat = +v; ctx.save(); redraw(); });
+  const level = at.level || 0;
+  const steps = h(root, 'div', 'aa-hz-steps');
+  HIFZ_LEVELS.forEach((l, i) => { const b = h(steps, 'button', 'aa-hz-step' + (i === level ? ' aa-on' : i < level ? ' aa-hz-done' : ''), String(i + 1)); b.title = l[0]; b.addEventListener('click', () => { at.level = i; redraw(); }); });
+  h(root, 'div', 'aa-hz-lev', HIFZ_LEVELS[level][0] + ' · ' + HIFZ_LEVELS[level][1]);
+  const v = d.v[at.v - 1]; const words = v[2];
+  const card = h(root, 'div', 'aa-hz-card');
+  card.dataset.ref = at.s + ':' + at.v;
+  const line = h(card, 'div', 'aa-ar aa-hz-text'); line.setAttribute('dir', 'rtl'); line.setAttribute('lang', 'ar');
+  line.style.fontSize = Math.round((S.arSize || 30) * 1.15) + 'px';
+  words.forEach((w, i) => {
+    const t = wordText(w);
+    const sp = h(line, 'span', 'aa-w aa-hz-w');
+    const hide = hifzHidden(level, i);
+    if (!hide) sp.textContent = t;
+    else if (level === 3) { const gs = []; for (const ch of t) { if (/[\u064B-\u065F\u0670\u06D6-\u06ED]/.test(ch) && gs.length) gs[gs.length - 1] += ch; else gs.push(ch); } const first = gs.slice(0, /^[\u0671\u0627]\u0644/.test(t) && gs.length > 3 ? 3 : 1).join(''); sp.textContent = first + 'ـ'; sp.classList.add('aa-hz-hint'); sp.dataset.full = t; }
+    else { sp.textContent = t; sp.classList.add('aa-hz-hide'); }
+    if (hide) sp.addEventListener('click', () => { if (sp.dataset.full) { sp.textContent = sp.dataset.full; sp.classList.remove('aa-hz-hint'); } sp.classList.remove('aa-hz-hide'); sp.classList.add('aa-hz-peek'); });
+    line.appendChild(document.createTextNode(' '));
+  });
+  h(line, 'span', 'aa-hz-num', '﴿' + arNum(at.v) + '﴾');
+  if (level <= 1 && S.showTr !== false) h(card, 'div', 'aa-tr aa-hz-tr', translitVerse(words, S.style));
+  h(card, 'div', 'aa-muted aa-hz-fr', v[0]);
+  const act = h(root, 'div', 'aa-actions aa-hz-act');
+  if (S.audio !== false) btn(act, '▶ Écouter ' + rep + ' fois', () => { const old = AUDIO.repeat; AUDIO.repeat = rep; playVerse(at.s, at.v, () => { AUDIO.repeat = old; }); setTimeout(() => { AUDIO.repeat = old; }, 50); }, 'aa-btn-quiet');
+  if (level > 0) btn(act, '👁 Vérifier', () => { line.querySelectorAll('.aa-hz-w').forEach(sp => { if (sp.dataset.full) sp.textContent = sp.dataset.full; sp.classList.remove('aa-hz-hide', 'aa-hz-hint'); sp.classList.add('aa-hz-peek'); }); }, 'aa-btn-quiet');
+  if (level > 0) btn(act, '← Plus facile', () => { at.level = level - 1; redraw(); }, 'aa-btn-quiet');
+  if (level < HIFZ_LEVELS.length - 1) btn(act, 'Niveau suivant →', () => { at.level = level + 1; redraw(); }, 'mod-cta');
+  else btn(act, '✓ Je le sais, verset suivant →', () => {
+    H[at.s + ':' + at.v] = todayNum(); ctx.save();
+    if (at.v < nV) state.hifz = { s: at.s, v: at.v + 1, level: 0 }; else if (at.s < 114) state.hifz = { s: at.s + 1, v: 1, level: 0 };
+    redraw();
+  }, 'mod-cta');
+  const known = Object.keys(H).filter(k => k.startsWith(at.s + ':')).length;
+  if (known) h(root, 'div', 'aa-muted aa-small aa-hz-count', '🧠 ' + known + ' / ' + nV + ' versets de ' + data.surahInfo(at.s)[1] + ' appris par cœur.');
+}
+/* ====================================================================
  * 07 - Le plugin Obsidian : vue, commandes, blocs de code, réglages
  * ==================================================================== */
 const VIEW_TYPE = 'atelier-arabe-view';
@@ -6409,6 +6513,7 @@ class AtelierView extends ItemView {
       return;
     }
     this.render();
+    if (this.plugin.fresh && !this.plugin.settings.tourDone) setTimeout(() => this.startTour(), 400);
     /* ordinateur : flèches ← → dans l'onglet Coran (sourate / versets suivants) */
     this.registerDomEvent(document, 'keydown', ev => {
       if (ev.altKey && ev.key === 'ArrowLeft' && this.back && this.back.length) { const t = ev.target; if (!(t && t.closest && t.closest('input, textarea'))) { ev.preventDefault(); this.goBack(); return; } }
@@ -6435,6 +6540,35 @@ class AtelierView extends ItemView {
     if (this.plugin.settings.lastTab !== b.tab) { this.plugin.settings.lastTab = b.tab; this.plugin.saveData(this.plugin.settings); }
     this._lastTab = b.tab; this.render();
     if (b.tab !== 'coran') setTimeout(() => { try { this.contentEl.scrollTop = b.top; } catch (e) { /* */ } }, 60);
+  }
+  /* Visite guidée : 6 bulles qui montrent où est quoi (au premier lancement, puis à la demande) */
+  startTour() {
+    const steps = [
+      [null, null, '👋 Bienvenue dans l\'Atelier arabe', 'Tout ce qu\'il faut pour apprendre à lire le Coran et l\'arabe, sans internet. Cette petite visite dure 30 secondes.'],
+      ['home', '.aa-tabs', '🧭 Les grandes parties', 'En haut : **Accueil** (ton tableau du jour), **Coran**, **Apprendre** (alphabet, écriture, leçons, règles), **Réviser**, **Dictionnaire** et **Atelier**.'],
+      ['home', '.aa-home-search', '🔎 Chercher', 'Tape un mot (كتاب, livre), une règle (génitif) ou une sourate (Yasin, 36) : tout se trouve ici.'],
+      ['coran', '.aa-verses', '📖 Lire le Coran', '**Touche un mot** : son sens, sa racine, sa grammaire. Sous chaque verset, **▶** pour écouter et **⋯** pour la suite (analyse, signet, apprendre par cœur, recopier).'],
+      ['coran', '.aa-quick', '⤢ 🧠 Lecture et mémoire', '**⤢** : lecture plein écran, avec la police (Aa), l\'ambiance (🌓) et le mode mushaf (📖). **🧠** : apprendre un verset par cœur.'],
+      ['review', '.aa-body', '🃏 Réviser chaque jour', 'Quelques minutes par jour : les cartes reviennent juste avant que tu les oublies. C\'est le meilleur moyen de retenir les mots.'],
+      ['settings', '.aa-settings-inview', '⚙ Réglages', 'Police arabe, ambiance, taille, récitateur, son hors ligne. Tu peux revoir cette visite depuis l\'Accueil. **Bon apprentissage !**'],
+    ];
+    let i = 0;
+    const end = () => { document.querySelectorAll('.aa-tour, .aa-tour-target').forEach(e => e.classList.contains('aa-tour') ? e.remove() : e.classList.remove('aa-tour-target')); this.plugin.settings.tourDone = true; this.plugin.saveData(this.plugin.settings); };
+    const show = () => {
+      document.querySelectorAll('.aa-tour').forEach(e => e.remove()); this.contentEl.querySelectorAll('.aa-tour-target').forEach(e => e.classList.remove('aa-tour-target'));
+      const [tab, sel, title, text] = steps[i];
+      if (tab && this.tab !== tab) { this.back = []; this.setTab(tab); }
+      const card = document.createElement('div'); card.className = 'aa-tour';
+      this.contentEl.insertBefore(card, this.sub);
+      h(card, 'div', 'aa-tour-n', (i + 1) + ' / ' + steps.length);
+      h(card, 'div', 'aa-tour-t', title); mdText(card, 'div', 'aa-tour-x', text);
+      const row = h(card, 'div', 'aa-actions');
+      btn(row, 'Passer', end, 'aa-btn-quiet');
+      if (i > 0) btn(row, '← Retour', () => { i--; show(); }, 'aa-btn-quiet');
+      btn(row, i < steps.length - 1 ? 'Suivant →' : 'Terminer ✓', () => { if (i < steps.length - 1) { i++; show(); } else end(); }, 'mod-cta');
+      setTimeout(() => { const t = sel && this.contentEl.querySelector(sel); if (t) t.classList.add('aa-tour-target'); try { this.contentEl.scrollTop = 0; } catch (e) { /* */ } }, 350);
+    };
+    show();
   }
   setTab(tab, opts) {
     this.tab = tab;
@@ -6602,11 +6736,12 @@ function fillSettings(el, plugin, inObsidian, ctx) {
 
 class AtelierArabePlugin extends Plugin {
   async onload() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const raw = await this.loadData(); this.fresh = !raw;
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, raw);
     if (!this.settings.progress) this.settings.progress = emptyProgress();
     if (!this.settings.myWords) this.settings.myWords = {};
     if (!this.settings.lessons) this.settings.lessons = {};
-    AUDIO.reciter = this.settings.reciter || 'Alafasy_128kbps'; AUDIO.rate = this.settings.audioRate || 1; AUDIO.repeat = this.settings.audioRepeat == null ? 1 : this.settings.audioRepeat;
+    AUDIO.reciter = this.settings.reciter || 'Alafasy_128kbps'; AUDIO.rate = this.settings.audioRate || 1; AUDIO.repeat = this.settings.audioRepeat == null ? 1 : this.settings.audioRepeat; AUDIO.follow = this.settings.followWords !== false;
     this.data = new QuranData(this.app, this.manifest.dir);
     fontEnv(this.app, this.manifest.dir); ensureFont(this.settings.arFont).catch(() => {});
     this.scanAudio();
@@ -6617,6 +6752,7 @@ class AtelierArabePlugin extends Plugin {
     this.addCommand({ id: 'accueil', name: 'Accueil', callback: () => this.openView('home') });
     this.addCommand({ id: 'coran', name: 'Coran : reprendre ma lecture', callback: () => this.openView('coran') });
     this.addCommand({ id: 'alphabet', name: 'Apprendre › Alphabet', callback: () => this.openView('alphabet') });
+    this.addCommand({ id: 'par-coeur', name: 'Coran : apprendre par cœur', callback: () => this.openView('coran', { hifz: { s: this.settings.lastSurah || 1, v: this.settings.lastVerse || 1, level: 0 } }) });
     this.addCommand({ id: 'polices', name: 'Apprendre › Comparer les polices', callback: () => this.openView('alphabet', { mode: 'fonts' }) });
     this.addCommand({ id: 'ecrire', name: 'Apprendre › Écrire', callback: () => this.openView('write') });
     this.addCommand({ id: 'recopier', name: 'Apprendre › Recopier le Coran dans mon cahier', callback: () => this.openView('write', { copy: true, letter: null, word: null, unit: null, free: false }) });
@@ -6628,6 +6764,7 @@ class AtelierArabePlugin extends Plugin {
     this.addCommand({ id: 'analyser', name: 'Dictionnaire › Analyser un texte', callback: () => this.openView('analyse') });
     this.addCommand({ id: 'construire', name: 'Atelier › Construire une phrase', callback: () => this.openView('build') });
     this.addCommand({ id: 'signes', name: 'Atelier › Changer les voyelles', callback: () => this.openView('signs') });
+    this.addCommand({ id: 'visite', name: 'Visite guidée de l\'atelier', callback: async () => { await this.openView('home'); const l = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]; if (l && l.view && l.view.startTour) l.view.startTour(); } });
     this.addCommand({ id: 'reglages', name: 'Réglages de l\'atelier', callback: () => this.openView('settings') });
     this.addCommand({
       id: 'analyser-selection', name: 'Analyser le texte sélectionné',
@@ -6686,6 +6823,7 @@ class AtelierArabePlugin extends Plugin {
       editNote: (path, initial) => this.editNote(path, initial),
       openRule: (id) => this.openView('rules', { open: id, q: '' }),
       openTab: (tab, opts) => this.openView(tab, opts),
+      startTour: view && view.startTour ? () => view.startTour() : null,
       vaultCardNotes: () => this.vaultCardNotes(),
       openLesson: (id) => this.openView('lessons', { open: id, run: null }),
       openDict: (id) => this.openView('dict', { entry: id, mode: 'search' }),

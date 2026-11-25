@@ -110,11 +110,45 @@ const RECITERS = [
   ['Minshawy_Murattal_128kbps', 'al-Minshāwī (lent)'],
   ['Abdul_Basit_Murattal_192kbps', 'ʿAbd al-Bāsiṭ (posé)'],
 ];
-const AUDIO = { reciter: 'Alafasy_128kbps', rate: 1, repeat: 1 };
+const AUDIO = { reciter: 'Alafasy_128kbps', rate: 1, repeat: 1, follow: true };
+/* Suivre le mot récité : on n'a pas le minutage exact des mots, alors on l'estime d'après la longueur
+ * de chaque mot (lettres, voyelles longues, madd ٓ, pauses). C'est approximatif, mais ça suit bien le rythme. */
+let FOLLOW = null;
+function wordWeight(t) {
+  const base = (t.match(/[\u0621-\u064A\u0671-\u06D3]/g) || []).length;
+  const madd = (t.match(/\u0653/g) || []).length * 3.5;
+  const shadda = (t.match(/\u0651/g) || []).length * 0.6;
+  const pause = /[\u06D6-\u06DB]/.test(t) ? 3 : 0;
+  return Math.max(1.5, base + madd + shadda + pause + 1.2);
+}
+function followStop() { if (FOLLOW) { cancelAnimationFrame(FOLLOW.raf); FOLLOW.spans.forEach(sp => sp.classList.remove('aa-w-now')); FOLLOW = null; } }
+function followVerse(s, v) {
+  followStop();
+  if (!AUDIO.follow) return;
+  const box = document.querySelector('.aa-root [data-ref="' + s + ':' + v + '"]');
+  if (!box) return;
+  const spans = [...box.querySelectorAll('.aa-w')].filter(sp => !sp.closest('.aa-mv-panel'));
+  if (!spans.length) return;
+  const w = spans.map(sp => wordWeight(sp.textContent || '')); const tot = w.reduce((a, b) => a + b, 0);
+  const cum = []; let c = 0; w.forEach(x => { c += x; cum.push(c / tot); });
+  const me = { spans, raf: 0, cur: -1 }; FOLLOW = me;
+  const tick = () => {
+    if (FOLLOW !== me) return;
+    const a = currentAudio;
+    if (a && a.duration && isFinite(a.duration) && !a.paused) {
+      const lead = Math.min(0.4, a.duration * 0.05), tail = Math.min(0.6, a.duration * 0.08);
+      const p = Math.max(0, Math.min(1, (a.currentTime - lead) / Math.max(0.1, a.duration - lead - tail)));
+      let i = cum.findIndex(x => p <= x); if (i < 0) i = spans.length - 1;
+      if (i !== me.cur) { if (me.cur >= 0) spans[me.cur].classList.remove('aa-w-now'); spans[i].classList.add('aa-w-now'); me.cur = i; }
+    }
+    me.raf = requestAnimationFrame(tick);
+  };
+  me.raf = requestAnimationFrame(tick);
+}
 function applyRate(a) { try { a.preservesPitch = true; a.mozPreservesPitch = true; a.webkitPreservesPitch = true; a.playbackRate = AUDIO.rate || 1; } catch (e) { /* */ } }
 function setAudioRate(r) { AUDIO.rate = r; if (currentAudio) applyRate(currentAudio); }
 let audioSeq = 0; // chaque nouvelle lecture annule la précédente
-function stopAudio() { audioSeq++; if (currentAudio) { try { currentAudio.pause(); } catch (e) { /* */ } } try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) { /* */ } }
+function stopAudio() { followStop(); audioSeq++; if (currentAudio) { try { currentAudio.pause(); } catch (e) { /* */ } } try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) { /* */ } }
 function playUrl(urls, fallbackText, onEnd, keepSeq) {
   if (!keepSeq) stopAudio();
   const my = audioSeq;
@@ -153,7 +187,7 @@ function playVerse(s, v, onEnd, keepSeq) {
   let left = AUDIO.repeat === 0 ? (keepSeq ? 1 : Infinity) : Math.max(1, AUDIO.repeat || 1); // 0 = en boucle
   if (!keepSeq) stopAudio();
   const my = audioSeq;
-  const once = () => playUrl(verseUrls(s, v), null, () => { if (my !== audioSeq) return; left--; if (left > 0) setTimeout(once, 600); else if (onEnd) onEnd(); }, true);
+  const once = () => { playUrl(verseUrls(s, v), null, () => { followStop(); if (my !== audioSeq) return; left--; if (left > 0) setTimeout(once, 600); else if (onEnd) onEnd(); }, true); followVerse(s, v); };
   once();
 }
 /* Joue une suite de versets ; onVerse(v) est appelé au début de chacun */
@@ -503,6 +537,7 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
     }
     const vText = () => words.map(wordText).join(' ') + '\n' + tokens.join(' ') + '\n« ' + v[0] + ' » (' + info[1] + ' ' + surahN + ':' + vn + ')';
     btn(tools, canShare() ? '↗ Partager' : 'Copier le verset', () => shareText(vText(), info[1] + ' ' + surahN + ':' + vn), 'aa-btn-quiet');
+    if (ctx.openTab) btn(moreMenu(tools), '🧠 Apprendre par cœur', () => ctx.openTab('coran', { hifz: { s: surahN, v: vn, level: 0 } }), 'aa-btn-quiet');
     if (ctx.openTab) btn(moreMenu(tools), '📜 Recopier dans mon cahier', () => ctx.openTab('write', { copy: true, copyAt: { s: surahN, v: vn }, copyChunk: 0, letter: null, word: null, unit: null, free: false }), 'aa-btn-quiet');
     btn(moreMenu(tools), 'Insérer dans ma note Obsidian', () => ctx.insertText('> [!quote] ' + info[1] + ' ' + surahN + ':' + vn + '\n> ' + words.map(wordText).join(' ') + '\n> *' + tokens.join(' ') + '*\n> ' + v[0] + '\n\n'), 'aa-btn-quiet');
     const key = surahN + ':' + vn; const notes = S.verseNotes || {};
