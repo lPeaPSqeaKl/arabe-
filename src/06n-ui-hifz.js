@@ -19,6 +19,7 @@ async function renderHifz(ctx, root, state, back) {
   clear(root);
   const S = ctx.settings; const data = ctx.data;
   const at = state.hifz; const H = S.hifz || (S.hifz = {});
+  if (!at) { state.muraja = false; return back(); }
   const d = await data.surah(at.s); const nV = d.v.length; if (at.v > nV) at.v = nV;
   const whole = at.v === 0; // 0 = toute la sourate
   if (HIFZ_AUDIO.old != null) { AUDIO.repeat = HIFZ_AUDIO.old; HIFZ_AUDIO.old = null; }
