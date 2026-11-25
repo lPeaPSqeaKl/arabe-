@@ -1015,6 +1015,8 @@ body.is-mobile .aa-root .aa-body, body.is-mobile .aa-root.aa-reading .aa-body { 
 @media (pointer: coarse) { .aa-root .aa-body { padding-bottom: 150px; } }
 
 /* 2.26 : lecture plein écran, choix discret de la police (« Aa ») */
-.aa-rd-font { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: 40px; height: 30px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--background-modifier-border); font-family: var(--aa-ar-font), serif; font-size: 15px; color: var(--text-normal); cursor: pointer; }
+.aa-reading-bar { align-items: stretch; }
+.aa-rd-font { position: relative; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--aa-line, var(--background-modifier-border)); background: transparent; color: var(--text-muted); font-family: var(--font-interface); font-size: .85em; line-height: inherit; cursor: pointer; }
+.aa-rd-font:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
 .aa-rd-font-sel { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; }
-.aa-rd-font:focus-within { outline: 2px solid var(--interactive-accent); }
+.aa-rd-font:has(.aa-rd-font-sel:focus-visible) { outline: 2px solid var(--interactive-accent); }
