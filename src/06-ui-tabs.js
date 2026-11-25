@@ -266,7 +266,8 @@ function setReading(rootEl, on) {
   rootEl.classList.toggle('aa-reading', on);
   let bar = rootEl.querySelector(':scope > .aa-reading-bar');
   if (on && !bar) {
-    bar = h(rootEl, 'div', 'aa-reading-bar');
+    /* en haut, collée : en bas, la barre flottante d'Obsidian (iPhone, iPad) la cachait */
+    bar = document.createElement('div'); bar.className = 'aa-reading-bar'; rootEl.insertBefore(bar, rootEl.firstChild);
     const body = rootEl.querySelector('.aa-body');
     const ctxRoot = body;
     btn(bar, 'A−', () => { const b = rootEl.querySelector('.aa-body button.aa-asize'); if (b) b.click(); }, 'aa-btn-quiet');

@@ -995,3 +995,8 @@ li.aa-rule-inline { list-style: none; border: none; background: none; }
 .aa-hs-ic { flex: none; width: 1.4em; text-align: center; }
 .aa-hs-t { min-width: 0; }
 .aa-hs-t .aa-ar { font-size: 1.35em; }
+
+/* 2.25.2 : rien de collé en bas de l'écran (la barre flottante d'Obsidian sur iPhone / iPad le cachait) */
+.aa-reading-bar { position: sticky !important; top: 8px; bottom: auto !important; right: auto !important; width: fit-content; margin: 8px 12px 0 auto; }
+body.is-mobile .aa-root .aa-body, body.is-mobile .aa-root.aa-reading .aa-body { padding-bottom: 150px; }
+@media (pointer: coarse) { .aa-root .aa-body { padding-bottom: 150px; } }
