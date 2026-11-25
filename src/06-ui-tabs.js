@@ -19,7 +19,8 @@ function renderReciteBar(ctx, root, bar, state, nV) {
   const mark = v => { root.querySelectorAll('.aa-verse-playing').forEach(e => e.classList.remove('aa-verse-playing')); const el = v && root.querySelector('[data-verse="' + v + '"]'); if (el) { el.classList.add('aa-verse-playing'); el.scrollIntoView && el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } };
   const play = btn(act, '▶ Écouter ' + (from === 1 && to === nV ? 'la sourate' : 'les versets ' + from + '–' + to), () => {
     play.style.display = 'none'; stop.style.display = '';
-    playVerses(state.surah, list, mark, () => { mark(null); play.style.display = ''; stop.style.display = 'none'; });
+    const reset = () => { mark(null); play.style.display = ''; stop.style.display = 'none'; };
+    playVerses(state.surah, list, mark, reset); PLAYER.onStop = reset;
   }, 'mod-cta');
   const stop = btn(act, '■ Arrêter', () => { stopAudio(); mark(null); play.style.display = ''; stop.style.display = 'none'; }, 'aa-btn-quiet');
   stop.style.display = 'none';

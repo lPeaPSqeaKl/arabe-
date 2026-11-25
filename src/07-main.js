@@ -367,7 +367,7 @@ class AtelierArabePlugin extends Plugin {
     });
     this.addSettingTab(new AtelierSettingTab(this.app, this));
   }
-  onunload() { unloadFonts(); /* Obsidian ferme la vue tout seul */ }
+  onunload() { try { stopAudio(); } catch (e) { /* */ } unloadFonts(); /* Obsidian ferme la vue tout seul */ }
   async saveSettings() {
     await this.saveData(this.settings);
     this.app.workspace.getLeavesOfType(VIEW_TYPE).forEach(l => l.view && l.view.render && l.view.plugin.data.surahs && l.view.render());

@@ -186,7 +186,7 @@ function followVerse(s, v) {
 function applyRate(a) { try { a.preservesPitch = true; a.mozPreservesPitch = true; a.webkitPreservesPitch = true; a.playbackRate = AUDIO.rate || 1; } catch (e) { /* */ } }
 function setAudioRate(r) { AUDIO.rate = r; if (currentAudio) applyRate(currentAudio); }
 let audioSeq = 0; // chaque nouvelle lecture annule la précédente
-function stopAudio() { followStop(); audioSeq++; if (currentAudio) { try { currentAudio.pause(); } catch (e) { /* */ } } try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) { /* */ } }
+function stopAudio() { followStop(); if (typeof playerHide === 'function') playerHide(); audioSeq++; if (currentAudio) { try { currentAudio.pause(); } catch (e) { /* */ } } try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) { /* */ } }
 function playUrl(urls, fallbackText, onEnd, keepSeq) {
   if (!keepSeq) stopAudio();
   const my = audioSeq;
@@ -220,11 +220,50 @@ function verseUrls(s, v) {
   out.push('https://verses.quran.com/Alafasy/mp3/' + f);
   return out;
 }
+/* 2.28.3 : petit lecteur flottant (pause / reprendre / arrêter), visible pendant toute la récitation,
+ * en haut à gauche sous les onglets (jamais en bas : la barre d'Obsidian le cacherait sur iPhone/iPad). */
+const PLAYER = { el: null, timer: 0, idle: 0, onStop: null }; // onStop : remettre les boutons de la page à zéro
+function playerHide() { if (PLAYER.timer) clearInterval(PLAYER.timer); PLAYER.timer = 0; if (PLAYER.el) PLAYER.el.remove(); PLAYER.el = null; }
+function playerPlace() {
+  const el = PLAYER.el; if (!el) return;
+  const root = [...document.querySelectorAll('.aa-root')].find(r => r.offsetParent !== null);
+  if (!root) { el.style.display = 'none'; return; }
+  const rr = root.getBoundingClientRect(); const sc = root.closest('.view-content') || root.parentElement;
+  const top0 = Math.max(rr.top, sc ? sc.getBoundingClientRect().top : 0, 0);
+  const tabs = root.querySelector('.aa-tabs'); const tb = tabs && tabs.offsetParent !== null ? tabs.getBoundingClientRect() : null;
+  el.style.display = '';
+  el.style.top = Math.round((tb && tb.bottom > top0 ? tb.bottom : top0) + 8) + 'px';
+  el.style.left = Math.round(Math.max(rr.left, 0) + 12) + 'px';
+}
+function playerShow() {
+  if (!PLAYER.el) {
+    const el = document.createElement('div'); el.className = 'aa-player';
+    const pp = document.createElement('button'); pp.className = 'aa-player-pp';
+    const st = document.createElement('button'); st.className = 'aa-player-stop'; st.textContent = '⏹ Arrêter'; st.title = 'Arrêter la récitation';
+    pp.addEventListener('click', () => { const a = currentAudio; if (!a) return; if (a.paused) { const r = a.play(); if (r && r.catch) r.catch(() => {}); } else a.pause(); playerSync(); });
+    st.addEventListener('click', () => { const f = PLAYER.onStop; PLAYER.onStop = null; stopAudio(); playerHide(); if (f) try { f(); } catch (e) { /* */ } });
+    el.append(pp, st); document.body.appendChild(el); PLAYER.el = el;
+  }
+  PLAYER.idle = 0;
+  if (!PLAYER.timer) PLAYER.timer = setInterval(playerSync, 400);
+  playerSync();
+}
+function playerSync() {
+  const el = PLAYER.el; if (!el) return;
+  const a = currentAudio;
+  // fini (et rien d'autre ne suit) depuis plus de 2 s : on range le lecteur
+  if (!a || a.ended || a.error) { PLAYER.idle += 400; if (PLAYER.idle > 2000) { playerHide(); return; } } else PLAYER.idle = 0;
+  const pp = el.querySelector('.aa-player-pp'); const paused = a && a.paused && !a.ended;
+  pp.textContent = paused ? '▶ Reprendre' : '⏸ Pause'; pp.title = paused ? 'Reprendre la récitation' : 'Mettre en pause';
+  el.classList.toggle('aa-player-paused', !!paused);
+  playerPlace();
+}
 /* Joue un verset (répété AUDIO.repeat fois), puis appelle onEnd */
 function playVerse(s, v, onEnd, keepSeq) {
   let left = AUDIO.repeat === 0 ? (keepSeq ? 1 : Infinity) : Math.max(1, AUDIO.repeat || 1); // 0 = en boucle
   if (!keepSeq) stopAudio();
   const my = audioSeq;
+  playerShow();
   const once = () => { playUrl(verseUrls(s, v), null, () => { followStop(); if (my !== audioSeq) return; left--; if (left > 0) setTimeout(once, 600); else if (onEnd) onEnd(); }, true); followVerse(s, v); };
   once();
 }

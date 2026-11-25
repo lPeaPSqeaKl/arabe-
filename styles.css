@@ -1097,3 +1097,9 @@ body.is-mobile .aa-root .aa-body, body.is-mobile .aa-root.aa-reading .aa-body { 
 .aa-hz-whole .aa-hz-text { line-height: 2.4; }
 .aa-hz-v { scroll-margin: 120px 0 170px; }
 .aa-hz-fr summary { cursor: pointer; margin-top: 8px; }
+
+/* 2.28.3 : lecteur flottant pendant la récitation (en haut, jamais en bas) */
+.aa-player { position: fixed; z-index: 30; display: flex; gap: 6px; padding: 5px; border-radius: 999px; background: var(--background-primary); border: 1px solid var(--background-modifier-border); box-shadow: 0 3px 14px rgba(0,0,0,.22); }
+.aa-player button { border-radius: 999px !important; height: 34px; padding: 0 14px; font-size: 14px; cursor: pointer; }
+.aa-player .aa-player-pp { background: var(--interactive-accent) !important; color: var(--text-on-accent, #fff) !important; font-weight: 600; min-width: 112px; }
+.aa-player.aa-player-paused .aa-player-pp { background: var(--interactive-normal) !important; color: var(--text-normal) !important; }
