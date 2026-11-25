@@ -939,3 +939,16 @@ li.aa-rule-inline { list-style: none; border: none; background: none; }
 .aa-root.aa-font-rakkas { --aa-ar-font: "Atelier Rakkas", "Atelier Amiri Quran", serif; }
 .aa-root.aa-font-lalezar { --aa-ar-font: "Atelier Lalezar", "Atelier Amiri Quran", serif; }
 .aa-root.aa-font-nastaliq .aa-verse-ar, .aa-root.aa-font-gulzar .aa-verse-ar, .aa-font-preview.aa-font-nastaliq, .aa-font-preview.aa-font-gulzar { line-height: 2.7; }
+
+/* 2.22 : les 4 formes d'une lettre avec un mot du Coran */
+.aa-al-fh { margin: 14px 0 2px; }
+.aa-al-fgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 130px), 1fr)); gap: 6px; margin: 6px 0 10px; }
+.aa-al-fcell { border: 1px solid var(--aa-line, var(--background-modifier-border)); border-radius: 10px; padding: 6px 6px 8px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+.aa-al-fclick { cursor: pointer; }
+.aa-al-fclick:hover { background: var(--background-secondary); }
+.aa-al-flab { font-size: .8em; color: var(--text-muted); }
+.aa-al-fword { margin-top: 2px; }
+.aa-al-fcell .aa-tr { overflow-wrap: anywhere; }
+.aa-al-fnone { margin-top: 6px; }
+.aa-font-preview .aa-font-preview-ar { font-family: var(--aa-ar-font); display: block; }
+.aa-scroll-end { text-align: center; padding: 18px 0 30px; display: flex; flex-direction: column; align-items: center; gap: 8px; }

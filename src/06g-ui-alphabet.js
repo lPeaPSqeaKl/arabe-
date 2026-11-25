@@ -176,9 +176,27 @@ function renderLetterCard(ctx, parent, L, A, openZone) {
   const zp = h(c, 'p'); h(zp, 'b', null, 'D\'où il sort : ');
   L.z.forEach((zid, i) => { const z = A.zones.find(x => x.id === zid); if (i) zp.appendChild(document.createTextNode(' + ')); const a = h(zp, 'a', 'aa-link', z.name.toLowerCase()); a.addEventListener('click', ev => { ev.preventDefault(); openZone(zid); }); });
   // formes
-  const ft = h(c, 'table', 'aa-table aa-al-forms');
-  const fh = h(ft, 'tr'); const fr = h(ft, 'tr');
-  letterForms(L).forEach(([lab, f]) => { h(fh, 'th', null, lab); arSpan(h(fr, 'td'), f, 'aa-al-big'); });
+  h(c, 'h4', 'aa-al-fh', 'Ses 4 formes, avec un mot du Coran');
+  mdText(c, 'p', 'aa-muted aa-small', L.join || L.l === 'ء'
+    ? 'Une lettre change un peu de forme selon sa place : **seule**, **au début** (attachée à la lettre suivante), **au milieu** (attachée des deux côtés) ou **à la fin** (attachée à la lettre d\'avant). Cherche-la dans chaque mot.'
+    : 'Cette lettre **ne s\'attache jamais à la lettre suivante**. Elle n\'a donc que 2 formes : au début elle garde sa forme seule, et au milieu elle a sa forme de fin. Cherche-la dans chaque mot.');
+  const fg = h(c, 'div', 'aa-al-fgrid');
+  const EXF = (typeof ALPHA_FORM_EX !== 'undefined' && ALPHA_FORM_EX[L.l]) || [];
+  const F4 = L.join ? letterForms(L) : [['seule', L.l], ['au début', L.l], ['au milieu', L.l === 'ء' ? L.l : AL_ZWJ + L.l], ['à la fin', L.l === 'ء' ? L.l : AL_ZWJ + L.l]];
+  F4.forEach(([lab, f], k) => {
+    const cell = h(fg, 'div', 'aa-al-fcell');
+    h(cell, 'div', 'aa-al-flab', lab);
+    arSpan(cell, f, 'aa-al-big');
+    const e = EXF[k];
+    if (e && ctx.data && ctx.data.lemmas[e[1]]) {
+      const w = h(cell, 'div', 'aa-al-fword'); arSpan(w, e[0], 'aa-mid');
+      h(cell, 'div', 'aa-tr aa-small', translitPhrase([e[0]], ctx.settings.style));
+      h(cell, 'div', 'aa-muted aa-small', '« ' + String(ctx.data.lemmas[e[1]][4]).split(/[;,]/)[0].trim() + ' »');
+      cell.classList.add('aa-al-fclick'); cell.title = 'Écouter';
+      cell.addEventListener('click', () => speak(e[0]));
+    } else h(cell, 'div', 'aa-muted aa-small aa-al-fnone', L.l === 'ء' ? 'au milieu, la hamza se pose sur un support : ـأ ـؤ ـئ' : 'pas d\'exemple simple');
+  });
+  if (L.l === 'ي') mdText(c, 'p', 'aa-muted aa-small', 'Dans le Coran, le **ي** à la fin d\'un mot s\'écrit souvent **sans ses deux points** : ى (on l\'appelle alif maqṣūra quand il se prononce ā).');
   // exemple
   const ex = h(c, 'div', 'aa-al-ex');
   h(ex, 'b', null, 'Exemple : ');

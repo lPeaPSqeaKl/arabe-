@@ -14,7 +14,7 @@ function renderReciteBar(ctx, root, bar, state, nV) {
   const f3 = field(box, 'Répéter');
   selectEl(f3, [['1', '1 fois'], ['2', '2 fois'], ['3', '3 fois'], ['5', '5 fois'], ['0', '∞ en boucle']], String(S.audioRepeat == null ? 1 : S.audioRepeat), v => { S.audioRepeat = +v; AUDIO.repeat = +v; ctx.save(); });
   const act = h(box, 'div', 'aa-recite-act');
-  const PAGE = 20; const from = (state.page || 0) * PAGE + 1, to = Math.min(nV, from + PAGE - 1);
+  const PAGE = 20; const from = S.scrollAll ? 1 : (state.page || 0) * PAGE + 1, to = S.scrollAll ? nV : Math.min(nV, from + PAGE - 1);
   const list = []; for (let v = from; v <= to; v++) list.push(v);
   const mark = v => { root.querySelectorAll('.aa-verse-playing').forEach(e => e.classList.remove('aa-verse-playing')); const el = v && root.querySelector('[data-verse="' + v + '"]'); if (el) { el.classList.add('aa-verse-playing'); el.scrollIntoView && el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } };
   const play = btn(act, '▶ Écouter ' + (from === 1 && to === nV ? 'la sourate' : 'les versets ' + from + '–' + to), () => {
@@ -58,7 +58,8 @@ function renderQuranTab(ctx, root, state) {
   const nav = h(bar, 'div', 'aa-actions aa-surah-nav');
   if (pos > 0) btn(nav, '← ' + data.surahInfo(seq[pos - 1])[1], () => goSurah(seq[pos - 1]), 'aa-btn-quiet').title = 'Sourate précédente (' + (order === 'nuzul' ? 'ordre de la révélation' : 'ordre du Coran') + ')';
   if (pos < seq.length - 1) btn(nav, data.surahInfo(seq[pos + 1])[1] + ' →', () => goSurah(seq[pos + 1]), 'aa-btn-quiet').title = 'Sourate suivante (' + (order === 'nuzul' ? 'ordre de la révélation' : 'ordre du Coran') + ')';
-  const pages = Math.ceil(nV / PAGE);
+  const all = !!ctx.settings.scrollAll;
+  const pages = all ? 1 : Math.ceil(nV / PAGE);
   root._aaSwipeGo = dir => {
     if (dir > 0 && state.page < pages - 1) { state.page++; state.focus = 0; renderQuranTab(ctx, root, state); }
     else if (dir < 0 && state.page > 0) { state.page--; state.focus = 0; renderQuranTab(ctx, root, state); }
@@ -68,7 +69,8 @@ function renderQuranTab(ctx, root, state) {
     try { root.closest('.aa-root').scrollTop = 0; } catch (e) { /* */ }
   };
   onSwipe(root, dir => { if (root._aaSwipeGo && root.querySelector('.aa-verses')) root._aaSwipeGo(dir); });
-  if (state.focus || state.resume) state.page = Math.floor(((state.focus || state.resume) - 1) / PAGE);
+  if (all) state.page = 0;
+  else if (state.focus || state.resume) state.page = Math.floor(((state.focus || state.resume) - 1) / PAGE);
   if (pages > 1) {
     const f2 = field(bar, 'Versets');
     const opts = []; for (let p = 0; p < pages; p++) opts.push([p, (p * PAGE + 1) + '–' + Math.min(nV, (p + 1) * PAGE)]);
@@ -91,6 +93,7 @@ function renderQuranTab(ctx, root, state) {
   checkbox(tg, 'couleurs des mots', ctx.settings.wordColors !== false, v => { ctx.settings.wordColors = v; ctx.save(); const r = root.closest && root.closest('.aa-root'); if (r) r.classList.toggle('aa-nocolor', !v); });
   checkbox(tg, '🎨 prononciation', !!ctx.settings.tajwid, v => { ctx.settings.tajwid = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'sans voyelles', !!ctx.settings.noVowels, v => { ctx.settings.noVowels = v; ctx.save(); renderQuranTab(ctx, root, state); });
+  checkbox(tg, '📜 toute la sourate en continu', all, v => { ctx.settings.scrollAll = v; ctx.save(); state.focus = 0; state.resume = ctx.settings.lastSurah === state.surah ? ctx.settings.lastVerse : 0; renderQuranTab(ctx, root, state); });
   checkbox(tg, '👁 m\'entraîner à lire', !!ctx.settings.practice, v => { ctx.settings.practice = v; ctx.save(); const b = root.querySelector('.aa-verses'); if (b) b.classList.toggle('aa-practice', v); });
   {
     const lr = h(opt, 'label', 'aa-layout-row'); h(lr, 'span', null, 'Affichage des versets : ');
@@ -124,6 +127,7 @@ function renderQuranTab(ctx, root, state) {
   mdText(root, 'p', 'aa-help', '**Clique sur un mot** pour voir ses morceaux, ses signes lettre par lettre, la raison de sa terminaison et les autres formes possibles. Couleurs : bleu = nom, rouge = verbe, gris = particule.');
   if (state.searchOpen) renderQuranSearch(ctx, root, state);
   const body = h(root, 'div', 'aa-verses' + (ctx.settings.practice ? ' aa-practice' : ''));
+  if (all) return renderQuranScroll(ctx, root, body, state, nV);
   const from = state.page * PAGE + 1, to = Math.min(nV, from + PAGE - 1);
   renderVerses(ctx, body, state.surah, from, to, { title: true, basmala: from === 1 }).then(() => {
     if (state.focus) {
@@ -141,6 +145,52 @@ function renderQuranTab(ctx, root, state) {
       if (state.page < pages - 1) btn(nav, 'versets suivants →', () => { state.page++; state.focus = 0; renderQuranTab(ctx, root, state); });
     }
   });
+}
+
+/* Lecture en continu : toute la sourate sur une seule page. Les versets arrivent par paquets
+ * de 25 pendant qu'on descend, pour rester rapide sur iPhone même avec al-Baqara (286 versets). */
+async function renderQuranScroll(ctx, root, body, state, nV) {
+  const CH = 25; const s0 = state.surah;
+  const target = state.focus || state.resume || 0;
+  let done = 0;
+  const more = async upto => {
+    while (done < Math.min(nV, upto)) {
+      const from = done + 1, to = Math.min(nV, done + CH);
+      await renderVerses(ctx, body, s0, from, to, { title: from === 1, basmala: from === 1 });
+      done = to;
+      if (state.surah !== s0 || !body.isConnected) return false;
+    }
+    return true;
+  };
+  if (!(await more(Math.max(CH, target + 10)))) return;
+  if (target) {
+    const el = body.querySelector('[data-ref="' + s0 + ':' + target + '"]');
+    if (el) { if (state.focus) el.classList.add('aa-verse-focus'); el.scrollIntoView && el.scrollIntoView({ block: state.focus ? 'center' : 'start' }); }
+  }
+  state.resume = 0;
+  watchReading(ctx, root, body, state);
+  const end = h(root, 'div', 'aa-scroll-end');
+  const paintEnd = () => {
+    clear(end);
+    if (done < nV) { h(end, 'span', 'aa-muted aa-small', 'Versets ' + (done + 1) + ' à ' + nV + ' : ils arrivent quand tu descends…'); return; }
+    const seq = surahSequence(ctx.settings.surahOrder === 'nuzul' ? 'nuzul' : 'mushaf'); const pos = seq.indexOf(s0);
+    h(end, 'div', 'aa-muted aa-small', 'Fin de la sourate ' + ctx.data.surahInfo(s0)[1] + '.');
+    if (pos < seq.length - 1) btn(end, 'Sourate suivante : ' + ctx.data.surahInfo(seq[pos + 1])[1] + ' →', () => { state.surah = seq[pos + 1]; state.page = 0; state.focus = 0; state.resume = 0; renderQuranTab(ctx, root, state); try { root.closest('.aa-root').scrollTop = 0; } catch (e) { /* */ } }, 'mod-cta');
+  };
+  paintEnd();
+  if (done >= nV || typeof IntersectionObserver === 'undefined') { if (done < nV) { await more(nV); watchReading(ctx, root, body, state); paintEnd(); } return; }
+  let busy = false;
+  const io = new IntersectionObserver(async ents => {
+    if (busy || !ents.some(e => e.isIntersecting)) return;
+    busy = true;
+    const ok = await more(done + CH);
+    busy = false;
+    if (!ok) { io.disconnect(); return; }
+    watchReading(ctx, root, body, state); paintEnd();
+    if (done >= nV) io.disconnect();
+    else { io.unobserve(end); io.observe(end); }
+  }, { rootMargin: '0px 0px 900px 0px' });
+  io.observe(end);
 }
 
 /* ---------- confort : reprendre la lecture, glisser, signets ---------- */
