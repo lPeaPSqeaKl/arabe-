@@ -197,7 +197,7 @@ class AtelierView extends ItemView {
     else if (this.tab === 'signs') renderSignsTab(ctx, this.body, st);
     else if (this.tab === 'settings') { h(this.body, 'h2', 'aa-set-title', '⚙ Réglages'); const box = h(this.body, 'div', 'aa-settings-inview'); fillSettings(box, this.plugin, false, ctx); }
     else renderQuizTab(ctx, this.body, st);
-    if (this.back && this.back.length) {
+    if (this.back && this.back.length && !this.body.querySelector('.aa-own-back')) {
       const last = this.back[this.back.length - 1];
       const lab = last.tab === 'settings' ? 'Réglages' : tabLabel(last.tab);
       const bb = document.createElement('button'); bb.className = 'aa-btn aa-btn-quiet aa-back'; bb.textContent = '← Retour' + (lab ? ' (' + lab + ')' : '');
@@ -316,6 +316,7 @@ class AtelierArabePlugin extends Plugin {
     this.addCommand({ id: 'alphabet', name: 'Apprendre › Alphabet', callback: () => this.openView('alphabet') });
     this.addCommand({ id: 'par-coeur', name: 'Coran : apprendre par cœur', callback: () => this.openView('coran', { hifz: { s: this.settings.lastSurah || 1, v: this.settings.lastVerse || 1, level: 0 } }) });
     this.addCommand({ id: 'polices', name: 'Apprendre › Comparer les polices', callback: () => this.openView('alphabet', { mode: 'fonts' }) });
+    this.addCommand({ id: 'parties', name: 'Coran › Les 30 parties (juz\') et mon tour du Coran', callback: async () => { await this.openView('coran', { juzView: true }); } });
     this.addCommand({ id: 'imprimer', name: 'Coran › Imprimer ou exporter une sourate (PDF, PNG)', callback: async () => { await this.openView('coran'); setTimeout(() => openPrintDialog(this.ctx(this.app.workspace.getLeavesOfType(VIEW_TYPE)[0].view), this.settings.lastSurah || 1), 300); } });
     this.addCommand({ id: 'lire', name: 'Apprendre › Lire (cours de lecture)', callback: () => this.openView('read') });
     this.addCommand({ id: 'ecrire', name: 'Apprendre › Écrire', callback: () => this.openView('write') });
@@ -397,7 +398,7 @@ class AtelierArabePlugin extends Plugin {
         } catch (e) { new Notice('Impossible de garder l\'image : ' + e.message); return null; }
       },
       addFlashcard: (q, a) => this.addFlashcard(q, a),
-      openQuran: (s, v) => this.openView('coran', { surah: s, page: 0, focus: v }),
+      openQuran: (s, v) => this.openView('coran', { surah: s, page: 0, focus: v, juzView: false }),
       readNote: async (path) => { const f = this.app.vault.getAbstractFileByPath(path); return f ? await this.app.vault.read(f) : null; },
       editNote: (path, initial) => this.editNote(path, initial),
       openRule: (id) => this.openView('rules', { open: id, q: '' }),

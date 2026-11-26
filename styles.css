@@ -1314,6 +1314,34 @@ body.is-mobile .aa-root .aa-body, body.is-mobile .aa-root.aa-reading .aa-body { 
 .aa-print-more-opts .aa-field { flex: 1 1 100%; }
 .aa-print-sheet { width: 100%; max-width: 620px; }
 .aa-print-howto { flex: 1 1 100%; margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--background-secondary); }
+/* 2.39 les 30 parties (juz') */
+.aa-juz-mark { display: flex; align-items: center; gap: 12px; margin: 22px 0 16px; }
+.aa-juz-mark-line { flex: 1; height: 0; border-top: 1px solid color-mix(in srgb, var(--aa-gold, #a0803c) 55%, transparent); }
+.aa-juz-mark-t { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.aa-juz-mark-ar { font-family: "Atelier Amiri Quran", serif; font-size: 1.5em; color: var(--aa-gold, #a0803c); line-height: 1.6; }
+.aa-juz-mark-fr { font-size: .82em; color: var(--text-muted); letter-spacing: .02em; }
+.aa-juz-tour { border: 1px solid color-mix(in srgb, var(--aa-gold, #a0803c) 45%, transparent); border-radius: 14px; padding: 14px 16px; margin: 12px 0 16px; background: color-mix(in srgb, var(--aa-gold, #a0803c) 7%, var(--background-primary)); display: flex; flex-direction: column; gap: 10px; }
+.aa-juz-tour-tx b { font-size: 1.08em; }
+.aa-juz-tours { margin-top: 4px; }
+.aa-juz-bar { display: grid; grid-template-columns: repeat(30, 1fr); gap: 3px; }
+.aa-juz-cell { height: 14px; border-radius: 3px; background: var(--background-modifier-border); cursor: pointer; }
+.aa-juz-cell.is-read { background: var(--aa-gold, #a0803c); }
+.aa-juz-cell.is-here { outline: 2px solid var(--interactive-accent); outline-offset: 1px; }
+.aa-juz-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-bottom: 150px; }
+.aa-juz-card { border: 1px solid var(--background-modifier-border); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 6px; background: var(--background-primary); }
+.aa-juz-card.is-here { border-color: var(--interactive-accent); box-shadow: 0 0 0 1px var(--interactive-accent); }
+.aa-juz-card.is-read { background: color-mix(in srgb, var(--aa-gold, #a0803c) 9%, var(--background-primary)); }
+.aa-juz-card.is-read .aa-juz-num rect { fill: var(--aa-gold, #a0803c); }
+.aa-juz-card.is-read .aa-juz-num .aa-star-t { color: var(--background-primary); }
+.aa-juz-top { display: flex; align-items: center; gap: 10px; }
+.aa-juz-name { flex: 1; min-width: 0; text-align: right; }
+.aa-juz-ar { font-family: "Atelier Amiri Quran", serif; font-size: 1.45em; line-height: 1.7; }
+.aa-juz-tr { font-size: .85em; color: var(--text-muted); font-style: italic; }
+.aa-juz-act { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; }
+.aa-juz-act button { flex: 1 1 auto; }
+.aa-print-juzspan { padding: 6px 0; font-size: .92em; }
+@media (max-width: 520px) { .aa-juz-grid { grid-template-columns: 1fr; } .aa-juz-bar { gap: 2px; } }
+.aa-juz-card.is-read .aa-juz-num circle { fill: var(--aa-gold, #a0803c); stroke: var(--background-primary); }
 /* généré par tools/palettes.js — ne pas modifier à la main */
 .aa-root.aa-amb-parchemin {
   --background-primary: #f1e3bf; --background-primary-alt: #ecdbb1; --background-secondary: #e9d6a9; --background-secondary-alt: #e2cc97;

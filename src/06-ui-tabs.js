@@ -44,6 +44,7 @@ const rankFr = n => n === 1 ? '1re' : n + 'e';
 function renderQuranTab(ctx, root, state) {
   clear(root);
   if (state.hifz) { renderHifz(ctx, root, state, () => { state.hifz = null; renderQuranTab(ctx, root, state); }).catch(e => h(root, 'p', 'aa-warn', 'Erreur : ' + e.message)); return; }
+  if (state.juzView) { renderJuz(ctx, root, state, () => { state.juzView = false; renderQuranTab(ctx, root, state); }); return; }
   const data = ctx.data;
   const PAGE = 20;
   /* petit écran (iPhone) : une barre compacte, le reste se replie pour que le texte commence tout de suite */
@@ -94,6 +95,7 @@ function renderQuranTab(ctx, root, state) {
   if (small) opt.parentNode.insertBefore(quick2, opt);
   btn(quick2, small ? '⤢' : '⤢ Lecture', () => setReading(root.closest('.aa-root') || root, true, ctx), 'aa-btn-quiet').title = 'Plein écran : seulement le texte (Échap ou ✕ pour sortir)';
   btn(quick2, small ? '🧠' : '🧠 Par cœur', () => { state.hifz = { s: state.surah, v: Math.max(1, state.focus || (ctx.settings.lastSurah === state.surah ? ctx.settings.lastVerse : 1) || 1), level: 0 }; renderQuranTab(ctx, root, state); }, 'aa-btn-quiet').title = 'Apprendre par cœur, verset par verset ou toute la sourate';
+  btn(quick2, small ? '📚' : '📚 30 parties', () => { state.juzView = true; renderQuranTab(ctx, root, state); try { root.closest('.aa-root').scrollTop = 0; } catch (e) { /* */ } }, 'aa-btn-quiet').title = 'Les 30 parties du Coran (juz\') et mon tour du Coran';
   btn(quick2, small ? '🖨' : '🖨 Imprimer', () => { const nV = ctx.data.surahInfo(state.surah)[5]; const f = (state.page || 0) * 20 + 1; openPrintDialog(ctx, state.surah, ctx.settings.scrollAll ? null : { from: f, to: Math.min(nV, f + 19) }); }, 'aa-btn-quiet').title = 'Imprimer ou exporter la sourate en PDF ou en images (A4 ou A5)';
   btn(quick2, small ? '🔎' : '🔎 Chercher', () => { state.searchOpen = !state.searchOpen; renderQuranTab(ctx, root, state); }, 'aa-btn-quiet' + (state.searchOpen ? ' aa-on' : '')).title = 'Chercher un mot dans tout le Coran';
   checkbox(tg, 'translittération', ctx.settings.showTr, v => { ctx.settings.showTr = v; ctx.save(); renderQuranTab(ctx, root, state); });
@@ -141,7 +143,7 @@ function renderQuranTab(ctx, root, state) {
   const body = h(root, 'div', 'aa-verses' + (ctx.settings.practice ? ' aa-practice' : ''));
   if (all) return renderQuranScroll(ctx, root, body, state, nV);
   const from = state.page * PAGE + 1, to = Math.min(nV, from + PAGE - 1);
-  renderVerses(ctx, body, state.surah, from, to, { title: true, basmala: from === 1 }).then(() => {
+  renderVerses(ctx, body, state.surah, from, to, { title: true, basmala: from === 1, juz: true }).then(() => {
     if (state.focus) {
       const el = body.querySelector('[data-ref="' + state.surah + ':' + state.focus + '"]');
       if (el) { el.classList.add('aa-verse-focus'); el.scrollIntoView && el.scrollIntoView({ block: 'center' }); }
@@ -174,7 +176,7 @@ async function renderQuranScroll(ctx, root, body, state, nV) {
   const more = async upto => {
     while (done < Math.min(nV, upto)) {
       const from = done + 1, to = Math.min(nV, done + CH);
-      await renderVerses(ctx, body, s0, from, to, { title: from === 1, basmala: from === 1 });
+      await renderVerses(ctx, body, s0, from, to, { title: from === 1, basmala: from === 1, juz: true });
       done = to;
       if (state.surah !== s0 || !body.isConnected) return false;
     }

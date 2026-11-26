@@ -11,12 +11,8 @@ const PRINT_SIZES = { s: ['Petit', 0.8], m: ['Moyen', 1], l: ['Grand', 1.25] };
 const mm2px = mm => Math.round(mm / 25.4 * PRINT_DPI);
 const PRINT_TJ = { light: { merge: '#8e5bd0', madd2: '#e07b00', madd: '#d0312d', ghunna: '#1f9a55', qalqala: '#2b74d9' }, dark: { merge: '#c09cf5', madd2: '#ffa94d', madd: '#ff7a6e', ghunna: '#5fd896', qalqala: '#7fb2ff' } };
 const PRINT_TJ_LEGEND = [['madd2', 'allongé 2 temps'], ['madd', 'allongé 4 à 6 temps'], ['ghunna', 'par le nez'], ['qalqala', 'écho'], ['merge', 'se fond'], ['silent', 'muet']];
-/* recueils tout prêts */
-const PRINT_SETS = [
-  { a: 78, b: 114, fr: 'Juz\' ʿAmma', ar: 'جُزْءُ عَمَّ', sub: '30ᵉ partie du Coran · sourates 78 à 114' },
-  { a: 67, b: 77, fr: 'Juz\' Tabārak', ar: 'جُزْءُ تَبَارَكَ', sub: '29ᵉ partie du Coran · sourates 67 à 77' },
-];
-const printSetOf = (a, b) => PRINT_SETS.find(x => x.a === a && x.b === b);
+/* le titre arabe d'une partie : « جُزْءُ عَمَّ » */
+const juzAr = j => 'جُزْءُ ' + JUZ_NAMES[j - 1][0];
 
 /* prépare toutes les pages ; renvoie le nombre de pages et une fonction qui dessine chacune */
 async function layoutSurah(ctx, opt) {
@@ -36,8 +32,12 @@ async function layoutSurah(ctx, opt) {
   const withTr = opt.content === 'tr' || opt.content === 'at', withFr = opt.content === 'tr' || opt.content === 'fr';
   const wbw = withTr && opt.wbw; const tajwid = !!opt.tajwid; const copy = !!opt.copy;
   const continuous = opt.content === 'ar' && !copy; // arabe seul en texte continu, comme un mushaf
-  const s1 = opt.surah, s2 = Math.max(s1, opt.surahTo || s1); const multi = s2 > s1;
-  const set = printSetOf(s1, s2);
+  /* ce qu'on imprime : une suite de morceaux { s, from, to } */
+  const juz = opt.juz || 0; let segs;
+  if (juz) segs = juzParts(ctx, juz);
+  else if (opt.surahTo > opt.surah) { segs = []; for (let s = opt.surah; s <= opt.surahTo; s++) segs.push({ s, from: 1, to: ctx.data.surahInfo(s)[5] }); }
+  else { const n = ctx.data.surahInfo(opt.surah)[5]; segs = [{ s: opt.surah, from: Math.max(1, opt.from || 1), to: Math.min(n, opt.to || n) }]; }
+  const s1 = segs[0].s, s2 = segs[segs.length - 1].s; const multi = segs.length > 1;
   const fontAr = fsAr + 'px ' + AR, fontTr = 'italic ' + fsTr + 'px ' + LAT;
   /* coupe une suite de « jetons » en lignes ; chaque jeton a sa largeur w */
   const wrapTok = (toks, gap, max) => { const out = []; let cur = []; let wcur = 0; toks.forEach(t => { if (cur.length && wcur + gap + t.w > max) { out.push(cur); cur = []; wcur = 0; } wcur += (cur.length ? gap : 0) + t.w; cur.push(t); }); if (cur.length) out.push(cur); return out; };
@@ -61,13 +61,12 @@ async function layoutSurah(ctx, opt) {
   const pushVerseLines = (lines, block, h) => lines.forEach((l, i) => block.push({ h, ar: l, justify: !wbw && i < lines.length - 1 }));
   /* légende des couleurs, une seule fois au début */
   if (tajwid) items.push({ h: Math.round(lhFr * 2.3), legend: true });
-  for (let s = s1; s <= s2; s++) {
-    const d = await ctx.data.surah(s); const info = ctx.data.surahInfo(s);
-    const from = multi ? 1 : Math.max(1, opt.from || 1), to = multi ? d.v.length : Math.min(d.v.length, opt.to || d.v.length);
+  for (const sg of segs) {
+    const s = sg.s, from = sg.from, to = sg.to; const d = await ctx.data.surah(s);
     if (from === 1) {
       const head = { h: mm2px(30), head: s, mark: s }; items.push(head);
       if (s !== 1 && s !== 9) items.push({ h: Math.round(lhAr * 1.15), basmala: true });
-    } else items.push({ h: 0, mark: s });
+    } else items.push({ h: multi || juz ? Math.round(lhFr * 1.6) : 0, cont: s, from, mark: s });
     const first = items.length;
     if (continuous) {
       const all = []; for (let v = from; v <= to; v++) all.push(...verseTokens(d.v[v - 1], v));
@@ -90,6 +89,7 @@ async function layoutSurah(ctx, opt) {
     }
     // le titre ne reste jamais seul en bas de page : on le garde avec le début du texte
     if (from === 1) items[first - (s !== 1 && s !== 9 ? 2 : 1)].keep = (s !== 1 && s !== 9 ? 2 : 1) + Math.min(3, items.length - first);
+    else if (items[first - 1].h) items[first - 1].keep = 1 + Math.min(3, items.length - first);
   }
   // répartir en pages
   const pages = []; let cur = []; let y = top0; let curS = s1; const pageS = []; const startPage = {};
@@ -102,13 +102,14 @@ async function layoutSurah(ctx, opt) {
   if (cur.length) { pages.push(cur); pageS.push(curS); }
   /* couverture et sommaire */
   const front = []; // pages avant le texte : fonctions de dessin
-  const cover = multi && opt.cover !== false;
-  const tocRows = []; for (let s = s1; s <= s2; s++) tocRows.push(s);
+  const cover = (multi || juz) && opt.cover !== false;
+  const tocRows = segs.map(x => x.s);
   const tocLh = Math.round(fsFr * 1.75); const tocTop = top0 + mm2px(16); const perToc = Math.max(5, Math.floor((bottom - tocTop) / tocLh));
-  const tocPages = cover ? Math.ceil(tocRows.length / perToc) : 0;
+  const tocPages = cover && multi ? Math.ceil(tocRows.length / perToc) : 0;
   const offset = (cover ? 1 : 0) + tocPages; const total = offset + pages.length;
-  const titleFr = set ? set.fr : multi ? 'Sourates ' + s1 + ' à ' + s2 : ctx.data.surahInfo(s1)[1];
-  const titleAr = set ? set.ar : multi ? ctx.data.surahInfo(s1)[3] + ' … ' + ctx.data.surahInfo(s2)[3] : ctx.data.surahInfo(s1)[3];
+  const titleFr = juz ? juzTitle(juz) : multi ? 'Sourates ' + s1 + ' à ' + s2 : ctx.data.surahInfo(s1)[1];
+  const titleAr = juz ? juzAr(juz) : multi ? ctx.data.surahInfo(s1)[3] + ' … ' + ctx.data.surahInfo(s2)[3] : ctx.data.surahInfo(s1)[3];
+  const subtitle = juz ? 'Partie ' + juz + ' sur 30 du Coran · ' + juzSpan(ctx, juz) : (s2 - s1 + 1) + ' sourates';
   /* fond, cadre, marge de reliure */
   const background = (c, pn) => {
     c.fillStyle = T.bg; c.fillRect(0, 0, W, H);
@@ -130,7 +131,7 @@ async function layoutSurah(ctx, opt) {
       c.fillStyle = T.ink; c.font = Math.round(fsAr * 1.9) + 'px ' + AR; c.fillText(titleAr, cx, H * 0.45);
       c.direction = 'ltr'; c.font = '600 ' + Math.round(fsFr * 1.9) + 'px ' + LAT; c.fillText(titleFr, cx, H * 0.55);
       c.fillStyle = T.soft; c.font = Math.round(fsFr * 1.05) + 'px ' + LAT;
-      c.fillText(set ? set.sub : (s2 - s1 + 1) + ' sourates', cx, H * 0.6);
+      c.fillText(subtitle, cx, H * 0.6);
       const what = { ar: 'texte arabe', fr: 'arabe et traduction française', at: wbw ? 'arabe et lecture mot à mot' : 'arabe et lecture', tr: (wbw ? 'arabe, lecture mot à mot' : 'arabe, lecture') + ' et traduction' }[opt.content] + (tajwid ? ' · couleurs de prononciation' : '');
       c.fillText(what, cx, H * 0.635);
       c.strokeStyle = T.gold; c.lineWidth = mm2px(0.3); c.beginPath(); c.moveTo(cx - mm2px(22), H * 0.5); c.lineTo(cx + mm2px(22), H * 0.5); c.stroke();
@@ -143,7 +144,7 @@ async function layoutSurah(ctx, opt) {
       tocRows.slice(tp * perToc, (tp + 1) * perToc).forEach((s, i) => {
         const info = ctx.data.surahInfo(s); const y = tocTop + i * tocLh + tocLh * 0.7;
         c.direction = 'ltr'; c.textAlign = 'left'; c.fillStyle = T.soft; c.font = Math.round(fsFr * 0.9) + 'px ' + LAT; c.fillText(String(s), x0, y);
-        c.fillStyle = T.ink; c.font = fsFr + 'px ' + LAT; const nx = x0 + mm2px(9); c.fillText(info[1], nx, y); const nw = c.measureText(info[1]).width;
+        c.fillStyle = T.ink; c.font = fsFr + 'px ' + LAT; const nx = x0 + mm2px(9); const sg = segs[tp * perToc + i]; const lab = info[1] + (sg.from > 1 || sg.to < info[5] ? ' (v. ' + sg.from + '–' + sg.to + ')' : ''); c.fillText(lab, nx, y); const nw = c.measureText(lab).width;
         c.textAlign = 'right'; c.fillStyle = T.gold; c.font = '600 ' + fsFr + 'px ' + LAT; const pg = String(offset + (startPage[s] || 0) + 1); c.fillText(pg, x1, y); const pw = c.measureText(pg).width;
         c.direction = 'rtl'; c.fillStyle = T.soft; c.font = Math.round(fsFr * 1.25) + 'px ' + AR; const aw = c.measureText(info[3]).width; const ax = x1 - pw - mm2px(5); c.fillText(info[3], ax, y);
         // pointillés entre le nom et le numéro
@@ -197,6 +198,7 @@ async function layoutSurah(ctx, opt) {
         });
         c.textAlign = 'center'; return;
       }
+      if (it.cont) { c.textAlign = 'center'; c.direction = 'ltr'; c.fillStyle = T.gold; c.font = '600 ' + Math.round(fsFr * 0.9) + 'px ' + LAT; c.fillText('✦ ' + ctx.data.surahInfo(it.cont)[1] + ' · à partir du verset ' + it.from + ' ✦', W / 2, y + it.h * 0.6); return; }
       if (it.basmala) { c.textAlign = 'center'; c.fillStyle = T.ink; c.direction = 'rtl'; c.font = fontAr; c.fillText('بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ', W / 2, y + lhAr * 0.72); return; }
       if (it.ar) {
         const toks = it.ar; const gap0 = wbw ? mm2px(3.2) : spAr;
@@ -274,7 +276,7 @@ async function openPrintDialog(ctx, surah, here) {
   const P = ctx.settings.print || (ctx.settings.print = {});
   const D = { format: 'a5', content: 'fr', theme: 'auto', size: 'm', tajwid: false, wbw: false, copy: false, gutter: false, dir: 'rtl', cover: true };
   Object.keys(D).forEach(k2 => { if (P[k2] === undefined) P[k2] = D[k2]; });
-  const opt = { surah, surahTo: 0, from: 1, to: 0 }; Object.keys(D).forEach(k2 => { opt[k2] = P[k2]; });
+  const opt = { surah, surahTo: 0, from: 1, to: 0, juz: here && here.juz || 0 }; Object.keys(D).forEach(k2 => { opt[k2] = P[k2]; });
   const KEEP = Object.keys(D); const save = () => { KEEP.forEach(k2 => { P[k2] = opt[k2]; }); ctx.save(); };
   const form = h(card, 'div', 'aa-print-form');
   const nOf = s => ctx.data.surahInfo(s)[5];
@@ -282,13 +284,21 @@ async function openPrintDialog(ctx, surah, here) {
   const quick = h(form, 'div', 'aa-print-quick');
   const sOpts = surahSequence('mushaf').map(n => [n, n + '. ' + ctx.data.surahInfo(n)[1]]);
   let rangeBox;
-  const pick = (a, b, f, t) => { opt.surah = a; opt.surahTo = b || 0; opt.from = f || 1; opt.to = t || 0; buildRange(); paint(); };
+  const pick = (a, b, f, t) => { opt.juz = 0; opt.surah = a; opt.surahTo = b || 0; opt.from = f || 1; opt.to = t || 0; buildRange(); paint(); };
+  const pickJuz = j => { opt.juz = j; buildRange(); paint(); };
   btn(quick, '📖 Toute la sourate', () => pick(surah), 'aa-btn-quiet');
   if (here && (here.from > 1 || here.to < nOf(surah))) btn(quick, '👁 Ce que je lis (versets ' + here.from + ' à ' + here.to + ')', () => pick(surah, 0, here.from, here.to), 'aa-btn-quiet');
-  PRINT_SETS.forEach(x => btn(quick, '📚 ' + x.fr + ' (' + x.a + '–' + x.b + ')', () => pick(x.a, x.b), 'aa-btn-quiet'));
+  btn(quick, '📚 Juz\' ʿAmma : les sourates courtes', () => pickJuz(30), 'aa-btn-quiet').title = 'La 30ᵉ et dernière partie du Coran : sourates 78 à 114';
+  btn(quick, '📚 Une des 30 parties…', () => pickJuz(opt.juz || juzOf(surah, here && here.from || 1)), 'aa-btn-quiet').title = 'Le Coran est découpé en 30 parties de même longueur (juz\')';
   rangeBox = h(form, 'div', 'aa-print-rangebox');
   const buildRange = () => {
     clear(rangeBox);
+    if (opt.juz) {
+      selectEl(field(rangeBox, 'Partie du Coran (juz\')'), JUZ_NAMES.map((x, i) => [i + 1, (i + 1) + '. ' + x[1]]), opt.juz, v => { opt.juz = +v; buildRange(); paint(); });
+      h(field(rangeBox, 'Contient'), 'div', 'aa-print-juzspan', juzSpan(ctx, opt.juz) + ' · ' + juzVerses(ctx, opt.juz) + ' versets');
+      checkbox(h(rangeBox, 'div', 'aa-print-cover'), '📕 Couverture et sommaire au début', opt.cover, v => { opt.cover = v; save(); paint(); });
+      return;
+    }
     const a = field(rangeBox, 'Sourate'); selectEl(a, sOpts, opt.surah, v => { opt.surah = +v; if (opt.surahTo && opt.surahTo <= opt.surah) opt.surahTo = 0; opt.from = 1; opt.to = 0; buildRange(); paint(); });
     selectEl(field(rangeBox, 'Jusqu\'à'), [[0, 'cette sourate seulement']].concat(sOpts.filter(([n]) => n > opt.surah)), opt.surahTo, v => { opt.surahTo = +v; opt.from = 1; opt.to = 0; buildRange(); paint(); });
     if (opt.surahTo) { checkbox(h(rangeBox, 'div', 'aa-print-cover'), '📕 Couverture et sommaire au début', opt.cover, v => { opt.cover = v; save(); paint(); }); return; }
@@ -330,8 +340,8 @@ async function openPrintDialog(ctx, surah, here) {
   };
   const clean = x => x.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[ʿʾ'’]/g, '').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-|-$/g, '');
   const baseName = () => {
-    const set = printSetOf(opt.surah, opt.surahTo); const i = ctx.data.surahInfo(opt.surah);
-    const name = set ? clean(set.fr) : opt.surahTo ? 'Sourates ' + opt.surah + '-' + opt.surahTo : 'Sourate ' + pad3(opt.surah) + ' ' + clean(i[1]) + (opt.from > 1 || opt.to ? ' v' + opt.from + '-' + (opt.to || i[5]) : '');
+    const i = ctx.data.surahInfo(opt.surah);
+    const name = opt.juz ? 'Partie ' + String(opt.juz).padStart(2, '0') + ' ' + clean(juzTitle(opt.juz)) : opt.surahTo ? 'Sourates ' + opt.surah + '-' + opt.surahTo : 'Sourate ' + pad3(opt.surah) + ' ' + clean(i[1]) + (opt.from > 1 || opt.to ? ' v' + opt.from + '-' + (opt.to || i[5]) : '');
     return name + ' (' + (L.booklet ? 'livret A5' : L.F.name) + ')';
   };
   const busy = async (lab, fn) => { act.querySelectorAll('button').forEach(b => { b.disabled = true; }); status.textContent = lab; try { await fn(); } catch (e) { status.textContent = 'Erreur : ' + e.message; } act.querySelectorAll('button').forEach(b => { b.disabled = false; }); };

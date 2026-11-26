@@ -524,6 +524,8 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
   const d = await data.surah(surahN);
   const info = data.surahInfo(surahN);
   to = Math.min(to || d.v.length, d.v.length); from = Math.max(1, from || 1);
+  const jAt = v => { const k = JUZ_START.findIndex(([a, b]) => a === surahN && b === v); return k >= 0 ? k + 1 : 0; };
+  if (from === 1 && jAt(1) > 1 && opts.juz) juzMarker(ctx, container, jAt(1));
   if (opts.title) {
     surahHeader(container, info, surahN);
   }
@@ -532,6 +534,7 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
   }
   if (S.verseLayout === 'mushaf' && !opts.noMushaf) return renderMushaf(ctx, container, d, surahN, from, to);
   for (let vn = from; vn <= to; vn++) {
+    if (vn > 1 && opts.juz && jAt(vn)) juzMarker(ctx, container, jAt(vn));
     const v = d.v[vn - 1]; const words = v[2];
     const box = h(container, 'div', 'aa-verse'); box.dataset.ref = surahN + ':' + vn;
     const tokens = translitTokens(words, S.style);

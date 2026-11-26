@@ -1865,6 +1865,39 @@ const PALETTES = {
 /* la palette pour une image ou une impression : celle de l'ambiance choisie (blanc si « comme Obsidian ») */
 function paletteOf(S) { const a = ambianceOf(S); return PALETTES[a] ? a : 'clair'; }
 /* ====================================================================
+ * 04g - Les 30 parties du Coran (juz'), découpage du mushaf de Médine.
+ * Chaque partie porte le nom traditionnel de ses premiers mots.
+ * ==================================================================== */
+const JUZ_START = [[1, 1], [2, 142], [2, 253], [3, 93], [4, 24], [4, 148], [5, 82], [6, 111], [7, 88], [8, 41], [9, 93], [11, 6], [12, 53], [15, 1], [17, 1], [18, 75], [21, 1], [23, 1], [25, 21], [27, 56], [29, 46], [33, 31], [36, 28], [39, 32], [41, 47], [46, 1], [51, 31], [58, 1], [67, 1], [78, 1]];
+const JUZ_NAMES = [
+  ['الٓمٓ', 'Alif Lām Mīm'], ['سَيَقُولُ', 'Sayaqūl'], ['تِلْكَ ٱلرُّسُلُ', 'Tilka r-rusul'], ['لَن تَنَالُوا۟', 'Lan tanālū'], ['وَٱلْمُحْصَنَٰتُ', 'Wal-muḥṣanāt'],
+  ['لَا يُحِبُّ ٱللَّهُ', 'Lā yuḥibbu llāh'], ['وَإِذَا سَمِعُوا۟', 'Wa idhā samiʿū'], ['وَلَوْ أَنَّنَا', 'Wa law annanā'], ['قَالَ ٱلْمَلَأُ', 'Qāla l-malaʾ'], ['وَٱعْلَمُوٓا۟', 'Wa-ʿlamū'],
+  ['يَعْتَذِرُونَ', 'Yaʿtadhirūn'], ['وَمَا مِن دَآبَّةٍ', 'Wa mā min dābba'], ['وَمَآ أُبَرِّئُ', 'Wa mā ubarriʾu'], ['رُبَمَا', 'Rubamā'], ['سُبْحَٰنَ ٱلَّذِىٓ', 'Subḥāna lladhī'],
+  ['قَالَ أَلَمْ', 'Qāla a-lam'], ['ٱقْتَرَبَ', 'Iqtaraba'], ['قَدْ أَفْلَحَ', 'Qad aflaḥa'], ['وَقَالَ ٱلَّذِينَ', 'Wa qāla lladhīna'], ['أَمَّنْ خَلَقَ', 'A-mman khalaqa'],
+  ['ٱتْلُ مَآ أُوحِىَ', 'Utlu mā ūḥiya'], ['وَمَن يَقْنُتْ', 'Wa man yaqnut'], ['وَمَا لِىَ', 'Wa mā liya'], ['فَمَنْ أَظْلَمُ', 'Fa-man aẓlamu'], ['إِلَيْهِ يُرَدُّ', 'Ilayhi yuraddu'],
+  ['حمٓ', 'Ḥā Mīm'], ['قَالَ فَمَا خَطْبُكُمْ', 'Qāla fa-mā khaṭbukum'], ['قَدْ سَمِعَ ٱللَّهُ', 'Qad samiʿa llāh'], ['تَبَٰرَكَ ٱلَّذِى', 'Tabārak'], ['عَمَّ', 'ʿAmma'],
+];
+/* la partie (1 à 30) qui contient le verset s:v */
+function juzOf(s, v) { let j = 1; JUZ_START.forEach(([a, b], i) => { if (s > a || (s === a && v >= b)) j = i + 1; }); return j; }
+/* la partie j, sourate par sourate : [{ s, from, to }] */
+function juzParts(ctx, j) {
+  const [s1, v1] = JUZ_START[j - 1]; const nx = JUZ_START[j];
+  const out = []; for (let s = s1; s <= (nx ? nx[0] : 114); s++) {
+    const n = ctx.data.surahInfo(s)[5]; const from = s === s1 ? v1 : 1; let to = n;
+    if (nx && s === nx[0]) { if (nx[1] === 1) break; to = nx[1] - 1; }
+    out.push({ s, from, to });
+  }
+  return out;
+}
+const juzVerses = (ctx, j) => juzParts(ctx, j).reduce((a, p) => a + p.to - p.from + 1, 0);
+const juzTitle = j => 'Juz\' ' + JUZ_NAMES[j - 1][1];
+/* « de Al-Baqara 142 à Āl ʿImrān 92 » */
+function juzSpan(ctx, j) {
+  const P = juzParts(ctx, j); const a = P[0], b = P[P.length - 1]; const nm = s => ctx.data.surahInfo(s)[1];
+  if (P.length === 1) return nm(a.s) + ' ' + a.from + '–' + a.to;
+  return (a.from === 1 ? nm(a.s) : nm(a.s) + ' ' + a.from) + ' → ' + (b.to === ctx.data.surahInfo(b.s)[5] ? nm(b.s) : nm(b.s) + ' ' + b.to);
+}
+/* ====================================================================
  * 05 - Interface : outils communs + lecture du Coran mot par mot
  * ==================================================================== */
 
@@ -2390,6 +2423,8 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
   const d = await data.surah(surahN);
   const info = data.surahInfo(surahN);
   to = Math.min(to || d.v.length, d.v.length); from = Math.max(1, from || 1);
+  const jAt = v => { const k = JUZ_START.findIndex(([a, b]) => a === surahN && b === v); return k >= 0 ? k + 1 : 0; };
+  if (from === 1 && jAt(1) > 1 && opts.juz) juzMarker(ctx, container, jAt(1));
   if (opts.title) {
     surahHeader(container, info, surahN);
   }
@@ -2398,6 +2433,7 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
   }
   if (S.verseLayout === 'mushaf' && !opts.noMushaf) return renderMushaf(ctx, container, d, surahN, from, to);
   for (let vn = from; vn <= to; vn++) {
+    if (vn > 1 && opts.juz && jAt(vn)) juzMarker(ctx, container, jAt(vn));
     const v = d.v[vn - 1]; const words = v[2];
     const box = h(container, 'div', 'aa-verse'); box.dataset.ref = surahN + ':' + vn;
     const tokens = translitTokens(words, S.style);
@@ -2685,6 +2721,7 @@ const rankFr = n => n === 1 ? '1re' : n + 'e';
 function renderQuranTab(ctx, root, state) {
   clear(root);
   if (state.hifz) { renderHifz(ctx, root, state, () => { state.hifz = null; renderQuranTab(ctx, root, state); }).catch(e => h(root, 'p', 'aa-warn', 'Erreur : ' + e.message)); return; }
+  if (state.juzView) { renderJuz(ctx, root, state, () => { state.juzView = false; renderQuranTab(ctx, root, state); }); return; }
   const data = ctx.data;
   const PAGE = 20;
   /* petit écran (iPhone) : une barre compacte, le reste se replie pour que le texte commence tout de suite */
@@ -2735,6 +2772,7 @@ function renderQuranTab(ctx, root, state) {
   if (small) opt.parentNode.insertBefore(quick2, opt);
   btn(quick2, small ? '⤢' : '⤢ Lecture', () => setReading(root.closest('.aa-root') || root, true, ctx), 'aa-btn-quiet').title = 'Plein écran : seulement le texte (Échap ou ✕ pour sortir)';
   btn(quick2, small ? '🧠' : '🧠 Par cœur', () => { state.hifz = { s: state.surah, v: Math.max(1, state.focus || (ctx.settings.lastSurah === state.surah ? ctx.settings.lastVerse : 1) || 1), level: 0 }; renderQuranTab(ctx, root, state); }, 'aa-btn-quiet').title = 'Apprendre par cœur, verset par verset ou toute la sourate';
+  btn(quick2, small ? '📚' : '📚 30 parties', () => { state.juzView = true; renderQuranTab(ctx, root, state); try { root.closest('.aa-root').scrollTop = 0; } catch (e) { /* */ } }, 'aa-btn-quiet').title = 'Les 30 parties du Coran (juz\') et mon tour du Coran';
   btn(quick2, small ? '🖨' : '🖨 Imprimer', () => { const nV = ctx.data.surahInfo(state.surah)[5]; const f = (state.page || 0) * 20 + 1; openPrintDialog(ctx, state.surah, ctx.settings.scrollAll ? null : { from: f, to: Math.min(nV, f + 19) }); }, 'aa-btn-quiet').title = 'Imprimer ou exporter la sourate en PDF ou en images (A4 ou A5)';
   btn(quick2, small ? '🔎' : '🔎 Chercher', () => { state.searchOpen = !state.searchOpen; renderQuranTab(ctx, root, state); }, 'aa-btn-quiet' + (state.searchOpen ? ' aa-on' : '')).title = 'Chercher un mot dans tout le Coran';
   checkbox(tg, 'translittération', ctx.settings.showTr, v => { ctx.settings.showTr = v; ctx.save(); renderQuranTab(ctx, root, state); });
@@ -2782,7 +2820,7 @@ function renderQuranTab(ctx, root, state) {
   const body = h(root, 'div', 'aa-verses' + (ctx.settings.practice ? ' aa-practice' : ''));
   if (all) return renderQuranScroll(ctx, root, body, state, nV);
   const from = state.page * PAGE + 1, to = Math.min(nV, from + PAGE - 1);
-  renderVerses(ctx, body, state.surah, from, to, { title: true, basmala: from === 1 }).then(() => {
+  renderVerses(ctx, body, state.surah, from, to, { title: true, basmala: from === 1, juz: true }).then(() => {
     if (state.focus) {
       const el = body.querySelector('[data-ref="' + state.surah + ':' + state.focus + '"]');
       if (el) { el.classList.add('aa-verse-focus'); el.scrollIntoView && el.scrollIntoView({ block: 'center' }); }
@@ -2815,7 +2853,7 @@ async function renderQuranScroll(ctx, root, body, state, nV) {
   const more = async upto => {
     while (done < Math.min(nV, upto)) {
       const from = done + 1, to = Math.min(nV, done + CH);
-      await renderVerses(ctx, body, s0, from, to, { title: from === 1, basmala: from === 1 });
+      await renderVerses(ctx, body, s0, from, to, { title: from === 1, basmala: from === 1, juz: true });
       done = to;
       if (state.surah !== s0 || !body.isConnected) return false;
     }
@@ -8152,12 +8190,8 @@ const PRINT_SIZES = { s: ['Petit', 0.8], m: ['Moyen', 1], l: ['Grand', 1.25] };
 const mm2px = mm => Math.round(mm / 25.4 * PRINT_DPI);
 const PRINT_TJ = { light: { merge: '#8e5bd0', madd2: '#e07b00', madd: '#d0312d', ghunna: '#1f9a55', qalqala: '#2b74d9' }, dark: { merge: '#c09cf5', madd2: '#ffa94d', madd: '#ff7a6e', ghunna: '#5fd896', qalqala: '#7fb2ff' } };
 const PRINT_TJ_LEGEND = [['madd2', 'allongé 2 temps'], ['madd', 'allongé 4 à 6 temps'], ['ghunna', 'par le nez'], ['qalqala', 'écho'], ['merge', 'se fond'], ['silent', 'muet']];
-/* recueils tout prêts */
-const PRINT_SETS = [
-  { a: 78, b: 114, fr: 'Juz\' ʿAmma', ar: 'جُزْءُ عَمَّ', sub: '30ᵉ partie du Coran · sourates 78 à 114' },
-  { a: 67, b: 77, fr: 'Juz\' Tabārak', ar: 'جُزْءُ تَبَارَكَ', sub: '29ᵉ partie du Coran · sourates 67 à 77' },
-];
-const printSetOf = (a, b) => PRINT_SETS.find(x => x.a === a && x.b === b);
+/* le titre arabe d'une partie : « جُزْءُ عَمَّ » */
+const juzAr = j => 'جُزْءُ ' + JUZ_NAMES[j - 1][0];
 
 /* prépare toutes les pages ; renvoie le nombre de pages et une fonction qui dessine chacune */
 async function layoutSurah(ctx, opt) {
@@ -8177,8 +8211,12 @@ async function layoutSurah(ctx, opt) {
   const withTr = opt.content === 'tr' || opt.content === 'at', withFr = opt.content === 'tr' || opt.content === 'fr';
   const wbw = withTr && opt.wbw; const tajwid = !!opt.tajwid; const copy = !!opt.copy;
   const continuous = opt.content === 'ar' && !copy; // arabe seul en texte continu, comme un mushaf
-  const s1 = opt.surah, s2 = Math.max(s1, opt.surahTo || s1); const multi = s2 > s1;
-  const set = printSetOf(s1, s2);
+  /* ce qu'on imprime : une suite de morceaux { s, from, to } */
+  const juz = opt.juz || 0; let segs;
+  if (juz) segs = juzParts(ctx, juz);
+  else if (opt.surahTo > opt.surah) { segs = []; for (let s = opt.surah; s <= opt.surahTo; s++) segs.push({ s, from: 1, to: ctx.data.surahInfo(s)[5] }); }
+  else { const n = ctx.data.surahInfo(opt.surah)[5]; segs = [{ s: opt.surah, from: Math.max(1, opt.from || 1), to: Math.min(n, opt.to || n) }]; }
+  const s1 = segs[0].s, s2 = segs[segs.length - 1].s; const multi = segs.length > 1;
   const fontAr = fsAr + 'px ' + AR, fontTr = 'italic ' + fsTr + 'px ' + LAT;
   /* coupe une suite de « jetons » en lignes ; chaque jeton a sa largeur w */
   const wrapTok = (toks, gap, max) => { const out = []; let cur = []; let wcur = 0; toks.forEach(t => { if (cur.length && wcur + gap + t.w > max) { out.push(cur); cur = []; wcur = 0; } wcur += (cur.length ? gap : 0) + t.w; cur.push(t); }); if (cur.length) out.push(cur); return out; };
@@ -8202,13 +8240,12 @@ async function layoutSurah(ctx, opt) {
   const pushVerseLines = (lines, block, h) => lines.forEach((l, i) => block.push({ h, ar: l, justify: !wbw && i < lines.length - 1 }));
   /* légende des couleurs, une seule fois au début */
   if (tajwid) items.push({ h: Math.round(lhFr * 2.3), legend: true });
-  for (let s = s1; s <= s2; s++) {
-    const d = await ctx.data.surah(s); const info = ctx.data.surahInfo(s);
-    const from = multi ? 1 : Math.max(1, opt.from || 1), to = multi ? d.v.length : Math.min(d.v.length, opt.to || d.v.length);
+  for (const sg of segs) {
+    const s = sg.s, from = sg.from, to = sg.to; const d = await ctx.data.surah(s);
     if (from === 1) {
       const head = { h: mm2px(30), head: s, mark: s }; items.push(head);
       if (s !== 1 && s !== 9) items.push({ h: Math.round(lhAr * 1.15), basmala: true });
-    } else items.push({ h: 0, mark: s });
+    } else items.push({ h: multi || juz ? Math.round(lhFr * 1.6) : 0, cont: s, from, mark: s });
     const first = items.length;
     if (continuous) {
       const all = []; for (let v = from; v <= to; v++) all.push(...verseTokens(d.v[v - 1], v));
@@ -8231,6 +8268,7 @@ async function layoutSurah(ctx, opt) {
     }
     // le titre ne reste jamais seul en bas de page : on le garde avec le début du texte
     if (from === 1) items[first - (s !== 1 && s !== 9 ? 2 : 1)].keep = (s !== 1 && s !== 9 ? 2 : 1) + Math.min(3, items.length - first);
+    else if (items[first - 1].h) items[first - 1].keep = 1 + Math.min(3, items.length - first);
   }
   // répartir en pages
   const pages = []; let cur = []; let y = top0; let curS = s1; const pageS = []; const startPage = {};
@@ -8243,13 +8281,14 @@ async function layoutSurah(ctx, opt) {
   if (cur.length) { pages.push(cur); pageS.push(curS); }
   /* couverture et sommaire */
   const front = []; // pages avant le texte : fonctions de dessin
-  const cover = multi && opt.cover !== false;
-  const tocRows = []; for (let s = s1; s <= s2; s++) tocRows.push(s);
+  const cover = (multi || juz) && opt.cover !== false;
+  const tocRows = segs.map(x => x.s);
   const tocLh = Math.round(fsFr * 1.75); const tocTop = top0 + mm2px(16); const perToc = Math.max(5, Math.floor((bottom - tocTop) / tocLh));
-  const tocPages = cover ? Math.ceil(tocRows.length / perToc) : 0;
+  const tocPages = cover && multi ? Math.ceil(tocRows.length / perToc) : 0;
   const offset = (cover ? 1 : 0) + tocPages; const total = offset + pages.length;
-  const titleFr = set ? set.fr : multi ? 'Sourates ' + s1 + ' à ' + s2 : ctx.data.surahInfo(s1)[1];
-  const titleAr = set ? set.ar : multi ? ctx.data.surahInfo(s1)[3] + ' … ' + ctx.data.surahInfo(s2)[3] : ctx.data.surahInfo(s1)[3];
+  const titleFr = juz ? juzTitle(juz) : multi ? 'Sourates ' + s1 + ' à ' + s2 : ctx.data.surahInfo(s1)[1];
+  const titleAr = juz ? juzAr(juz) : multi ? ctx.data.surahInfo(s1)[3] + ' … ' + ctx.data.surahInfo(s2)[3] : ctx.data.surahInfo(s1)[3];
+  const subtitle = juz ? 'Partie ' + juz + ' sur 30 du Coran · ' + juzSpan(ctx, juz) : (s2 - s1 + 1) + ' sourates';
   /* fond, cadre, marge de reliure */
   const background = (c, pn) => {
     c.fillStyle = T.bg; c.fillRect(0, 0, W, H);
@@ -8271,7 +8310,7 @@ async function layoutSurah(ctx, opt) {
       c.fillStyle = T.ink; c.font = Math.round(fsAr * 1.9) + 'px ' + AR; c.fillText(titleAr, cx, H * 0.45);
       c.direction = 'ltr'; c.font = '600 ' + Math.round(fsFr * 1.9) + 'px ' + LAT; c.fillText(titleFr, cx, H * 0.55);
       c.fillStyle = T.soft; c.font = Math.round(fsFr * 1.05) + 'px ' + LAT;
-      c.fillText(set ? set.sub : (s2 - s1 + 1) + ' sourates', cx, H * 0.6);
+      c.fillText(subtitle, cx, H * 0.6);
       const what = { ar: 'texte arabe', fr: 'arabe et traduction française', at: wbw ? 'arabe et lecture mot à mot' : 'arabe et lecture', tr: (wbw ? 'arabe, lecture mot à mot' : 'arabe, lecture') + ' et traduction' }[opt.content] + (tajwid ? ' · couleurs de prononciation' : '');
       c.fillText(what, cx, H * 0.635);
       c.strokeStyle = T.gold; c.lineWidth = mm2px(0.3); c.beginPath(); c.moveTo(cx - mm2px(22), H * 0.5); c.lineTo(cx + mm2px(22), H * 0.5); c.stroke();
@@ -8284,7 +8323,7 @@ async function layoutSurah(ctx, opt) {
       tocRows.slice(tp * perToc, (tp + 1) * perToc).forEach((s, i) => {
         const info = ctx.data.surahInfo(s); const y = tocTop + i * tocLh + tocLh * 0.7;
         c.direction = 'ltr'; c.textAlign = 'left'; c.fillStyle = T.soft; c.font = Math.round(fsFr * 0.9) + 'px ' + LAT; c.fillText(String(s), x0, y);
-        c.fillStyle = T.ink; c.font = fsFr + 'px ' + LAT; const nx = x0 + mm2px(9); c.fillText(info[1], nx, y); const nw = c.measureText(info[1]).width;
+        c.fillStyle = T.ink; c.font = fsFr + 'px ' + LAT; const nx = x0 + mm2px(9); const sg = segs[tp * perToc + i]; const lab = info[1] + (sg.from > 1 || sg.to < info[5] ? ' (v. ' + sg.from + '–' + sg.to + ')' : ''); c.fillText(lab, nx, y); const nw = c.measureText(lab).width;
         c.textAlign = 'right'; c.fillStyle = T.gold; c.font = '600 ' + fsFr + 'px ' + LAT; const pg = String(offset + (startPage[s] || 0) + 1); c.fillText(pg, x1, y); const pw = c.measureText(pg).width;
         c.direction = 'rtl'; c.fillStyle = T.soft; c.font = Math.round(fsFr * 1.25) + 'px ' + AR; const aw = c.measureText(info[3]).width; const ax = x1 - pw - mm2px(5); c.fillText(info[3], ax, y);
         // pointillés entre le nom et le numéro
@@ -8338,6 +8377,7 @@ async function layoutSurah(ctx, opt) {
         });
         c.textAlign = 'center'; return;
       }
+      if (it.cont) { c.textAlign = 'center'; c.direction = 'ltr'; c.fillStyle = T.gold; c.font = '600 ' + Math.round(fsFr * 0.9) + 'px ' + LAT; c.fillText('✦ ' + ctx.data.surahInfo(it.cont)[1] + ' · à partir du verset ' + it.from + ' ✦', W / 2, y + it.h * 0.6); return; }
       if (it.basmala) { c.textAlign = 'center'; c.fillStyle = T.ink; c.direction = 'rtl'; c.font = fontAr; c.fillText('بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ', W / 2, y + lhAr * 0.72); return; }
       if (it.ar) {
         const toks = it.ar; const gap0 = wbw ? mm2px(3.2) : spAr;
@@ -8415,7 +8455,7 @@ async function openPrintDialog(ctx, surah, here) {
   const P = ctx.settings.print || (ctx.settings.print = {});
   const D = { format: 'a5', content: 'fr', theme: 'auto', size: 'm', tajwid: false, wbw: false, copy: false, gutter: false, dir: 'rtl', cover: true };
   Object.keys(D).forEach(k2 => { if (P[k2] === undefined) P[k2] = D[k2]; });
-  const opt = { surah, surahTo: 0, from: 1, to: 0 }; Object.keys(D).forEach(k2 => { opt[k2] = P[k2]; });
+  const opt = { surah, surahTo: 0, from: 1, to: 0, juz: here && here.juz || 0 }; Object.keys(D).forEach(k2 => { opt[k2] = P[k2]; });
   const KEEP = Object.keys(D); const save = () => { KEEP.forEach(k2 => { P[k2] = opt[k2]; }); ctx.save(); };
   const form = h(card, 'div', 'aa-print-form');
   const nOf = s => ctx.data.surahInfo(s)[5];
@@ -8423,13 +8463,21 @@ async function openPrintDialog(ctx, surah, here) {
   const quick = h(form, 'div', 'aa-print-quick');
   const sOpts = surahSequence('mushaf').map(n => [n, n + '. ' + ctx.data.surahInfo(n)[1]]);
   let rangeBox;
-  const pick = (a, b, f, t) => { opt.surah = a; opt.surahTo = b || 0; opt.from = f || 1; opt.to = t || 0; buildRange(); paint(); };
+  const pick = (a, b, f, t) => { opt.juz = 0; opt.surah = a; opt.surahTo = b || 0; opt.from = f || 1; opt.to = t || 0; buildRange(); paint(); };
+  const pickJuz = j => { opt.juz = j; buildRange(); paint(); };
   btn(quick, '📖 Toute la sourate', () => pick(surah), 'aa-btn-quiet');
   if (here && (here.from > 1 || here.to < nOf(surah))) btn(quick, '👁 Ce que je lis (versets ' + here.from + ' à ' + here.to + ')', () => pick(surah, 0, here.from, here.to), 'aa-btn-quiet');
-  PRINT_SETS.forEach(x => btn(quick, '📚 ' + x.fr + ' (' + x.a + '–' + x.b + ')', () => pick(x.a, x.b), 'aa-btn-quiet'));
+  btn(quick, '📚 Juz\' ʿAmma : les sourates courtes', () => pickJuz(30), 'aa-btn-quiet').title = 'La 30ᵉ et dernière partie du Coran : sourates 78 à 114';
+  btn(quick, '📚 Une des 30 parties…', () => pickJuz(opt.juz || juzOf(surah, here && here.from || 1)), 'aa-btn-quiet').title = 'Le Coran est découpé en 30 parties de même longueur (juz\')';
   rangeBox = h(form, 'div', 'aa-print-rangebox');
   const buildRange = () => {
     clear(rangeBox);
+    if (opt.juz) {
+      selectEl(field(rangeBox, 'Partie du Coran (juz\')'), JUZ_NAMES.map((x, i) => [i + 1, (i + 1) + '. ' + x[1]]), opt.juz, v => { opt.juz = +v; buildRange(); paint(); });
+      h(field(rangeBox, 'Contient'), 'div', 'aa-print-juzspan', juzSpan(ctx, opt.juz) + ' · ' + juzVerses(ctx, opt.juz) + ' versets');
+      checkbox(h(rangeBox, 'div', 'aa-print-cover'), '📕 Couverture et sommaire au début', opt.cover, v => { opt.cover = v; save(); paint(); });
+      return;
+    }
     const a = field(rangeBox, 'Sourate'); selectEl(a, sOpts, opt.surah, v => { opt.surah = +v; if (opt.surahTo && opt.surahTo <= opt.surah) opt.surahTo = 0; opt.from = 1; opt.to = 0; buildRange(); paint(); });
     selectEl(field(rangeBox, 'Jusqu\'à'), [[0, 'cette sourate seulement']].concat(sOpts.filter(([n]) => n > opt.surah)), opt.surahTo, v => { opt.surahTo = +v; opt.from = 1; opt.to = 0; buildRange(); paint(); });
     if (opt.surahTo) { checkbox(h(rangeBox, 'div', 'aa-print-cover'), '📕 Couverture et sommaire au début', opt.cover, v => { opt.cover = v; save(); paint(); }); return; }
@@ -8471,8 +8519,8 @@ async function openPrintDialog(ctx, surah, here) {
   };
   const clean = x => x.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[ʿʾ'’]/g, '').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-|-$/g, '');
   const baseName = () => {
-    const set = printSetOf(opt.surah, opt.surahTo); const i = ctx.data.surahInfo(opt.surah);
-    const name = set ? clean(set.fr) : opt.surahTo ? 'Sourates ' + opt.surah + '-' + opt.surahTo : 'Sourate ' + pad3(opt.surah) + ' ' + clean(i[1]) + (opt.from > 1 || opt.to ? ' v' + opt.from + '-' + (opt.to || i[5]) : '');
+    const i = ctx.data.surahInfo(opt.surah);
+    const name = opt.juz ? 'Partie ' + String(opt.juz).padStart(2, '0') + ' ' + clean(juzTitle(opt.juz)) : opt.surahTo ? 'Sourates ' + opt.surah + '-' + opt.surahTo : 'Sourate ' + pad3(opt.surah) + ' ' + clean(i[1]) + (opt.from > 1 || opt.to ? ' v' + opt.from + '-' + (opt.to || i[5]) : '');
     return name + ' (' + (L.booklet ? 'livret A5' : L.F.name) + ')';
   };
   const busy = async (lab, fn) => { act.querySelectorAll('button').forEach(b => { b.disabled = true; }); status.textContent = lab; try { await fn(); } catch (e) { status.textContent = 'Erreur : ' + e.message; } act.querySelectorAll('button').forEach(b => { b.disabled = false; }); };
@@ -8494,6 +8542,73 @@ async function openPrintDialog(ctx, surah, here) {
     if (navigator.canShare({ files: [f] })) await navigator.share({ files: [f], title: baseName() }).catch(() => {}); else status.textContent = 'Partage impossible ici : garde le PDF dans le coffre.';
   }), 'aa-btn-quiet');
   await paint();
+}
+/* ====================================================================
+ * 06v - Les 30 parties (juz') : une page pour les voir toutes, suivre
+ * son « tour du Coran » (une partie par jour = le Coran en un mois),
+ * et un repère dans la lecture là où une nouvelle partie commence.
+ * ==================================================================== */
+function juzState(ctx) { const J = ctx.settings.juz || (ctx.settings.juz = {}); J.read = J.read || {}; J.tours = J.tours || 0; return J; }
+function juzMarkRead(ctx, j, on) { const J = juzState(ctx); if (on) J.read[j] = todayNum(); else delete J.read[j]; ctx.save(); if (on && ctx.markActivity) ctx.markActivity('r'); }
+const juzReadCount = ctx => Object.keys(juzState(ctx).read).length;
+
+/* le repère dans la lecture : « ۞ Partie 3 · تِلْكَ ٱلرُّسُلُ » */
+function juzMarker(ctx, container, j) {
+  const m = h(container, 'div', 'aa-juz-mark');
+  h(m, 'span', 'aa-juz-mark-line');
+  const t = h(m, 'div', 'aa-juz-mark-t');
+  const ar = h(t, 'span', 'aa-juz-mark-ar', '۞ ' + JUZ_NAMES[j - 1][0]); ar.setAttribute('dir', 'rtl'); ar.setAttribute('lang', 'ar');
+  h(t, 'span', 'aa-juz-mark-fr', 'Début de la partie ' + j + ' sur 30 · ' + JUZ_NAMES[j - 1][1]);
+  h(m, 'span', 'aa-juz-mark-line');
+  const J = juzState(ctx);
+  if (j > 1 && !J.read[j - 1]) {
+    const b = btn(t, '✓ J\'ai fini la partie ' + (j - 1), () => { juzMarkRead(ctx, j - 1, true); b.replaceWith(h(null, 'span', 'aa-small aa-ok', '✓ Partie ' + (j - 1) + ' lue · ' + juzReadCount(ctx) + ' / 30')); }, 'aa-btn-quiet aa-small');
+  }
+  return m;
+}
+
+function renderJuz(ctx, root, state, back) {
+  clear(root);
+  btn(h(root, 'div', 'aa-actions'), '← Retour au Coran', back, 'aa-btn-quiet aa-own-back');
+  h(root, 'h2', null, '📚 Les 30 parties du Coran');
+  const help = h(root, 'details', 'aa-help-box'); h(help, 'summary', null, 'ⓘ C\'est quoi, une partie (juz\') ?');
+  mdText(help, 'p', 'aa-help', 'Le Coran est coupé en **30 parties de même longueur**. En arabe : **juz\'** (جُزْء, « morceau »). Chaque partie porte le nom de ses **premiers mots** : la 30ᵉ s\'appelle *ʿAmma* parce qu\'elle commence par « عَمَّ » (sourate 78).');
+  mdText(help, 'p', 'aa-help', 'Lire **une partie par jour**, c\'est lire **tout le Coran en un mois** (c\'est ce que beaucoup font pendant le Ramadan). Une demi-partie par jour : deux mois. Il n\'y a pas de course : coche une partie quand tu l\'as finie, à ton rythme.');
+  mdText(help, 'p', 'aa-help aa-small', 'Les parties 4, 7 et 21 gardent leur nom traditionnel, même si dans le mushaf de Médine (celui de l\'atelier) elles commencent un verset plus loin.');
+  const J = juzState(ctx); const n = juzReadCount(ctx);
+  const here = juzOf(ctx.settings.lastSurah || 1, ctx.settings.lastVerse || 1);
+  const next = (() => { for (let j = 1; j <= 30; j++) if (!J.read[j]) return j; return 0; })();
+  /* mon tour du Coran */
+  const tour = h(root, 'div', 'aa-juz-tour');
+  const tt = h(tour, 'div', 'aa-juz-tour-tx');
+  h(tt, 'b', null, n === 30 ? '🎉 Tu as lu tout le Coran !' : 'Mon tour du Coran : ' + n + ' / 30 parties');
+  h(tt, 'div', 'aa-muted aa-small', n === 30 ? 'Qu\'Allah l\'accepte. Tu peux commencer un nouveau tour.' : n ? 'Encore ' + (30 - n) + ' partie' + (30 - n > 1 ? 's' : '') + '. À une partie par jour : ' + (30 - n) + ' jour' + (30 - n > 1 ? 's' : '') + '.' : 'Commence par la partie 1, ou par celle que tu préfères.');
+  if (J.tours) h(tt, 'div', 'aa-small aa-juz-tours', '🏅 Tours terminés : ' + J.tours);
+  const bar = h(tour, 'div', 'aa-juz-bar'); for (let j = 1; j <= 30; j++) { const c = h(bar, 'span', 'aa-juz-cell' + (J.read[j] ? ' is-read' : '') + (j === here ? ' is-here' : '')); c.title = 'Partie ' + j + (J.read[j] ? ' · lue' : ''); c.addEventListener('click', () => { const el = root.querySelector('[data-juz="' + j + '"]'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }); }
+  const ta = h(tour, 'div', 'aa-actions');
+  if (n === 30) btn(ta, '🔄 Commencer un nouveau tour', () => { J.tours++; J.read = {}; ctx.save(); renderJuz(ctx, root, state, back); }, 'mod-cta');
+  else {
+    const go = J.read[here] ? next : here;
+    const ls = ctx.settings.lastSurah, lv = ctx.settings.lastVerse || 1;
+    if (go === here && ls) btn(ta, '▶ Reprendre la partie ' + go + ' (' + ctx.data.surahInfo(ls)[1] + ', verset ' + lv + ')', () => ctx.openQuran(ls, lv), 'mod-cta');
+    else btn(ta, '▶ Lire la partie ' + go, () => ctx.openQuran(...JUZ_START[go - 1]), 'mod-cta');
+  }
+  /* les 30 cartes */
+  const grid = h(root, 'div', 'aa-juz-grid');
+  for (let j = 1; j <= 30; j++) {
+    const card = h(grid, 'div', 'aa-juz-card' + (J.read[j] ? ' is-read' : '') + (j === here ? ' is-here' : '')); card.dataset.juz = j;
+    const top = h(card, 'div', 'aa-juz-top');
+    starBadge(top, arNum(j), 'aa-juz-num').title = 'Partie ' + j;
+    const nm = h(top, 'div', 'aa-juz-name');
+    const ar = h(nm, 'div', 'aa-juz-ar', JUZ_NAMES[j - 1][0]); ar.setAttribute('dir', 'rtl'); ar.setAttribute('lang', 'ar');
+    h(nm, 'div', 'aa-juz-tr', JUZ_NAMES[j - 1][1]);
+    h(card, 'div', 'aa-small', juzSpan(ctx, j));
+    h(card, 'div', 'aa-muted aa-small', juzVerses(ctx, j) + ' versets' + (j === here ? ' · 📍 tu lis ici' : '') + (J.read[j] ? ' · ✓ lue' : ''));
+    const a = h(card, 'div', 'aa-juz-act');
+    btn(a, 'Lire', () => ctx.openQuran(...JUZ_START[j - 1]), J.read[j] ? 'aa-btn-quiet' : '');
+    btn(a, '🖨', () => openPrintDialog(ctx, JUZ_START[j - 1][0], { juz: j }), 'aa-btn-quiet').title = 'Imprimer cette partie (PDF ou images)';
+    btn(a, J.read[j] ? '↺' : '✓ Lue', () => { juzMarkRead(ctx, j, !J.read[j]); renderJuz(ctx, root, state, back); const el = root.querySelector('[data-juz="' + j + '"]'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' }); }, 'aa-btn-quiet').title = J.read[j] ? 'Enlever la coche' : 'J\'ai fini de lire cette partie';
+  }
 }
 /* ====================================================================
  * 07 - Le plugin Obsidian : vue, commandes, blocs de code, réglages
@@ -8694,7 +8809,7 @@ class AtelierView extends ItemView {
     else if (this.tab === 'signs') renderSignsTab(ctx, this.body, st);
     else if (this.tab === 'settings') { h(this.body, 'h2', 'aa-set-title', '⚙ Réglages'); const box = h(this.body, 'div', 'aa-settings-inview'); fillSettings(box, this.plugin, false, ctx); }
     else renderQuizTab(ctx, this.body, st);
-    if (this.back && this.back.length) {
+    if (this.back && this.back.length && !this.body.querySelector('.aa-own-back')) {
       const last = this.back[this.back.length - 1];
       const lab = last.tab === 'settings' ? 'Réglages' : tabLabel(last.tab);
       const bb = document.createElement('button'); bb.className = 'aa-btn aa-btn-quiet aa-back'; bb.textContent = '← Retour' + (lab ? ' (' + lab + ')' : '');
@@ -8813,6 +8928,7 @@ class AtelierArabePlugin extends Plugin {
     this.addCommand({ id: 'alphabet', name: 'Apprendre › Alphabet', callback: () => this.openView('alphabet') });
     this.addCommand({ id: 'par-coeur', name: 'Coran : apprendre par cœur', callback: () => this.openView('coran', { hifz: { s: this.settings.lastSurah || 1, v: this.settings.lastVerse || 1, level: 0 } }) });
     this.addCommand({ id: 'polices', name: 'Apprendre › Comparer les polices', callback: () => this.openView('alphabet', { mode: 'fonts' }) });
+    this.addCommand({ id: 'parties', name: 'Coran › Les 30 parties (juz\') et mon tour du Coran', callback: async () => { await this.openView('coran', { juzView: true }); } });
     this.addCommand({ id: 'imprimer', name: 'Coran › Imprimer ou exporter une sourate (PDF, PNG)', callback: async () => { await this.openView('coran'); setTimeout(() => openPrintDialog(this.ctx(this.app.workspace.getLeavesOfType(VIEW_TYPE)[0].view), this.settings.lastSurah || 1), 300); } });
     this.addCommand({ id: 'lire', name: 'Apprendre › Lire (cours de lecture)', callback: () => this.openView('read') });
     this.addCommand({ id: 'ecrire', name: 'Apprendre › Écrire', callback: () => this.openView('write') });
@@ -8894,7 +9010,7 @@ class AtelierArabePlugin extends Plugin {
         } catch (e) { new Notice('Impossible de garder l\'image : ' + e.message); return null; }
       },
       addFlashcard: (q, a) => this.addFlashcard(q, a),
-      openQuran: (s, v) => this.openView('coran', { surah: s, page: 0, focus: v }),
+      openQuran: (s, v) => this.openView('coran', { surah: s, page: 0, focus: v, juzView: false }),
       readNote: async (path) => { const f = this.app.vault.getAbstractFileByPath(path); return f ? await this.app.vault.read(f) : null; },
       editNote: (path, initial) => this.editNote(path, initial),
       openRule: (id) => this.openView('rules', { open: id, q: '' }),
