@@ -35,3 +35,11 @@ Si tu es titulaire de droits sur l'un de ces contenus et souhaites qu'il soit re
 
 ## Signes de pause (waqf)
 Position des signes de pause du mushaf de Médine (ۖ ۗ ۚ ۘ), utilisée pour couper les longs versets en morceaux : tirée du texte uthmani du paquet [quran-json](https://github.com/risan/quran-json) (texte de [quranenc.com](https://quranenc.com), licence CC BY-SA 4.0). Fichier généré : `src/04d-pauses.gen.js`.
+
+## Le geste d'écriture (ordre et sens des traits)
+L'animation « Voir le geste » suit ces règles, prises dans des guides d'écriture et de calligraphie :
+- chaque morceau attaché s'écrit sans lever le stylo, de droite à gauche ; on ne lève le stylo qu'après les six lettres qui ne s'attachent pas à gauche (ا د ذ ر ز و) : [OpenArabic, « Arabic Cursive »](https://openarabic.org/arabic-cursive/), [Noor World](https://noorworld.com/arabic-alphabet-practice-sheets/) ;
+- le corps d'abord, puis les points de ce morceau, de droite à gauche : [OpenArabic](https://openarabic.org/arabic-cursive/), [Taalhammer, « How to write Arabic »](https://www.taalhammer.com/how-to-write-arabic/) ;
+- le départ de chaque lettre et le sens des traits (ب ت ن : on part de la dent de droite ; ا de haut en bas) : [Taalhammer](https://www.taalhammer.com/how-to-write-arabic/), [Mamoun Sakkal, l'alphabet arabe](https://www.sakkal.com/articles/sakkal_arabic_alphabet.pdf) ;
+- les formes en naskh (dents, tête du ع et du ح, jambe du م final, trait du haut du ك ajouté après) : [Arabic Calligraphy Apprentice](https://www.tumblr.com/arabiccalligraphyapprentice/tagged/practice).
+Les voyelles et les signes sont posés à la toute fin, une fois le mot fini (pratique courante des cahiers d'écriture). Code : `src/06k0-write-pen.js`.

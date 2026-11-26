@@ -3,6 +3,8 @@
  * On part de la lettre dessinée par la police, on en tire la ligne du
  * milieu (le « squelette »), puis on la parcourt comme un stylo :
  * - chaque morceau attaché est écrit de droite à gauche, en partant du haut ;
+ * - chaque morceau attaché est un seul trait : pour une dent ou une hampe, on monte et on
+ *   redescend sur le même trait, sans lever le stylo ;
  * - les points et les voyelles viennent après le corps qu'ils accompagnent.
  * ==================================================================== */
 const N8 = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
@@ -86,7 +88,9 @@ function penPlan(mask, w, h, fs, bare) { // bare : le même texte sans voyelles 
   const comps = comps0.concat(DOTS);
   if (!comps.length) return { strokes: [] };
   const maxN = Math.max(...comps.map(c => c.n));
-  comps.forEach(c => { c.main = c.n >= maxN * 0.3 || (c.y1 - c.y0) >= fs * 0.3; });
+  // une voyelle ou un signe (absent du texte sans voyelles) n'est jamais un corps de lettre
+  comps.forEach(c => { if (!bare || c.dot) return; let inB = 0; c.px.forEach(([x, y]) => { if (bare[y * w + x]) inB++; }); c.mark0 = inB < c.px.length * 0.3; });
+  comps.forEach(c => { const small = (c.y1 - c.y0) < fs * 0.45 && (c.x1 - c.x0) < fs * 0.6; c.main = !(c.mark0 && small) && (c.n >= maxN * 0.3 || (c.y1 - c.y0) >= fs * 0.3); });
   const mains = comps.filter(c => c.main).sort((a, b) => b.x1 - a.x1);
   const smalls = comps.filter(c => !c.main);
   mains.forEach(m => { m.kids = []; });
@@ -158,59 +162,67 @@ function penWalk(c, w, isS, deg, fs, R) {
     chain.push(st0); addEdge(chain, id, id);
   }
   if (!edges.length) return c.px.length ? [c.px.map(([x, y]) => [x, y, R(x, y)])] : [];
-  // 3. le chemin
-  const dirOf = (chain, rev) => { const L = chain.length; const n = Math.max(1, Math.min(L - 1, Math.round(fs * 0.1))); const p0 = rev ? chain[L - 1] : chain[0], p1 = rev ? chain[L - 1 - n] : chain[n]; const dx = p1[0] - p0[0], dy = p1[1] - p0[1]; const l = Math.hypot(dx, dy) || 1; return [dx / l, dy / l]; };
+  // 3. le chemin : tout le morceau d'UN SEUL trait, sans lever le stylo (c'est ainsi qu'on écrit
+  // un morceau attaché). Là où la main doit repasser sur l'encre (monter une dent et redescendre,
+  // revenir d'une hampe), on double le trait le plus court possible (problème du « postier chinois »),
+  // puis on suit le tracé de droite à gauche en gardant l'élan.
   const other = (e, at) => (e.a === at ? e.b : e.a);
   const oriented = (e, at) => (e.a === at ? e.chain : e.chain.slice().reverse());
-  const subtreeOpen = (nodeId, from) => nodes[nodeId].edges.some(x => !x.done && x !== from);
-  const strokes = []; let stroke = null; let dirIn = [-1, 0];
-  const push = (chain) => { for (const [x, y] of chain) { const l = stroke[stroke.length - 1]; if (l && l[0] === x && l[1] === y) continue; stroke.push([x, y, R(x, y)]); } };
+  const dirOf = (chain, rev) => { const L = chain.length; const n = Math.max(1, Math.min(L - 1, Math.round(fs * 0.1))); const p0 = rev ? chain[L - 1] : chain[0], p1 = rev ? chain[L - 1 - n] : chain[n]; const dx = p1[0] - p0[0], dy = p1[1] - p0[1]; const l = Math.hypot(dx, dy) || 1; return [dx / l, dy / l]; };
+  const degOf = n => n.edges.reduce((s, e) => s + (e.a === e.b ? 2 : 1), 0);
+  const odd = nodes.filter(n => n.edges.length && degOf(n) % 2 === 1);
   const startScore = n => n.x - n.y * 1.3 + (n.end ? fs * 0.25 : 0);
-  let cur = null;
-  const left = () => edges.some(e => !e.done);
-  while (left()) {
-    if (cur == null) { // poser le stylo : un nœud avec un trait pas encore fait, le plus en haut à droite
-      let best = null; for (const n of nodes) if (n.edges.some(e => !e.done)) { const s = startScore(n) + (n.edges.filter(e => !e.done).length === 1 ? fs * 0.2 : 0); if (!best || s > best.s) best = { n, s }; }
-      cur = best.n.id; stroke = []; strokes.push(stroke); dirIn = [-1, 0.3];
-    }
-    const cand = nodes[cur].edges.filter(e => !e.done);
-    if (!cand.length) { cur = null; continue; }
-    const info = cand.map(e => {
-      const o = other(e, cur); const ch = oriented(e, cur); const d = dirOf(ch, false);
-      const deadEnd = o !== cur && nodes[o].end && !subtreeOpen(o, e);
-      const up = (ch[ch.length - 1][1] - ch[0][1]) < -fs * 0.08; // le bout est plus haut : une dent ou une hampe
-      const cont = d[0] * dirIn[0] + d[1] * dirIn[1];
-      return { e, o, ch, d, deadEnd, up, cont, loop: o === cur };
-    });
-    let pick;
-    const others = n => info.length - 1;
-    // a) une dent ou une hampe : on monte et on redescend (seulement si autre chose reste à faire ici)
-    pick = info.filter(i => i.deadEnd && i.up && i.e.len < fs * 1.1 && others() > 0).sort((a, b) => a.e.len - b.e.len)[0];
-    if (pick) { pick.e.done = true; push(pick.ch); push(pick.ch.slice().reverse()); dirIn = dirOf(pick.ch, true).map(v => -v); dirIn = [ -Math.abs(dirIn[0]) || -1, 0 ]; continue; }
-    // b) un petit crochet vers le bas, s'il reste d'autres traits ici : aller-retour aussi
-    pick = info.filter(i => i.deadEnd && !i.up && i.e.len < fs * 0.25 && others() > 0)[0];
-    if (pick) { pick.e.done = true; push(pick.ch); push(pick.ch.slice().reverse()); continue; }
-    // c) une boucle (deux traits qui vont au même endroit, comme la tête du م ou du و) : on fait le tour et on revient ici
-    const par = info.filter(i => !i.loop && info.some(j => j !== i && j.o === i.o && !j.loop));
-    if (par.length >= 2) {
-      // a : l'arc du haut (on monte d'abord), b : l'arc du bas
-      const midY = i => i.ch[Math.floor(i.ch.length / 2)][1];
-      const a = par.slice().sort((x, y) => midY(x) - midY(y))[0]; const b = par.find(j => j !== a && j.o === a.o);
-      a.e.done = true; b.e.done = true; push(a.ch); push(b.ch.slice().reverse());
-      if (info.length > 2) continue; // d'autres traits partent d'ici : on repart d'ici
-      push(b.ch); cur = a.o; // sinon on repasse sur le bas de la boucle et on continue de l'autre côté
-      const L = b.ch.length; const p1 = b.ch[L - 1], p0 = b.ch[Math.max(0, L - 4)]; const dl = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1; dirIn = [(p1[0] - p0[0]) / dl, (p1[1] - p0[1]) / dl];
-      continue;
-    }
-    pick = info.find(i => i.loop && info.length > 1);
-    if (pick) { pick.e.done = true; push(pick.ch); continue; }
-    // d) sinon on continue dans le sens de la main (vers la gauche, sans casser le mouvement) ; un bout libre en dernier
-    info.forEach(i => { i.score = i.cont * 1.2 - i.d[0] * 0.6 + (i.deadEnd ? -0.8 : 0) + (i.loop ? 0.3 : 0); });
-    pick = info.sort((a, b) => b.score - a.score)[0];
-    pick.e.done = true; push(pick.ch);
+  const withEdges = nodes.filter(n => n.edges.length);
+  // départ : le bout le plus en haut à droite ; arrivée : le bout le plus à gauche (la queue du mot)
+  const S = (odd.length ? odd : withEdges).reduce((a, b) => (startScore(b) > startScore(a) ? b : a));
+  let E = null;
+  if (odd.length) { const rest = odd.filter(n => n !== S); E = rest.reduce((a, b) => ((b.x - b.y * 0.2 - (b.end ? fs * 0.1 : 0)) < (a.x - a.y * 0.2 - (a.end ? fs * 0.1 : 0)) ? b : a)); }
+  // plus courts chemins entre nœuds (Dijkstra, graphe minuscule)
+  const sp = (from) => { const D = new Map([[from, 0]]); const P = new Map(); const Q = [from]; const done = new Set();
+    while (Q.length) { Q.sort((a, b) => D.get(a) - D.get(b)); const u = Q.shift(); if (done.has(u)) continue; done.add(u);
+      for (const e of nodes[u].edges) { const v = other(e, u); const nd = D.get(u) + e.len; if (!D.has(v) || nd < D.get(v)) { D.set(v, nd); P.set(v, e); Q.push(v); } } }
+    return { D, P }; };
+  const pairs = odd.filter(n => n !== S && n !== E).map(n => n.id);
+  if (pairs.length) {
+    const SP = new Map(pairs.map(id => [id, sp(id)]));
+    const dist2 = (a, b) => { const d = SP.get(a).D.get(b); return d == null ? 1e9 : d; };
+    let match = [];
+    if (pairs.length <= 14) { // appariement optimal (petit nombre de bouts)
+      const n = pairs.length; const memo = new Map();
+      const best = (mask) => { if (mask === (1 << n) - 1) return [0, []]; if (memo.has(mask)) return memo.get(mask);
+        let i = 0; while (mask & (1 << i)) i++; let r = [1e18, []];
+        for (let j = i + 1; j < n; j++) if (!(mask & (1 << j))) { const [c, m] = best(mask | (1 << i) | (1 << j)); const t = c + dist2(pairs[i], pairs[j]); if (t < r[0]) r = [t, [[pairs[i], pairs[j]]].concat(m)]; }
+        memo.set(mask, r); return r; };
+      match = best(0)[1];
+    } else { const left = pairs.slice(); while (left.length > 1) { const a = left.shift(); let bj = 0; left.forEach((b, j) => { if (dist2(a, b) < dist2(a, left[bj])) bj = j; }); match.push([a, left.splice(bj, 1)[0]]); } }
+    // on double les traits du chemin entre chaque paire : la main y repassera
+    for (const [a, b] of match) { const { P } = SP.get(a); let v = b; let guard = 0; while (v !== a && P.has(v) && guard++ < 1000) { const e = P.get(v); const u = other(e, v); addEdge(e.chain, e.a, e.b); v = u; } }
+  }
+  // parcours (Fleury) : on ne prend jamais un trait qui couperait le reste, sauf s'il n'y a que lui
+  const live = new Set(edges);
+  const reach = (from, skip) => { const seen = new Set([from]); const st = [from]; let k = 0; while (st.length) { const u = st.pop(); for (const e of nodes[u].edges) { if (!live.has(e) || e === skip) continue; k++; const v = other(e, u); if (!seen.has(v)) { seen.add(v); st.push(v); } } } return seen; };
+  const isBridge = (e, at) => { if (e.a === e.b) return false; const before = reach(at, null).size; live.delete(e); const after = reach(at, null); live.add(e); const v = other(e, at); return !after.has(v) && before > 1; };
+  const stroke = []; const push = (chain) => { for (const [x, y] of chain) { const l = stroke[stroke.length - 1]; if (l && l[0] === x && l[1] === y) continue; stroke.push([x, y, R(x, y)]); } };
+  let cur = S.id; let dirIn = [-1, 0.3]; let guard = 0;
+  while (live.size && guard++ < 5000) {
+    const cand = nodes[cur].edges.filter(e => live.has(e));
+    if (!cand.length) break;
+    const ok = cand.filter(e => cand.length === 1 || !isBridge(e, cur));
+    const pool = ok.length ? ok : cand;
+    const info = pool.map(e => {
+      let ch = oriented(e, cur);
+      if (e.a === e.b) { const d1 = dirOf(e.chain, false), d2 = dirOf(e.chain, true); if (d2[0] * dirIn[0] + d2[1] * dirIn[1] > d1[0] * dirIn[0] + d1[1] * dirIn[1]) ch = e.chain.slice().reverse(); }
+      const d = [0, 0]; { const L = ch.length; const n = Math.max(1, Math.min(L - 1, Math.round(fs * 0.1))); const dx = ch[n][0] - ch[0][0], dy = ch[n][1] - ch[0][1]; const l = Math.hypot(dx, dy) || 1; d[0] = dx / l; d[1] = dy / l; }
+      const o = other(e, cur);
+      // une dent / une hampe / un petit crochet : un aller-retour (deux copies du même trait)
+      const twin = [...live].some(f => f !== e && f.chain === e.chain);
+      const spur = twin && nodes[o].end;
+      const score = (spur ? 3 : 0) + (d[0] * dirIn[0] + d[1] * dirIn[1]) * 1.2 - d[0] * 0.6 - (E && o === E.id && live.size > 1 ? 1 : 0);
+      return { e, ch, o, score };
+    }).sort((a, b) => b.score - a.score);
+    const pick = info[0]; live.delete(pick.e); push(pick.ch);
     const L = pick.ch.length; const n = Math.max(1, Math.min(L - 1, Math.round(fs * 0.1))); const p1 = pick.ch[L - 1], p0 = pick.ch[L - 1 - n]; const dl = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1; dirIn = [(p1[0] - p0[0]) / dl, (p1[1] - p0[1]) / dl];
     cur = pick.o;
-    if (nodes[cur].end) cur = null; // au bout du trait : on lève le stylo
   }
-  return strokes.filter(s => s.length);
+  return stroke.length ? [stroke] : [];
 }
