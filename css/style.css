@@ -1383,3 +1383,6 @@ body.is-mobile .aa-root .aa-body, body.is-mobile .aa-root.aa-reading .aa-body { 
 .aa-path-row10 .aa-path-t { font-size: 12px; line-height: 1.25; }
 .aa-path-can { margin-top: -4px; }
 .aa-path-it .aa-muted.aa-small { margin-top: 2px; }
+/* 2.41.1 : les boutons du bas de l'Accueil passent à la ligne */
+.aa-home-settings { display: flex !important; flex-wrap: wrap !important; gap: 8px; justify-content: center; overflow: visible !important; }
+.aa-home-settings button { white-space: normal !important; height: auto !important; max-width: 100%; text-align: center; }

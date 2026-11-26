@@ -90,7 +90,7 @@ function renderHomeTab(ctx, root, state) {
   if (state.arrange) { renderHomeArrange(ctx, root, state, go); root.insertBefore(root.lastChild, head.nextSibling); }
   const set = h(root, 'div', 'aa-home-settings');
   btn(set, '✎ Arranger l\'Accueil', () => { state.arrange = !state.arrange; go(); }, 'aa-btn-quiet');
-  btn(set, '⚙ Réglages : taille du texte, police, récitateur, son hors ligne', () => ctx.openTab('settings'), 'aa-btn-quiet');
+  btn(set, '⚙ Réglages (texte, police, récitateur, son)', () => ctx.openTab('settings'), 'aa-btn-quiet');
   if (ctx.startTour) btn(set, '🧭 Revoir la visite guidée', () => ctx.startTour(), 'aa-btn-quiet');
 }
 

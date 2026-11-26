@@ -52,6 +52,7 @@ function renderBookmarksPage(ctx, root, state, back) {
 
 /* ---------- Quoi de neuf (une seule fois après une mise à jour) ---------- */
 const WHATS_NEW = [
+  ['2.41.1', ['🏠 Accueil : les boutons du bas (Réglages, visite guidée) ne sont plus coupés.']],
   ['2.41.0', ['🧭 **Nouveau parcours** : 3 programmes selon ton niveau (je débute, je sais lire, je parle arabe), 10 étapes chacun, avec des tâches dans tout l\'Atelier qui se cochent quand tu les as vraiment faites. Change de programme depuis l\'Accueil.']],
   ['2.40.6', ['✍️ « Voir le geste » : chaque morceau attaché est tracé d\'un seul trait, sans lever le stylo ; la main monte et redescend sur les dents ; les voyelles à la toute fin.']],
   ['2.40.5', ['🔊 Le son des lettres et des mots (voix de l\'appareil) remarche sur iPad et iPhone, même après une récitation.']],
