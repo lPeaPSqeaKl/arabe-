@@ -31,7 +31,7 @@ const AR_FONTS = [
   ['device', 'Police de l\'appareil', 'La police arabe de ton PC ou de ton iPad.'],
 ];
 /* Ambiances : un seul fond pour tout l'atelier, choisi indépendamment du thème d'Obsidian */
-const AMBIANCES = [['', 'Comme Obsidian'], ['nuit', 'Nuit (noir doux)'], ['sepia', 'Sépia (papier chaud)'], ['clair', 'Clair (blanc)']];
+const AMBIANCES = [['', 'Comme Obsidian']].concat(Object.entries(PALETTES).map(([k, p]) => [k, p.name]));
 function ambianceOf(S) { return S.ambiance != null ? S.ambiance : (S.paper === true ? 'sepia' : ''); }
 function applyAmbiance(el, a) { AMBIANCES.forEach(x => x[0] && el.classList.toggle('aa-amb-' + x[0], x[0] === a)); el.classList.remove('aa-paper'); }
 const TAB_ICONS = { home: 'home', read: 'book-a', write: 'pencil', coran: 'book-open', alphabet: 'a-large-small', lessons: 'graduation-cap', rules: 'book-marked', review: 'layers', dict: 'library', analyse: 'scan-search', build: 'blocks', signs: 'flask-conical', quiz: 'target' };

@@ -1,0 +1,90 @@
+/* généré par tools/palettes.js — ne pas modifier à la main */
+.aa-root.aa-amb-parchemin {
+  --background-primary: #f1e3bf; --background-primary-alt: #ecdbb1; --background-secondary: #e9d6a9; --background-secondary-alt: #e2cc97;
+  --background-modifier-border: #ccbb98; --background-modifier-hover: rgba(60,40,20,.07); --aa-line: #d7c6a3; --aa-soft: #ead9ad;
+  --text-normal: #3a2a16; --text-muted: #6e5432; --text-faint: #a28d6a; --interactive-normal: #f8f1df; --aa-paper-bg: #f1e3bf;
+  --interactive-accent: #8a5a1c; --interactive-accent-hover: #794f19; --text-accent: #8a5a1c; --aa-gold: #a8782c;
+  --aa-nom: #3d64a8; --aa-acc: #2e8358; --aa-gen: #b06a2c; --aa-verb: #ad4a43; --aa-part: #776a58; --aa-pron: #7a59b0; color-scheme: light;
+  background: radial-gradient(ellipse at 50% -10%, #ebdab3, #f1e3bf 55%) fixed, #f1e3bf !important; color: var(--text-normal);
+}
+.aa-root.aa-amb-parchemin .aa-tabs { border-bottom: 2px solid #a8782c; box-shadow: 0 3px 0 -1px #d7be8c; }
+.aa-root.aa-amb-parchemin .aa-today, .aa-root.aa-amb-parchemin .aa-vod, .aa-root.aa-amb-parchemin .aa-home-block, .aa-root.aa-amb-parchemin .aa-lesson-card, .aa-root.aa-amb-parchemin .aa-home-card { border-color: #d0b37d; }
+.aa-root.aa-amb-parchemin .mod-cta { background: #8a5a1c !important; color: #fff !important; }
+.aa-root.aa-amb-sable {
+  --background-primary: #f3e7d3; --background-primary-alt: #eee0c7; --background-secondary: #ecdbc1; --background-secondary-alt: #e6d2b2;
+  --background-modifier-border: #d1c0ab; --background-modifier-hover: rgba(60,40,20,.07); --aa-line: #dbcbb6; --aa-soft: #eddec4;
+  --text-normal: #3d2a1e; --text-muted: #7a5a44; --text-faint: #aa927d; --interactive-normal: #f9f3e9; --aa-paper-bg: #f3e7d3;
+  --interactive-accent: #b4593a; --interactive-accent-hover: #9e4e33; --text-accent: #b4593a; --aa-gold: #b4593a;
+  --aa-nom: #3d64a8; --aa-acc: #2e8358; --aa-gen: #b06a2c; --aa-verb: #ad4a43; --aa-part: #776a58; --aa-pron: #7a59b0; color-scheme: light;
+  background: radial-gradient(ellipse at 50% -10%, #eedcc7, #f3e7d3 55%) fixed, #f3e7d3 !important; color: var(--text-normal);
+}
+.aa-root.aa-amb-sable .aa-tabs { border-bottom: 2px solid #b4593a; box-shadow: 0 3px 0 -1px #ddb59d; }
+.aa-root.aa-amb-sable .aa-today, .aa-root.aa-amb-sable .aa-vod, .aa-root.aa-amb-sable .aa-home-block, .aa-root.aa-amb-sable .aa-lesson-card, .aa-root.aa-amb-sable .aa-home-card { border-color: #d7a78e; }
+.aa-root.aa-amb-sable .mod-cta { background: #b4593a !important; color: #fff !important; }
+.aa-root.aa-amb-iznik {
+  --background-primary: #f3f7f8; --background-primary-alt: #ebf2f5; --background-secondary: #e7eff3; --background-secondary-alt: #dde9ee;
+  --background-modifier-border: #c4cdd3; --background-modifier-hover: rgba(60,40,20,.07); --aa-line: #d1d9de; --aa-soft: #e9f1f4;
+  --text-normal: #14283b; --text-muted: #4a6274; --text-faint: #8e9ea9; --interactive-normal: #f9fbfc; --aa-paper-bg: #f3f7f8;
+  --interactive-accent: #1f5f8b; --interactive-accent-hover: #1b547a; --text-accent: #1f5f8b; --aa-gold: #1f5f8b;
+  --aa-nom: #3d64a8; --aa-acc: #2e8358; --aa-gen: #b06a2c; --aa-verb: #ad4a43; --aa-part: #776a58; --aa-pron: #7a59b0; color-scheme: light;
+  background: radial-gradient(ellipse at 50% -10%, #e2ebef, #f3f7f8 55%) fixed, #f3f7f8 !important; color: var(--text-normal);
+}
+.aa-root.aa-amb-iznik .aa-tabs { border-bottom: 2px solid #1f5f8b; box-shadow: 0 3px 0 -1px #a9c2d2; }
+.aa-root.aa-amb-iznik .aa-today, .aa-root.aa-amb-iznik .aa-vod, .aa-root.aa-amb-iznik .aa-home-block, .aa-root.aa-amb-iznik .aa-lesson-card, .aa-root.aa-amb-iznik .aa-home-card { border-color: #94b3c7; }
+.aa-root.aa-amb-iznik .mod-cta { background: #1f5f8b !important; color: #fff !important; }
+.aa-root.aa-amb-jardin {
+  --background-primary: #eef0e2; --background-primary-alt: #e8ebd8; --background-secondary: #e5e8d3; --background-secondary-alt: #dde2c6;
+  --background-modifier-border: #c5c9b9; --background-modifier-hover: rgba(60,40,20,.07); --aa-line: #d1d4c5; --aa-soft: #e6ead5;
+  --text-normal: #283020; --text-muted: #5d6650; --text-faint: #979d8a; --interactive-normal: #f7f8f1; --aa-paper-bg: #eef0e2;
+  --interactive-accent: #5c6b3a; --interactive-accent-hover: #515e33; --text-accent: #5c6b3a; --aa-gold: #8a7a35;
+  --aa-nom: #3d64a8; --aa-acc: #2e8358; --aa-gen: #b06a2c; --aa-verb: #ad4a43; --aa-part: #776a58; --aa-pron: #7a59b0; color-scheme: light;
+  background: radial-gradient(ellipse at 50% -10%, #e6e7d4, #eef0e2 55%) fixed, #eef0e2 !important; color: var(--text-normal);
+}
+.aa-root.aa-amb-jardin .aa-tabs { border-bottom: 2px solid #8a7a35; box-shadow: 0 3px 0 -1px #cbc7a5; }
+.aa-root.aa-amb-jardin .aa-today, .aa-root.aa-amb-jardin .aa-vod, .aa-root.aa-amb-jardin .aa-home-block, .aa-root.aa-amb-jardin .aa-lesson-card, .aa-root.aa-amb-jardin .aa-home-card { border-color: #c1bb94; }
+.aa-root.aa-amb-jardin .mod-cta { background: #5c6b3a !important; color: #fff !important; }
+.aa-root.aa-amb-rose {
+  --background-primary: #f8eeec; --background-primary-alt: #f4e6e3; --background-secondary: #f1e1de; --background-secondary-alt: #ecd6d3;
+  --background-modifier-border: #d5c4c4; --background-modifier-hover: rgba(60,40,20,.07); --aa-line: #dfd0cf; --aa-soft: #f3e3e1;
+  --text-normal: #3a2226; --text-muted: #7a585d; --text-faint: #ac9496; --interactive-normal: #fcf7f6; --aa-paper-bg: #f8eeec;
+  --interactive-accent: #a24b5a; --interactive-accent-hover: #8f424f; --text-accent: #a24b5a; --aa-gold: #a24b5a;
+  --aa-nom: #3d64a8; --aa-acc: #2e8358; --aa-gen: #b06a2c; --aa-verb: #ad4a43; --aa-part: #776a58; --aa-pron: #7a59b0; color-scheme: light;
+  background: radial-gradient(ellipse at 50% -10%, #f1e1e0, #f8eeec 55%) fixed, #f8eeec !important; color: var(--text-normal);
+}
+.aa-root.aa-amb-rose .aa-tabs { border-bottom: 2px solid #a24b5a; box-shadow: 0 3px 0 -1px #dab5b9; }
+.aa-root.aa-amb-rose .aa-today, .aa-root.aa-amb-rose .aa-vod, .aa-root.aa-amb-rose .aa-home-block, .aa-root.aa-amb-rose .aa-lesson-card, .aa-root.aa-amb-rose .aa-home-card { border-color: #d1a5aa; }
+.aa-root.aa-amb-rose .mod-cta { background: #a24b5a !important; color: #fff !important; }
+.aa-root.aa-amb-emeraude {
+  --background-primary: #0f2e28; --background-primary-alt: #0d2a24; --background-secondary: #0c2722; --background-secondary-alt: #0a221d;
+  --background-modifier-border: #3f5a52; --background-modifier-hover: rgba(255,255,255,.06); --aa-line: #324d46; --aa-soft: #0d2923;
+  --text-normal: #f1ead6; --text-muted: #bccbbd; --text-faint: #778c81; --interactive-normal: #1d3b35; --aa-paper-bg: #0f2e28;
+  --interactive-accent: #2f8f72; --interactive-accent-hover: #489c83; --text-accent: #78b6a3; --aa-gold: #d4b46a;
+  --aa-nom: #8fa9db; --aa-acc: #7dbf98; --aa-gen: #d9a477; --aa-verb: #dc928b; --aa-part: #9ba2ac; --aa-pron: #b49bdc; color-scheme: dark;
+  background: radial-gradient(ellipse at 50% -10%, #1f392d, #0f2e28 55%) fixed, #0f2e28 !important; color: var(--text-normal);
+}
+.aa-root.aa-amb-emeraude .aa-tabs { border-bottom: 2px solid #d4b46a; box-shadow: 0 3px 0 -1px #545d3f; }
+.aa-root.aa-amb-emeraude .aa-today, .aa-root.aa-amb-emeraude .aa-vod, .aa-root.aa-amb-emeraude .aa-home-block, .aa-root.aa-amb-emeraude .aa-lesson-card, .aa-root.aa-amb-emeraude .aa-home-card { border-color: #686a46; }
+.aa-root.aa-amb-emeraude .mod-cta { background: #2f8f72 !important; color: #fff !important; }
+.aa-root.aa-amb-andalousie {
+  --background-primary: #131a2c; --background-primary-alt: #111829; --background-secondary: #101627; --background-secondary-alt: #0d1322;
+  --background-modifier-border: #3d4456; --background-modifier-hover: rgba(255,255,255,.06); --aa-line: #31384a; --aa-soft: #101728;
+  --text-normal: #ece5d3; --text-muted: #a9b0c2; --text-faint: #6d7486; --interactive-normal: #212839; --aa-paper-bg: #131a2c;
+  --interactive-accent: #4f6fb5; --interactive-accent-hover: #6480be; --text-accent: #8da1cf; --aa-gold: #d0aa5e;
+  --aa-nom: #8fa9db; --aa-acc: #7dbf98; --aa-gen: #d9a477; --aa-verb: #dc928b; --aa-part: #9ba2ac; --aa-pron: #b49bdc; color-scheme: dark;
+  background: radial-gradient(ellipse at 50% -10%, #222630, #131a2c 55%) fixed, #131a2c !important; color: var(--text-normal);
+}
+.aa-root.aa-amb-andalousie .aa-tabs { border-bottom: 2px solid #d0aa5e; box-shadow: 0 3px 0 -1px #554c3e; }
+.aa-root.aa-amb-andalousie .aa-today, .aa-root.aa-amb-andalousie .aa-vod, .aa-root.aa-amb-andalousie .aa-home-block, .aa-root.aa-amb-andalousie .aa-lesson-card, .aa-root.aa-amb-andalousie .aa-home-card { border-color: #685b43; }
+.aa-root.aa-amb-andalousie .mod-cta { background: #4f6fb5 !important; color: #fff !important; }
+.aa-root.aa-amb-velours {
+  --background-primary: #2a1418; --background-primary-alt: #261216; --background-secondary: #231114; --background-secondary-alt: #1e0e11;
+  --background-modifier-border: #573f43; --background-modifier-hover: rgba(255,255,255,.06); --aa-line: #4a3336; --aa-soft: #251115;
+  --text-normal: #f2e6dc; --text-muted: #c9aeb0; --text-faint: #897073; --interactive-normal: #372226; --aa-paper-bg: #2a1418;
+  --interactive-accent: #9c3a4a; --interactive-accent-hover: #a85260; --text-accent: #bf7f89; --aa-gold: #d6b06a;
+  --aa-nom: #8fa9db; --aa-acc: #7dbf98; --aa-gen: #d9a477; --aa-verb: #dc928b; --aa-part: #9ba2ac; --aa-pron: #b49bdc; color-scheme: dark;
+  background: radial-gradient(ellipse at 50% -10%, #38201f, #2a1418 55%) fixed, #2a1418 !important; color: var(--text-normal);
+}
+.aa-root.aa-amb-velours .aa-tabs { border-bottom: 2px solid #d6b06a; box-shadow: 0 3px 0 -1px #664b35; }
+.aa-root.aa-amb-velours .aa-today, .aa-root.aa-amb-velours .aa-vod, .aa-root.aa-amb-velours .aa-home-block, .aa-root.aa-amb-velours .aa-lesson-card, .aa-root.aa-amb-velours .aa-home-card { border-color: #775a3d; }
+.aa-root.aa-amb-velours .mod-cta { background: #9c3a4a !important; color: #fff !important; }
+.aa-root[class*="aa-amb-"] .aa-sh-name { background: transparent; }

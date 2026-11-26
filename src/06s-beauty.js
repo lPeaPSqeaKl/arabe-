@@ -50,13 +50,37 @@ function wrapLines(c, words, maxW) {
   if (cur) lines.push(cur);
   return lines;
 }
-const IMG_THEMES = {
-  creme: { bg: '#f7f1e3', bg2: '#efe4cc', ink: '#2b2418', soft: '#6d5f48', gold: '#a8823e', name: 'Crème' },
-  nuit: { bg: '#15181d', bg2: '#1f242b', ink: '#efe8d8', soft: '#b7ad98', gold: '#c9a45c', name: 'Nuit' },
-  vert: { bg: '#123b33', bg2: '#0e2f29', ink: '#f3ecd9', soft: '#c8d6c9', gold: '#d4b46a', name: 'Émeraude' },
-};
+/* couleurs d'une image ou d'une impression : 'auto' = l'ambiance choisie, 'blanc' = pour imprimer */
+const PRINT_WHITE = { name: 'Blanc (pour imprimer)', bg: '#ffffff', bg2: '#ffffff', ink: '#1d1a15', soft: '#5d554a', gold: '#9a7735' };
+const OLD_THEMES = { creme: 'sepia', vert: 'emeraude' };
+function themeColors(ctx, theme) {
+  theme = OLD_THEMES[theme] || theme;
+  if (theme === 'blanc') return PRINT_WHITE;
+  return PALETTES[theme] || PALETTES[paletteOf(ctx.settings)] || PRINT_WHITE;
+}
+function themeOptions(ctx, withWhite) {
+  const cur = PALETTES[paletteOf(ctx.settings)];
+  return [['auto', 'Comme l\'atelier (' + (cur ? cur.name : 'clair') + ')']].concat(withWhite ? [['blanc', PRINT_WHITE.name]] : [], Object.entries(PALETTES).map(([k, p]) => [k, p.name]));
+}
+/* le cadre : deux filets dorés et des étoiles aux coins ; pour les ambiances décoratives, une frise de losanges entre les filets */
+function drawFrame(c, W, H, M, T, u) {
+  const star = (x, y, r) => { c.save(); c.translate(x, y); c.fillStyle = T.gold; [0, Math.PI / 4].forEach(a => { c.save(); c.rotate(a); c.fillRect(-r, -r, 2 * r, 2 * r); c.restore(); }); c.fillStyle = T.bg; c.beginPath(); c.arc(0, 0, r * 0.55, 0, 7); c.fill(); c.restore(); };
+  c.strokeStyle = T.gold; c.lineWidth = Math.max(2, u * 0.6); c.strokeRect(M, M, W - 2 * M, H - 2 * M);
+  const g2 = T.deco ? u * 4.2 : u * 1.8;
+  c.lineWidth = Math.max(1, u * 0.25); c.strokeRect(M + g2, M + g2, W - 2 * (M + g2), H - 2 * (M + g2));
+  if (T.deco) {
+    const mid = M + g2 / 2, d = u * 1.1, step = u * 5;
+    c.fillStyle = T.gold; c.globalAlpha = 0.75;
+    const lz = (x, y) => { c.beginPath(); c.moveTo(x, y - d); c.lineTo(x + d, y); c.lineTo(x, y + d); c.lineTo(x - d, y); c.closePath(); c.fill(); };
+    for (let x = M + g2 + step / 2; x < W - M - g2; x += step) { lz(x, mid); lz(x, H - mid); }
+    for (let y = M + g2 + step / 2; y < H - M - g2; y += step) { lz(mid, y); lz(W - mid, y); }
+    c.globalAlpha = 1;
+  }
+  const r = u * (T.deco ? 3 : 2.2); [[M, M], [W - M, M], [M, H - M], [W - M, H - M]].forEach(([x, y]) => star(x, y, r));
+  return { star, inner: M + g2 };
+}
 async function drawVerseImage(ctx, s, v, theme) {
-  const T = IMG_THEMES[theme] || IMG_THEMES.creme;
+  const T = themeColors(ctx, theme);
   const d = await ctx.data.surah(s); const vv = d.v[v - 1]; const info = ctx.data.surahInfo(s);
   const W = 1080, H = 1350; const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const c = cv.getContext('2d');
@@ -65,11 +89,8 @@ async function drawVerseImage(ctx, s, v, theme) {
   // fond
   const g = c.createRadialGradient(W / 2, H * 0.42, 50, W / 2, H / 2, H * 0.8); g.addColorStop(0, T.bg); g.addColorStop(1, T.bg2);
   c.fillStyle = g; c.fillRect(0, 0, W, H);
-  // cadre : deux filets et des étoiles aux coins
-  c.strokeStyle = T.gold; c.lineWidth = 3; c.strokeRect(46, 46, W - 92, H - 92);
-  c.lineWidth = 1.2; c.strokeRect(62, 62, W - 124, H - 124);
-  const star = (x, y, r) => { c.save(); c.translate(x, y); c.fillStyle = T.gold; [0, Math.PI / 4].forEach(a => { c.save(); c.rotate(a); c.fillRect(-r, -r, 2 * r, 2 * r); c.restore(); }); c.fillStyle = T.bg; c.beginPath(); c.arc(0, 0, r * 0.55, 0, 7); c.fill(); c.restore(); };
-  [[54, 54], [W - 54, 54], [54, H - 54], [W - 54, H - 54]].forEach(([x, y]) => star(x, y, 15));
+  // cadre
+  const { star } = drawFrame(c, W, H, 46, T, 6);
   // le nom de la sourate en haut
   c.textAlign = 'center'; c.direction = 'rtl'; c.fillStyle = T.gold; c.font = '44px ' + AR; c.fillText(info[3], W / 2, 150);
   c.beginPath(); c.moveTo(W / 2 - 140, 182); c.lineTo(W / 2 + 140, 182); c.strokeStyle = T.gold; c.lineWidth = 1.2; c.stroke(); star(W / 2, 182, 7);
@@ -79,7 +100,7 @@ async function drawVerseImage(ctx, s, v, theme) {
   const frWords = String(vv[0]).split(/\s+/);
   let ffs = 34, flines = [];
   for (; fs >= 34; fs -= 4) {
-    c.font = fs + 'px ' + AR; c.direction = 'rtl'; lines = wrapLines(c, words, W - 220);
+    c.font = fs + 'px ' + AR; c.direction = 'rtl'; lines = wrapLines(c, words, W - (T.deco ? 260 : 220));
     ffs = Math.max(26, Math.min(36, Math.round(fs * 0.42))); c.font = ffs + 'px ' + LAT; c.direction = 'ltr'; flines = wrapLines(c, frWords, W - 240);
     const hAr = lines.length * fs * 1.75, hFr = flines.length * ffs * 1.45;
     if (hAr + hFr + 80 < H - 420) break;
@@ -108,13 +129,12 @@ async function openVerseImage(ctx, s, v) {
   const themes = h(card, 'div', 'aa-actions');
   const prev = h(card, 'div', 'aa-imgdlg-prev');
   const act = h(card, 'div', 'aa-actions aa-imgdlg-act');
-  let theme = ctx.settings.imgTheme || 'creme'; let cv = null;
+  let theme = ctx.settings.imgTheme || 'auto'; let cv = null;
   const paint = async () => {
     clear(prev); h(prev, 'p', 'aa-muted', 'Préparation…');
-    themes.querySelectorAll('button').forEach(b => b.classList.toggle('aa-on', b.dataset.t === theme));
     cv = await drawVerseImage(ctx, s, v, theme); clear(prev); cv.className = 'aa-imgdlg-cv'; prev.appendChild(cv);
   };
-  Object.entries(IMG_THEMES).forEach(([k, T]) => { const b = btn(themes, T.name, () => { theme = k; ctx.settings.imgTheme = k; ctx.save(); paint(); }, 'aa-btn-quiet'); b.dataset.t = k; });
+  selectEl(field(themes, 'Couleurs'), themeOptions(ctx, true), OLD_THEMES[theme] || theme, v => { theme = v; ctx.settings.imgTheme = v; ctx.save(); paint(); });
   const fname = 'verset-' + s + '-' + v + '.png';
   if (navigator.share && navigator.canShare) btn(act, '↗ Partager', async () => {
     try { const b = await canvasBlob(cv); const f = new File([b], fname, { type: 'image/png' }); if (navigator.canShare({ files: [f] })) await navigator.share({ files: [f], title: 'Verset ' + s + ':' + v }); else notify('Partage d\'image impossible sur cet appareil.'); } catch (e) { if (!e || e.name !== 'AbortError') notify('Partage impossible.'); }
