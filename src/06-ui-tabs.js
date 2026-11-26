@@ -94,6 +94,7 @@ function renderQuranTab(ctx, root, state) {
   if (small) opt.parentNode.insertBefore(quick2, opt);
   btn(quick2, small ? '⤢' : '⤢ Lecture', () => setReading(root.closest('.aa-root') || root, true, ctx), 'aa-btn-quiet').title = 'Plein écran : seulement le texte (Échap ou ✕ pour sortir)';
   btn(quick2, small ? '🧠' : '🧠 Par cœur', () => { state.hifz = { s: state.surah, v: Math.max(1, state.focus || (ctx.settings.lastSurah === state.surah ? ctx.settings.lastVerse : 1) || 1), level: 0 }; renderQuranTab(ctx, root, state); }, 'aa-btn-quiet').title = 'Apprendre par cœur, verset par verset ou toute la sourate';
+  btn(quick2, small ? '🖨' : '🖨 Imprimer', () => openPrintDialog(ctx, state.surah), 'aa-btn-quiet').title = 'Imprimer ou exporter la sourate en PDF ou en images (A4 ou A5)';
   btn(quick2, small ? '🔎' : '🔎 Chercher', () => { state.searchOpen = !state.searchOpen; renderQuranTab(ctx, root, state); }, 'aa-btn-quiet' + (state.searchOpen ? ' aa-on' : '')).title = 'Chercher un mot dans tout le Coran';
   checkbox(tg, 'translittération', ctx.settings.showTr, v => { ctx.settings.showTr = v; ctx.save(); renderQuranTab(ctx, root, state); });
   checkbox(tg, 'français', ctx.settings.showFr, v => { ctx.settings.showFr = v; ctx.save(); renderQuranTab(ctx, root, state); });

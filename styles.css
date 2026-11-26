@@ -1296,3 +1296,14 @@ body.is-mobile .aa-root .aa-body, body.is-mobile .aa-root.aa-reading .aa-body { 
 .aa-mj-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--background-modifier-border); border-radius: 12px; margin: 6px 0; }
 .aa-mj-today { border-color: var(--interactive-accent); }
 .aa-mj-tx { flex: 1; }
+
+/* ---- 2.36 : imprimer une sourate ---- */
+.aa-print-card { max-width: 720px; }
+.aa-print-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px 12px; margin: 6px 0 10px; }
+.aa-print-form .aa-field { display: flex; flex-direction: column; gap: 3px; }
+.aa-print-form select { max-width: 100%; }
+.aa-print-range { display: flex; align-items: center; gap: 6px; }
+.aa-print-prev { display: flex; gap: 12px; justify-content: center; align-items: flex-start; flex-wrap: wrap; margin: 8px 0; }
+.aa-print-page { width: calc(50% - 8px); max-width: 300px; height: auto; border-radius: 4px; box-shadow: 0 2px 12px rgba(0, 0, 0, .2); }
+.aa-print-more { align-self: center; }
+@media (max-width: 520px) { .aa-print-page { width: 46%; } }

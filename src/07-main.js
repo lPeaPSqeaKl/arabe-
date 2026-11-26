@@ -316,6 +316,7 @@ class AtelierArabePlugin extends Plugin {
     this.addCommand({ id: 'alphabet', name: 'Apprendre › Alphabet', callback: () => this.openView('alphabet') });
     this.addCommand({ id: 'par-coeur', name: 'Coran : apprendre par cœur', callback: () => this.openView('coran', { hifz: { s: this.settings.lastSurah || 1, v: this.settings.lastVerse || 1, level: 0 } }) });
     this.addCommand({ id: 'polices', name: 'Apprendre › Comparer les polices', callback: () => this.openView('alphabet', { mode: 'fonts' }) });
+    this.addCommand({ id: 'imprimer', name: 'Coran › Imprimer ou exporter une sourate (PDF, PNG)', callback: async () => { await this.openView('coran'); setTimeout(() => openPrintDialog(this.ctx(this.app.workspace.getLeavesOfType(VIEW_TYPE)[0].view), this.settings.lastSurah || 1), 300); } });
     this.addCommand({ id: 'lire', name: 'Apprendre › Lire (cours de lecture)', callback: () => this.openView('read') });
     this.addCommand({ id: 'ecrire', name: 'Apprendre › Écrire', callback: () => this.openView('write') });
     this.addCommand({ id: 'recopier', name: 'Apprendre › Recopier le Coran dans mon cahier', callback: () => this.openView('write', { copy: true, letter: null, word: null, unit: null, free: false }) });
@@ -380,6 +381,13 @@ class AtelierArabePlugin extends Plugin {
       data: this.data, settings: this.settings,
       save: () => this.saveData(this.settings),
       insertText: (t) => this.insertText(t),
+      saveFile: async (dir, name, buf) => {
+        try {
+          const segs = dir.split('/'); for (let i = 1; i <= segs.length; i++) { const d = segs.slice(0, i).join('/'); if (!this.app.vault.getAbstractFileByPath(d)) await this.app.vault.createFolder(d); }
+          const ext = name.match(/\.[a-z0-9]+$/i)[0]; let p = dir + '/' + name; let k = 2; while (this.app.vault.getAbstractFileByPath(p)) p = dir + '/' + name.slice(0, -ext.length) + ' ' + (k++) + ext;
+          await this.app.vault.createBinary(p, buf); return p;
+        } catch (e) { new Notice('Impossible de garder le fichier : ' + e.message); return null; }
+      },
       saveImage: async (name, buf) => {
         try {
           const dir = 'Atelier arabe/Images';
