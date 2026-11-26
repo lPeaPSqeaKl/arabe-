@@ -137,9 +137,9 @@ async function openVerseImage(ctx, s, v) {
   selectEl(field(themes, 'Couleurs'), themeOptions(ctx, true), OLD_THEMES[theme] || theme, v => { theme = v; ctx.settings.imgTheme = v; ctx.save(); paint(); });
   const fname = 'verset-' + s + '-' + v + '.png';
   if (navigator.share && navigator.canShare) btn(act, '↗ Partager', async () => {
-    try { const b = await canvasBlob(cv); const f = new File([b], fname, { type: 'image/png' }); if (navigator.canShare({ files: [f] })) await navigator.share({ files: [f], title: 'Verset ' + s + ':' + v }); else notify('Partage d\'image impossible sur cet appareil.'); } catch (e) { if (!e || e.name !== 'AbortError') notify('Partage impossible.'); }
+    try { const b = await canvasBlob(cv); const f = new File([b], fname, { type: 'image/png' }); useMark(ctx, 'image', fname); if (navigator.canShare({ files: [f] })) await navigator.share({ files: [f], title: 'Verset ' + s + ':' + v }); else notify('Partage d\'image impossible sur cet appareil.'); } catch (e) { if (!e || e.name !== 'AbortError') notify('Partage impossible.'); }
   }, 'mod-cta');
-  if (ctx.saveImage) btn(act, '💾 Garder dans mon coffre', async () => { const b = await canvasBlob(cv); const p = await ctx.saveImage(fname, await b.arrayBuffer()); if (p) notify('Image gardée : ' + p); }, navigator.share ? 'aa-btn-quiet' : 'mod-cta');
+  if (ctx.saveImage) btn(act, '💾 Garder dans mon coffre', async () => { const b = await canvasBlob(cv); const p = await ctx.saveImage(fname, await b.arrayBuffer()); useMark(ctx, 'image', fname); if (p) notify('Image gardée : ' + p); }, navigator.share ? 'aa-btn-quiet' : 'mod-cta');
   btn(act, '⬇ Télécharger', async () => { const b = await canvasBlob(cv); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = fname; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); }, 'aa-btn-quiet');
   await paint();
 }

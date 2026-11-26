@@ -157,6 +157,7 @@ function renderAlphabetTab(ctx, root, state) {
 }
 
 function renderLetterCard(ctx, parent, L, A, openZone) {
+  useMark(ctx, 'letter', L.l);
   const c = h(parent, 'div', 'aa-al-card');
   const top = h(c, 'div', 'aa-al-top');
   arSpan(top, L.l, 'aa-al-huge');
@@ -221,6 +222,7 @@ function renderLetterCard(ctx, parent, L, A, openZone) {
 }
 
 function renderZoneCard(ctx, parent, z, A, openLetter) {
+  useMark(ctx, 'zone', z.id);
   const c = h(parent, 'div', 'aa-al-card');
   const n = A.zones.indexOf(z) + 1;
   h(c, 'div', 'aa-al-name', n + '. ' + z.name);
@@ -244,6 +246,7 @@ function renderZoneCard(ctx, parent, z, A, openLetter) {
 }
 
 function renderAlphaPairs(ctx, el, A) {
+  useMark(ctx, 'pairs', 1);
   mdText(el, 'p', 'aa-help', 'Ces lettres se ressemblent à l\'oreille pour un francophone, mais changent le sens du mot. Écoute les deux l\'une après l\'autre, puis répète.');
   const t = h(el, 'table', 'aa-table aa-al-pairs');
   const hr = h(t, 'tr'); ['', '', 'La différence', ''].forEach(x => h(hr, 'th', null, x));
@@ -301,7 +304,7 @@ function renderAlphaQuiz(ctx, el, A, state) {
   opts.forEach(o => {
     const b = btn(ans, o, () => {
       if (done) return; done = true;
-      const ok = o === good; score.n++; if (ok) { score.ok++; ctx.settings.alphaOk = (ctx.settings.alphaOk || 0) + 1; if (ctx.markActivity) ctx.markActivity('l'); else ctx.save(); }
+      const ok = o === good; score.n++; if (ok) { score.ok++; const AQ = ctx.settings.alphaQ || (ctx.settings.alphaQ = {}); AQ[state.qk] = (AQ[state.qk] || 0) + 1; ctx.settings.alphaOk = (ctx.settings.alphaOk || 0) + 1; if (ctx.markActivity) ctx.markActivity('l'); else ctx.save(); }
       sc.textContent = 'Score : ' + score.ok + ' / ' + score.n;
       b.classList.add(ok ? 'aa-good' : 'aa-bad');
       ans.querySelectorAll('button').forEach(x => { if (x.textContent === good) x.classList.add('aa-good'); });

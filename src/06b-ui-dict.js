@@ -156,6 +156,7 @@ function renderRows(ctx, parent, ids, limit, onPick) {
 }
 
 function renderDictEntry(ctx, el, id, onPick) {
+  useMark(ctx, 'dict', id);
   clear(el); el.classList.remove('aa-dict-empty');
   const data = ctx.data; const l = data.lemmas[id]; const style = ctx.settings.style;
   const tr = lemmaTranslit(id, data.lemmas);

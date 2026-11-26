@@ -349,12 +349,13 @@ async function openPrintDialog(ctx, surah, here) {
   btn(act, '📄 PDF dans mon coffre', () => busy('Création du PDF…', async () => {
     const pdf = await surahPdf(out(), (i, n) => { status.textContent = 'Création du PDF… page ' + i + ' / ' + n; });
     const p = ctx.saveFile ? await ctx.saveFile('Atelier arabe/Exports', baseName() + '.pdf', pdf.buffer) : null;
+    useMark(ctx, 'print', baseName());
     status.textContent = p ? 'PDF gardé : ' + p + '. Ouvre-le pour l\'imprimer ou le partager.' : '';
     if (p && ctx.openPath) btn(status, 'Ouvrir le PDF', () => ctx.openPath(p), 'aa-btn-quiet');
   }), 'mod-cta');
   btn(act, '🖼 Pages en PNG', () => busy('Création des images…', async () => {
     const O = out(); const dir = 'Atelier arabe/Exports/' + baseName(); let last = null;
-    for (let i = 0; i < O.n; i++) { const cv = pageCanvas(O, i); const png = await canvasBytes(cv, 'image/png'); cv.width = cv.height = 1; last = ctx.saveFile ? await ctx.saveFile(dir, (L.booklet ? 'feuille-' + String((i >> 1) + 1).padStart(2, '0') + (i % 2 ? '-verso' : '-recto') : 'page-' + String(i + 1).padStart(2, '0')) + '.png', png.buffer) : null; status.textContent = 'Image ' + (i + 1) + ' / ' + O.n; }
+    useMark(ctx, 'print', baseName()); for (let i = 0; i < O.n; i++) { const cv = pageCanvas(O, i); const png = await canvasBytes(cv, 'image/png'); cv.width = cv.height = 1; last = ctx.saveFile ? await ctx.saveFile(dir, (L.booklet ? 'feuille-' + String((i >> 1) + 1).padStart(2, '0') + (i % 2 ? '-verso' : '-recto') : 'page-' + String(i + 1).padStart(2, '0')) + '.png', png.buffer) : null; status.textContent = 'Image ' + (i + 1) + ' / ' + O.n; }
     status.textContent = last ? O.n + ' image' + (O.n > 1 ? 's' : '') + ' gardée' + (O.n > 1 ? 's' : '') + ' dans « ' + dir + ' ».' : '';
   }), 'aa-btn-quiet');
   if (navigator.share && navigator.canShare) btn(act, '↗ Partager le PDF', () => busy('Création du PDF…', async () => {

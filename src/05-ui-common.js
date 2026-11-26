@@ -105,6 +105,12 @@ let currentAudio = null;
 /* Voix de l'appareil. Sur iPad/iPhone, la synthèse vocale peut rester bloquée (après une récitation,
  * ou quand on enchaîne les clics) : on libère d'abord les sons du Coran, on la relance (resume),
  * on garde l'énoncé en mémoire, et si rien ne démarre on réessaie une fois. */
+/* ce que tu as déjà fait dans l'Atelier (pour le parcours) : useMark(ctx, 'irab', '2:255') compte une fois chaque chose */
+function useMark(ctx, k, id) {
+  try { const U = ctx.settings.used || (ctx.settings.used = {}); const M = U[k] || (U[k] = {}); id = String(id).slice(0, 60); if (M[id]) return; if (Object.keys(M).length >= 400) return; M[id] = 1; ctx.save(); } catch (e) { /* */ }
+}
+function useCount(ctx, k) { try { const U = ctx.settings.used || (ctx.settings.used = {}); U['#' + k] = (U['#' + k] || 0) + 1; ctx.save(); } catch (e) { /* */ } }
+function usedN(ctx, k) { const U = ctx.settings.used || {}; return k.startsWith('#') ? (U[k] || 0) : Object.keys(U[k] || {}).length; }
 let SPEAK_U = null, SPEAK_T = 0;
 function speak(text) {
   const synth = window.speechSynthesis;
@@ -377,6 +383,7 @@ function sentenceKind(words) {
  * Détail d'un mot du Coran
  * ==================================================================== */
 function renderWordDetail(ctx, el, words, wi, ref, verse) {
+  if (ref) useMark(ctx, 'word', (Array.isArray(ref) ? ref.join(':') : ref) + ':' + wi);
   clear(el);
   el.addClass ? el.addClass('aa-detail-open') : el.classList.add('aa-detail-open');
   const data = ctx.data; const style = ctx.settings.style;
@@ -711,6 +718,7 @@ function irabCls(words, r) {
   return f.cas ? 'aa-role-' + f.cas.toLowerCase() : 'aa-role-n';
 }
 function renderIrab(ctx, el, words, ref, opts) {
+  if (ref) useMark(ctx, 'irab', Array.isArray(ref) ? ref.slice(0, 2).join(':') : ref);
   opts = opts || {};
   IRAB_LEMMAS = ctx.data.lemmas;
   const res = analyseIrab(words);

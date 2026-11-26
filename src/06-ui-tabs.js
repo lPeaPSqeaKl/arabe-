@@ -415,6 +415,7 @@ async function analyseInto(ctx, out, text) {
   const data = ctx.data; const style = ctx.settings.style;
   const words = splitWords(text).filter(w => hasArabic(w));
   if (!words.length) { h(out, 'p', 'aa-muted', 'Aucun mot arabe trouvé.'); return; }
+  useMark(ctx, 'analyse', words.join(' '));
   if (!data.forms) {
     const wait = h(out, 'p', 'aa-muted', 'Préparation de l\'index du Coran (une seule fois)…');
     await data.buildForms(s => { wait.textContent = 'Préparation de l\'index du Coran… sourate ' + s + ' / 114'; });
@@ -554,6 +555,7 @@ function renderBuildTab(ctx, root, state) {
   const out = h(root, 'div', 'aa-build-out');
   const line = h(out, 'div', 'aa-build-ar'); line.setAttribute('dir', 'rtl'); line.style.fontSize = (ctx.settings.arSize + 6) + 'px';
   const arText = r.words.map(w => w.ar).join(' ');
+  useMark(ctx, 'build', arText);
   const tr = translitPhrase(r.words.map(w => w.ar), ctx.settings.style);
   const whyBox = h(document.createElement('div'), 'div');
   const rows = [];
@@ -612,6 +614,7 @@ function renderBuildTab(ctx, root, state) {
 }
 
 function renderConjugation(ctx, parent, vid) {
+  useMark(ctx, 'conj', vid);
   const ct = conjugationTable(vid);
   const t = h(parent, 'table', 'aa-table aa-conj');
   const hr = h(t, 'tr');
@@ -650,6 +653,7 @@ const SIGN_PAIRS = [
 const VOWEL_CHOICES = [['', '— aucun —'], ['َ', 'fatḥa  ـَ  (a)'], ['ُ', 'ḍamma  ـُ  (u)'], ['ِ', 'kasra  ـِ  (i)'], ['ْ', 'soukoun  ـْ'], ['ً', 'tanwīn  ـً  (-an)'], ['ٌ', 'tanwīn  ـٌ  (-un)'], ['ٍ', 'tanwīn  ـٍ  (-in)']];
 
 function renderSignsTab(ctx, root, state) {
+  useMark(ctx, 'signs', 1);
   clear(root);
   const style = ctx.settings.style;
   mdText(root, 'p', 'aa-help', 'Le **laboratoire des signes** : change une voyelle et regarde ce qui se passe. En haut, tu modifies un mot toi-même ; en dessous, des exemples où **un seul signe change le sens**.');

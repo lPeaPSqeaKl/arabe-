@@ -179,6 +179,7 @@ function ruleOverridePath(ctx, r) { return (ctx.settings.fixFolder || '4 - Réf�
 
 /* Explication détaillée, avec « ta version » si une note de correction existe */
 async function renderRuleDetail(ctx, parent, r) {
+  useMark(ctx, 'rule', r.id);
   const box = h(parent, 'div', 'aa-doc');
   const orig = ruleDoc(r.id);
   let mine = null;

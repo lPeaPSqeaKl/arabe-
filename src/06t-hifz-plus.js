@@ -24,6 +24,7 @@ async function renderSimilar(ctx, parent, s, v, opts) {
   opts = opts || {};
   const S = await ctx.data.similar(); const list = S[s + ':' + v] || [];
   if (!list.length) { if (!opts.quiet) h(parent, 'p', 'aa-muted aa-small', 'Aucun autre verset ne ressemble vraiment à celui-ci.'); return 0; }
+  if (!opts.quiet) useMark(ctx, 'similar', s + ':' + v);
   const box = h(parent, 'div', 'aa-sim');
   const me = (await ctx.data.surah(s)).v[v - 1][2].map(wordText);
   mdText(box, 'div', 'aa-small aa-muted', '🔁 **' + list.length + ' verset' + (list.length > 1 ? 's' : '') + ' qui se ressemble' + (list.length > 1 ? 'nt' : '') + '**. En couleur : ce qui change. C\'est là que la mémoire se trompe.');

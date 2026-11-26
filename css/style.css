@@ -1376,3 +1376,10 @@ body.is-mobile .aa-root .aa-body, body.is-mobile .aa-root.aa-reading .aa-body { 
 .aa-fav-chip { border-color: color-mix(in srgb, var(--aa-gold, #a0803c) 60%, transparent); }
 .aa-keys-tbl td:first-child { width: 1%; }
 .aa-hz-rec select { max-width: 230px; }
+/* 2.41 : parcours en 3 programmes de 10 étapes */
+.aa-path-prog { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 2px 0 8px; }
+.aa-path-allbar { flex: 1 1 140px; min-width: 120px; margin: 0; }
+.aa-path-row10 { grid-template-columns: repeat(5, 1fr); row-gap: 8px; }
+.aa-path-row10 .aa-path-t { font-size: 12px; line-height: 1.25; }
+.aa-path-can { margin-top: -4px; }
+.aa-path-it .aa-muted.aa-small { margin-top: 2px; }
