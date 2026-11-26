@@ -21,20 +21,23 @@ function renderHomeTab(ctx, root, state) {
   const head = h(root, 'div', 'aa-home-head');
   h(head, 'div', 'aa-muted aa-small aa-home-date', frDate(new Date()));
   h(head, 'h2', null, 'As-salāmu ʿalaykum');
-  renderToday(ctx, root);
-  renderHomeSearch(ctx, root, state);
-  renderPath(ctx, root, state, go);
-  renderVerseOfDay(ctx, root).catch(() => {});
+  const marks = []; const mark = k => marks.push([k, root.childNodes.length]);
+  mark('today'); renderToday(ctx, root);
+  mark('search'); renderHomeSearch(ctx, root, state);
+  mark('path'); renderPath(ctx, root, state, go);
+  mark('vod'); renderVerseOfDay(ctx, h(root, 'div', 'aa-home-slot')).catch(() => {});
   // les trois chiffres
+  mark('tiles');
   const tiles = h(root, 'div', 'aa-home-tiles');
   const tile = (ic, big, lab, sub) => { const t = h(tiles, 'div', 'aa-home-tile'); h(t, 'div', 'aa-home-ic', ic); h(t, 'b', null, big); h(t, 'span', null, lab); if (sub) h(t, 'span', 'aa-muted aa-small', sub); return t; };
   const streak = streakOf(ctx); const A = activityDays(ctx); const today = A[todayNum()] || {};
-  tile('🔥', String(streak), streak > 1 ? 'jours d\'affilée' : 'jour d\'affilée', today.c || today.w || today.l || today.r ? 'aujourd\'hui : fait ✓' : 'fais une révision pour continuer');
+  tile('🔥', String(streak), streak > 1 ? 'jours d\'affilée' : 'jour d\'affilée', today.c || today.w || today.l || today.r || today.q ? 'aujourd\'hui : fait ✓' : 'fais une révision pour continuer');
   const cov = quranCoverage(ctx, K);
   tile('📖', Math.round(100 * cov.known) + ' %', 'des mots du Coran acquis', Math.round(100 * cov.learning) ? '+ ' + Math.round(100 * cov.learning) + ' % en cours' : 'grâce aux cartes de mots');
   tile('✍️', writeAllLetters().filter(l => letterLearned(W, l)).length + ' / ' + writeAllLetters().length, 'lettres écrites seul');
 
   // les choses à faire aujourd'hui
+  mark('todo');
   const todo = h(root, 'div', 'aa-home-todo');
   const card = (ic, title, line, label, fn, main) => {
     const c = h(todo, 'div', 'aa-home-card' + (main ? ' aa-home-main' : ''));
@@ -52,9 +55,11 @@ function renderHomeTab(ctx, root, state) {
       const bl = h(c, 'div', 'aa-home-bms');
       h(bl, 'span', 'aa-muted aa-small', '★ ');
       BM.slice(0, 3).forEach(b => { const a = h(bl, 'a', 'aa-link aa-small', b.s + ':' + b.v); a.title = ctx.data.surahInfo(b.s)[1]; a.addEventListener('click', ev => { ev.preventDefault(); ctx.openQuran(b.s, b.v); }); bl.appendChild(document.createTextNode(' ')); });
+      const all = h(bl, 'a', 'aa-link aa-small', '· tous mes signets →'); all.addEventListener('click', ev => { ev.preventDefault(); ctx.openTab('coran', { bmView: true, juzView: false }); });
     }
   }
   // mon Coran
+  mark('quran');
   const qc = h(root, 'div', 'aa-home-block');
   const qt = h(qc, 'div', 'aa-home-block-top'); h(qt, 'h3', null, '📖 Ce que tu comprends du Coran');
   const lk = h(qt, 'a', 'aa-link aa-small', 'Toutes les sourates →'); lk.addEventListener('click', ev => { ev.preventDefault(); state.view = 'surahs'; go(); });
@@ -69,14 +74,22 @@ function renderHomeTab(ctx, root, state) {
   })().catch(() => {});
 
   // activité des 12 dernières semaines
+  mark('cal');
   const ac = h(root, 'div', 'aa-home-block');
   h(ac, 'h3', null, '🗓️ Tes 12 dernières semaines');
   const grid = h(ac, 'div', 'aa-home-cal'); const t0 = todayNum();
   const start = t0 - 77 - ((new Date().getDay() + 6) % 7); // 12 semaines, en commençant un lundi
-  for (let d = start; d <= t0; d++) { const e = A[d]; const n = e ? (e.c || 0) + 2 * (e.w || 0) + 5 * ((e.l || 0) + (e.r || 0)) : 0; const c = h(grid, 'span', 'aa-home-day' + (n ? ' aa-home-day-' + (n >= 40 ? 3 : n >= 15 ? 2 : 1) : '') + (d === t0 ? ' aa-home-today' : '')); c.title = n ? n + ' activités' : 'rien ce jour-là'; }
-  h(ac, 'div', 'aa-muted aa-small', 'Chaque case = un jour (cartes, écriture, leçons). Un peu chaque jour vaut mieux que beaucoup une fois par semaine.');
+  for (let d = start; d <= t0; d++) { const e = A[d]; const n = e ? (e.c || 0) + 2 * (e.w || 0) + 5 * ((e.l || 0) + (e.r || 0) + (e.q || 0)) : 0; const c = h(grid, 'span', 'aa-home-day' + (n ? ' aa-home-day-' + (n >= 40 ? 3 : n >= 15 ? 2 : 1) : '') + (d === t0 ? ' aa-home-today' : '')); c.title = n ? n + ' activités' : 'rien ce jour-là'; }
+  h(ac, 'div', 'aa-muted aa-small', 'Chaque case = un jour (cartes, écriture, leçons, lecture du Coran). Un peu chaque jour vaut mieux que beaucoup une fois par semaine.');
 
+  /* Accueil réglable : on range les blocs dans l'ordre choisi, on cache les autres */
+  { const end = root.childNodes.length; const nodes = {}; marks.forEach(([k, i], n) => { nodes[k] = [...root.childNodes].slice(i, n + 1 < marks.length ? marks[n + 1][1] : end); });
+    const L = homeLayout(ctx); const tail = [...root.childNodes].slice(0, marks[0][1]);
+    L.order.forEach(k => (nodes[k] || []).forEach(nd => { if (L.hidden.includes(k)) nd.remove(); else root.appendChild(nd); }));
+    void tail; }
+  if (state.arrange) { renderHomeArrange(ctx, root, state, go); root.insertBefore(root.lastChild, head.nextSibling); }
   const set = h(root, 'div', 'aa-home-settings');
+  btn(set, '✎ Arranger l\'Accueil', () => { state.arrange = !state.arrange; go(); }, 'aa-btn-quiet');
   btn(set, '⚙ Réglages : taille du texte, police, récitateur, son hors ligne', () => ctx.openTab('settings'), 'aa-btn-quiet');
   if (ctx.startTour) btn(set, '🧭 Revoir la visite guidée', () => ctx.startTour(), 'aa-btn-quiet');
 }
@@ -153,9 +166,25 @@ function renderOfflineAudio(ctx, box) {
 }
 
 /* Recherche unique de l'Accueil : un mot, une règle, une leçon ou une sourate, au même endroit */
+/* versets connus par leur nom */
+const FAMOUS_VERSES = [
+  ['Āyat al-Kursī (le verset du Trône)', 2, 255, 'kursi kursy koursi trone throne ayat ayatul'],
+  ['Les deux derniers versets d\'Al-Baqara', 2, 285, 'amana rasul amanar derniers baqara'],
+  ['« Pas de contrainte en religion »', 2, 256, 'contrainte ikrah'],
+  ['Le verset de la dette (le plus long)', 2, 282, 'dette dayn plus long'],
+  ['Āyat an-Nūr (le verset de la Lumière)', 24, 35, 'nur nour lumiere lumière'],
+  ['Les beaux noms d\'Allah (fin d\'Al-Ḥashr)', 59, 22, 'hashr hachr noms asma'],
+  ['La prière d\'Ibrāhīm (Rabbanā taqabbal)', 2, 127, 'rabbana taqabbal ibrahim'],
+  ['« Rabbanā ātinā fī d-dunyā ḥasana »', 2, 201, 'rabbana atina dunya hasana'],
+];
 function homeSearch(ctx, q) {
-  const data = ctx.data; const out = { surahs: [], rules: [], lessons: [], words: [] };
+  const data = ctx.data; const out = { surahs: [], rules: [], lessons: [], words: [], verses: [] };
   q = (q || '').trim(); if (!q) return out;
+  // « 2:255 », « 2 255 », « 2.255 »
+  const mv = q.match(/^(\d{1,3})\s*[:.,\s/]\s*(\d{1,3})$/);
+  if (mv) { const s = +mv[1], v = +mv[2]; if (s >= 1 && s <= 114 && v >= 1 && v <= data.surahInfo(s)[5]) out.verses.push([s, v, null]); }
+  const qf = stripLat(q);
+  if (qf.length >= 3) FAMOUS_VERSES.forEach(([lab, s, v, kw]) => { if (stripLat(lab + ' ' + kw).includes(qf)) out.verses.push([s, v, lab]); });
   const ql = stripLat(q); const isAr = hasArabic(q); const qa = stripAr(q).replace(/\s+/g, '');
   const num = /^\d{1,3}$/.test(q) ? +q : 0;
   for (let n = 1; n <= 114; n++) {
@@ -178,7 +207,7 @@ function homeSearch(ctx, q) {
 function renderHomeSearch(ctx, root, state) {
   const box = h(root, 'div', 'aa-home-search');
   const inp = h(box, 'input', 'aa-input-line aa-hs-in'); inp.type = 'search';
-  inp.placeholder = '🔎 Chercher : un mot (كتاب, livre), une règle (génitif), une sourate (Yasin, 36)…';
+  inp.placeholder = '🔎 Chercher : un mot (كتاب, livre), une règle, une sourate (Yasin), un verset (2:255, Kursi)…';
   inp.value = state.hq || '';
   const res = h(box, 'div', 'aa-hs-res');
   const row = (parent, ic, title, sub, go, ar) => { const r = h(parent, 'div', 'aa-hs-row'); h(r, 'span', 'aa-hs-ic', ic); const t = h(r, 'div', 'aa-hs-t'); const b = h(t, 'b', null, title); if (ar) { b.appendChild(document.createTextNode(' ')); arSpan(b, ar); } if (sub) h(t, 'div', 'aa-muted aa-small', sub); r.addEventListener('click', go); return r; };
@@ -187,6 +216,7 @@ function renderHomeSearch(ctx, root, state) {
     const q = inp.value.trim(); if (!q) return;
     const R = homeSearch(ctx, q); const data = ctx.data;
     const grp = (lab) => h(res, 'div', 'aa-hs-grp', lab);
+    if (R.verses.length) { grp('Aller au verset'); R.verses.forEach(([vs, vv, lab]) => { const si = data.surahInfo(vs); row(res, '🎯', lab || si[1] + ' ' + vs + ':' + vv, lab ? si[1] + ' ' + vs + ':' + vv : 'verset ' + vv + ' sur ' + si[5] + ' · ' + si[2], () => ctx.openQuran(vs, vv)); }); }
     if (R.surahs.length) { grp('Sourates'); R.surahs.forEach(n => { const s = data.surahInfo(n); row(res, '📖', n + '. ' + s[1], s[2] + ' · ' + s[5] + ' versets', () => ctx.openTab('coran', { surah: n, page: 0, focus: 0, resume: 0 })); }); }
     if (R.rules.length) { grp('Règles'); R.rules.forEach(r => row(res, '📏', r.title, r.one.replace(/\*\*/g, ''), () => ctx.openTab('rules', { open: r.id, q: '' }), r.ar)); }
     if (R.lessons.length) { grp('Leçons'); R.lessons.forEach(l => row(res, '🎓', l.title, '≈ ' + l.min + ' min', () => ctx.openTab('lessons', { open: l.id, step: 0, stepFor: l.id }), l.ar)); }

@@ -90,6 +90,19 @@ function renderDictTab(ctx, root, state) {
       state.q = inp.value; clear(res);
       if (ctx.settings.dictQ !== state.q) { ctx.settings.dictQ = state.q; ctx.save(); }
       const recent = (ctx.settings.recentWords || []).filter(i => data.lemmas[i]);
+      const favs = (ctx.settings.favWords || []).filter(i => data.lemmas[i]); const rq = ctx.settings.recentQ || [];
+      if (!state.q.trim() && favs.length) {
+        h(res, 'div', 'aa-muted aa-small', '★ Mes favoris :');
+        const chips = h(res, 'div', 'aa-recent');
+        favs.forEach(i => { const c = h(chips, 'span', 'aa-chip aa-recent-chip aa-fav-chip'); arSpan(c, data.lemmas[i][0]); h(c, 'span', 'aa-small aa-muted', ' ' + data.lemmas[i][4]); c.addEventListener('click', () => showEntry(i)); });
+      }
+      if (!state.q.trim() && rq.length) {
+        h(res, 'div', 'aa-muted aa-small', '🕘 Mes recherches récentes :');
+        const chips = h(res, 'div', 'aa-recent');
+        rq.forEach(q => { const c = h(chips, 'span', 'aa-chip aa-recent-chip', q); c.addEventListener('click', () => { inp.value = q; run(); }); });
+      }
+      clearTimeout(state._rqT);
+      if (state.q.trim().length >= 2) state._rqT = setTimeout(() => { const q = state.q.trim(); if (!q || inp.value.trim() !== q) return; const L = (ctx.settings.recentQ || []).filter(x => x !== q && !q.startsWith(x)); L.unshift(q); ctx.settings.recentQ = L.slice(0, 8); ctx.save(); }, 2000);
       if (!state.q.trim() && recent.length) {
         h(res, 'div', 'aa-muted aa-small', 'Récemment vus :');
         const chips = h(res, 'div', 'aa-recent');
@@ -185,6 +198,7 @@ function renderDictEntry(ctx, el, id, onPick) {
   }
   // actions
   const act = h(el, 'div', 'aa-actions');
+  { const F = () => ctx.settings.favWords || (ctx.settings.favWords = []); const fb = btn(act, F().includes(id) ? '★ Favori' : '☆ Favori', () => { const L = F(); const i = L.indexOf(id); if (i >= 0) L.splice(i, 1); else L.unshift(id); ctx.save(); fb.textContent = L.includes(id) ? '★ Favori' : '☆ Favori'; }, 'aa-btn-quiet'); fb.title = 'Garder ce mot dans tes favoris (en haut du Dictionnaire)'; }
   btn(act, ctx.isMine(id) ? '✓ Dans mon vocabulaire' : 'Ajouter à mon vocabulaire', (ev) => { ctx.addVocab(id, l[0], tr, l[4], ''); ev.target.textContent = '✓ Dans mon vocabulaire'; });
   btn(moreMenu(act), 'Ajouter à mes cartes de révision', () => ctx.addFlashcard(l[0], l[4] + ' — ' + tr));
   btn(moreMenu(act), 'Insérer dans ma note Obsidian', () => ctx.insertText('- ' + l[0] + ' (' + tr + ') — ' + l[4] + (l[3] ? ' · racine ' + l[3] : '') + '\n'));

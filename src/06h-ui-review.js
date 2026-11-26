@@ -342,12 +342,33 @@ function renderReviewSession(ctx, root, state) {
   btn(head, '← Arrêter', () => { state.session = null; go(); }, 'aa-btn-quiet');
   h(head, 'span', 'aa-muted aa-small', ss.cram ? 'Entraînement libre' : 'Révision du jour');
   h(head, 'span', 'aa-muted aa-small aa-fc-left', ss.queue.length + ' restante' + (ss.queue.length > 1 ? 's' : ''));
+  /* annuler la dernière réponse (bouton, ou touche Z) */
+  const undo = () => {
+    const u = ss.undo; if (!u) return; ss.undo = null;
+    if (!ss.cram) { if (u.prev) S.cards[u.id] = u.prev; else delete S.cards[u.id]; S.newToday = u.newToday; S.vocabToday = u.vocabToday; S.doneToday = u.doneToday; ctx.save(); }
+    ss.queue = u.queue; ss.done = u.done; ss.again = u.again; (ss.log || []).pop(); go();
+  };
+  if (ss.undo) btn(head, '↶ Annuler', undo, 'aa-btn-quiet aa-small').title = 'Revenir sur ta dernière réponse (touche Z)';
   const bar = h(root, 'div', 'aa-lesson-progress'); const f = h(bar, 'div', 'aa-lesson-fill'); f.style.width = Math.round(100 * ss.done / Math.max(1, ss.done + ss.queue.length)) + '%';
   if (!ss.queue.length) {
     const end = h(root, 'div', 'aa-fc-end');
     h(end, 'div', 'aa-fc-end-ic', '🌿');
     h(end, 'h3', null, ss.cram ? 'Paquet terminé' : 'C\'est fini pour aujourd\'hui');
     h(end, 'p', 'aa-muted', ss.done + ' carte' + (ss.done > 1 ? 's' : '') + ' révisée' + (ss.done > 1 ? 's' : '') + (ss.again ? ', dont ' + ss.again + ' à revoir encore' : '') + '. Bravo.');
+    /* le résumé : ce qui est su, et ce qui reste fragile */
+    const log = ss.log || [];
+    if (log.length) {
+      const last = new Map(); log.forEach(e => last.set(e.c.id, e)); const first = new Map(); log.forEach(e => { if (!first.has(e.c.id)) first.set(e.c.id, e.g); });
+      const hard = [...last.values()].filter(e => first.get(e.c.id) <= 1);
+      const nEasy = [...first.values()].filter(g => g >= 2).length;
+      const sum = h(end, 'div', 'aa-fc-sum');
+      h(sum, 'div', 'aa-fc-sum-row', '😊 Sues du premier coup : ' + nEasy);
+      h(sum, 'div', 'aa-fc-sum-row', '🔁 Difficiles ou oubliées : ' + hard.length);
+      if (hard.length) {
+        const dl = details(sum, 'À regarder encore une fois (' + hard.length + ')', hard.length <= 6);
+        hard.forEach(e => { const r = h(dl, 'div', 'aa-fc-sum-card'); if (e.c.voc != null) { const w = h(r, 'bdi', 'aa-ari'); w.setAttribute('dir', 'rtl'); w.textContent = e.c.q; h(r, 'span', null, '  ' + e.c.a); } else { cardInline(h(r, 'div'), e.c.q.split('\n')[0]); renderCardText(h(r, 'div', 'aa-muted aa-small'), e.c.a.split('\n')[0]); } });
+      }
+    }
     btn(h(end, 'div', 'aa-fc-start'), 'Retour aux paquets', () => { state.session = null; go(); }, 'mod-cta aa-fc-big');
     return;
   }
@@ -362,6 +383,8 @@ function renderReviewSession(ctx, root, state) {
   let shown = false;
   const grade = g => {
     if (!shown) return;
+    { const pc = cardState(S, c); ss.undo = { id: c.id, prev: pc ? JSON.parse(JSON.stringify(S.cards[c.id])) : null, newToday: S.newToday, vocabToday: S.vocabToday, doneToday: S.doneToday, queue: ss.queue.slice(), done: ss.done, again: ss.again }; }
+    (ss.log = ss.log || []).push({ c, g });
     ss.done++;
     if (!ss.cram) {
       const was = cardState(S, c);
@@ -398,6 +421,7 @@ function renderReviewSession(ctx, root, state) {
     const tg = ev.target && ev.target.tagName; if (tg === 'INPUT' || tg === 'TEXTAREA') return;
     if (!shown && (ev.key === ' ' || ev.key === 'Enter')) { ev.preventDefault(); reveal(); }
     else if (shown && /^[1-4]$/.test(ev.key)) { ev.preventDefault(); grade(+ev.key - 1); }
+    else if ((ev.key === 'z' || ev.key === 'Z') && ss.undo && !ev.ctrlKey && !ev.metaKey) { ev.preventDefault(); undo(); }
   };
   document.addEventListener('keydown', state._keys);
 }

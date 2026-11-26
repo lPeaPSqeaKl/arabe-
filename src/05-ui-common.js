@@ -86,6 +86,18 @@ function shareText(text, title) {
   copyText(text);
 }
 let notify = (msg) => { try { console.log(msg); } catch (e) { /* */ } };
+/* un petit message avec « ↶ Annuler », en haut de l'écran (en bas, la barre d'Obsidian le cacherait sur iPhone) */
+let UNDO_EL = null;
+function undoToast(msg, undo, ms) {
+  if (UNDO_EL) { UNDO_EL.remove(); UNDO_EL = null; }
+  const el = document.createElement('div'); el.className = 'aa-undo';
+  const t = document.createElement('span'); t.textContent = msg; el.appendChild(t);
+  const b = document.createElement('button'); b.className = 'aa-undo-btn'; b.textContent = '↶ Annuler';
+  b.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); el.remove(); if (UNDO_EL === el) UNDO_EL = null; try { undo(); } catch (e) { /* */ } });
+  el.appendChild(b); document.body.appendChild(el); UNDO_EL = el;
+  setTimeout(() => { el.classList.add('aa-undo-out'); setTimeout(() => { el.remove(); if (UNDO_EL === el) UNDO_EL = null; }, 400); }, ms || 7000);
+  return el;
+}
 
 /* ---------- Son ---------- */
 const pad3 = n => String(n).padStart(3, '0');
@@ -251,6 +263,9 @@ function playerShow() {
 function playerSync() {
   const el = PLAYER.el; if (!el) return;
   const a = currentAudio;
+  // minuterie de sommeil
+  if (AUDIO.sleepAt && Date.now() >= AUDIO.sleepAt) { AUDIO.sleepAt = 0; AUDIO.sleepMin = 0; const f = PLAYER.onStop; PLAYER.onStop = null; stopAudio(); playerHide(); if (f) try { f(); } catch (e) { /* */ } notify('⏾ Minuterie : la récitation s\'est arrêtée.'); return; }
+  let zz = el.querySelector('.aa-player-zz'); if (AUDIO.sleepAt) { if (!zz) { zz = document.createElement('span'); zz.className = 'aa-player-zz'; el.appendChild(zz); } zz.textContent = '⏾ ' + Math.max(1, Math.ceil((AUDIO.sleepAt - Date.now()) / 60000)) + ' min'; } else if (zz) zz.remove();
   // fini (et rien d'autre ne suit) depuis plus de 2 s : on range le lecteur
   if (!a || a.ended || a.error) { PLAYER.idle += 400; if (PLAYER.idle > 2000) { playerHide(); return; } } else PLAYER.idle = 0;
   const pp = el.querySelector('.aa-player-pp'); const paused = a && a.paused && !a.ended;
@@ -526,6 +541,7 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
   to = Math.min(to || d.v.length, d.v.length); from = Math.max(1, from || 1);
   const jAt = v => { const k = JUZ_START.findIndex(([a, b]) => a === surahN && b === v); return k >= 0 ? k + 1 : 0; };
   if (from === 1 && jAt(1) > 1 && opts.juz) juzMarker(ctx, container, jAt(1));
+  else if (from === 1 && opts.juz && rubAt(surahN, 1) > 0) rubMarker(container, rubAt(surahN, 1));
   if (opts.title) {
     surahHeader(container, info, surahN);
   }
@@ -535,6 +551,7 @@ async function renderVerses(ctx, container, surahN, from, to, opts) {
   if (S.verseLayout === 'mushaf' && !opts.noMushaf) return renderMushaf(ctx, container, d, surahN, from, to);
   for (let vn = from; vn <= to; vn++) {
     if (vn > 1 && opts.juz && jAt(vn)) juzMarker(ctx, container, jAt(vn));
+    else if (vn > 1 && opts.juz && rubAt(surahN, vn) > 0) rubMarker(container, rubAt(surahN, vn));
     const v = d.v[vn - 1]; const words = v[2];
     const box = h(container, 'div', 'aa-verse'); box.dataset.ref = surahN + ':' + vn;
     const tokens = translitTokens(words, S.style);

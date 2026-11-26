@@ -86,6 +86,8 @@ function renderToday(ctx, root) {
     mdText(s2, 'span', null, (learnedToday ? '✓ ' : '') + '**Avancer** : ' + lessonLabel);
     const nMj = murajaCountToday(ctx);
     if (nMj) { const s3 = h(steps, 'li'); mdText(s3, 'span', null, '**Réciter** ' + nMj + ' sourate' + (nMj > 1 ? 's' : '') + ' apprise' + (nMj > 1 ? 's' : '') + ' par cœur (révision)'); const a = h(s3, 'a', 'aa-link aa-small', ' → ouvrir'); a.addEventListener('click', ev => { ev.preventDefault(); const s = ctx.settings.lastSurah || 1; ctx.openTab('coran', { surah: s, hifz: { s, v: 1, level: 0 }, muraja: true }); }); }
+    const pt = planToday(ctx);
+    if (pt && !pt.finished) { const s4 = h(steps, 'li', pt.done ? 'aa-today-done' : ''); mdText(s4, 'span', null, pt.done ? '✓ Ta part du Coran est lue' : '**Lire ta part du Coran** : ' + planLabel(ctx, pt)); if (!pt.done) { const a = h(s4, 'a', 'aa-link aa-small', ' → lire'); a.addEventListener('click', ev => { ev.preventDefault(); ctx.openQuran(...pt.from); }); } }
     const goLesson = () => nextItem ? nextItem.it.go(ctx) : ctx.openQuran(ctx.settings.lastSurah || 1, ctx.settings.lastVerse || 0);
     const goReview = () => ctx.openTab('review', { startNow: true, session: null, deck: null });
     if (revLeft) {

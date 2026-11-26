@@ -13,17 +13,37 @@ function renderReciteBar(ctx, root, bar, state, nV) {
   selectEl(f2, [['0.5', '0,5× (très lent)'], ['0.6', '0,6×'], ['0.75', '0,75× (lent)'], ['0.85', '0,85×'], ['1', '1× (normal)']], String(S.audioRate || 1), v => { S.audioRate = +v; setAudioRate(+v); ctx.save(); });
   const f3 = field(box, 'Répéter');
   selectEl(f3, [['1', '1 fois'], ['2', '2 fois'], ['3', '3 fois'], ['5', '5 fois'], ['0', '∞ en boucle']], String(S.audioRepeat == null ? 1 : S.audioRepeat), v => { S.audioRepeat = +v; AUDIO.repeat = +v; ctx.save(); });
+  const PAGE = 20; const pFrom = S.scrollAll ? 1 : (state.page || 0) * PAGE + 1, pTo = S.scrollAll ? nV : Math.min(nV, pFrom + PAGE - 1);
+  // passage A → B : par défaut les versets affichés ; on peut choisir n'importe quel passage de la sourate
+  if (!state.rec || state.rec.s !== state.surah || (state.rec.auto && (state.rec.from !== pFrom || state.rec.to !== pTo))) state.rec = { s: state.surah, from: pFrom, to: pTo, auto: true };
+  const R = state.rec;
+  const f4 = field(box, 'Passage'); const pr = h(f4, 'div', 'aa-print-range');
+  const vo = []; for (let v = 1; v <= nV; v++) vo.push([v, String(v)]);
+  const label = () => { play.textContent = '▶ Écouter ' + (R.from === 1 && R.to === nV ? 'la sourate' : R.from === R.to ? 'le verset ' + R.from : 'les versets ' + R.from + '–' + R.to); };
+  selectEl(pr, vo, R.from, v => { R.from = +v; R.auto = false; if (R.to < R.from) R.to = R.from; label(); }); h(pr, 'span', 'aa-muted', ' à '); selectEl(pr, vo, R.to, v => { R.to = +v; R.auto = false; if (R.from > R.to) R.from = R.to; label(); });
+  f4.title = 'Choisis un passage (de A à B). Avec « Répéter : ∞ en boucle », il tourne en boucle : idéal pour apprendre par cœur.';
+  const f5 = field(box, 'Minuterie');
+  selectEl(f5, [['0', 'aucune'], ['15', 'arrêter dans 15 min'], ['30', 'dans 30 min'], ['60', 'dans 1 heure']], String(AUDIO.sleepMin || 0), v => { AUDIO.sleepMin = +v; AUDIO.sleepAt = +v ? Date.now() + v * 60000 : 0; if (+v) notify('La récitation s\'arrêtera dans ' + v + ' minutes.'); });
   const act = h(box, 'div', 'aa-recite-act');
-  const PAGE = 20; const from = S.scrollAll ? 1 : (state.page || 0) * PAGE + 1, to = S.scrollAll ? nV : Math.min(nV, from + PAGE - 1);
-  const list = []; for (let v = from; v <= to; v++) list.push(v);
+  checkbox(act, '⏭ Enchaîner la suite', !!S.autoNext, v => { S.autoNext = v; ctx.save(); }).title = 'À la fin, continuer avec les versets suivants, puis la sourate suivante';
   const mark = v => { root.querySelectorAll('.aa-verse-playing').forEach(e => e.classList.remove('aa-verse-playing')); const el = v && root.querySelector('[data-verse="' + v + '"]'); if (el) { el.classList.add('aa-verse-playing'); el.scrollIntoView && el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } };
-  const play = btn(act, '▶ Écouter ' + (from === 1 && to === nV ? 'la sourate' : 'les versets ' + from + '–' + to), () => {
+  const start = () => {
     play.style.display = 'none'; stop.style.display = '';
+    const list = []; for (let v = R.from; v <= R.to; v++) list.push(v);
     const reset = () => { mark(null); play.style.display = ''; stop.style.display = 'none'; };
-    playVerses(state.surah, list, mark, reset); PLAYER.onStop = reset;
-  }, 'mod-cta');
+    const done = () => {
+      reset();
+      if (!S.autoNext || !R.auto || !root.isConnected) return;
+      // la suite : la page suivante, ou la sourate suivante
+      if (R.to < nV) { state.page = (state.page || 0) + 1; state.focus = 0; state.autoPlay = true; renderQuranTab(ctx, root, state); }
+      else if (state.surah < 114) { state.surah++; state.page = 0; state.focus = 0; state.resume = 0; state.autoPlay = true; renderQuranTab(ctx, root, state); }
+    };
+    playVerses(state.surah, list, mark, done); PLAYER.onStop = reset;
+  };
+  const play = btn(act, '', start, 'mod-cta'); label();
   const stop = btn(act, '■ Arrêter', () => { stopAudio(); mark(null); play.style.display = ''; stop.style.display = 'none'; }, 'aa-btn-quiet');
   stop.style.display = 'none';
+  if (state.autoPlay) { state.autoPlay = false; setTimeout(() => { if (root.isConnected) start(); }, 700); }
   if (ctx.keepSurahAudio) {
     const off = h(box, 'div', 'aa-offline aa-small');
     const paint = () => {
@@ -44,6 +64,7 @@ const rankFr = n => n === 1 ? '1re' : n + 'e';
 function renderQuranTab(ctx, root, state) {
   clear(root);
   if (state.hifz) { renderHifz(ctx, root, state, () => { state.hifz = null; renderQuranTab(ctx, root, state); }).catch(e => h(root, 'p', 'aa-warn', 'Erreur : ' + e.message)); return; }
+  if (state.bmView) { renderBookmarksPage(ctx, root, state, () => { state.bmView = false; renderQuranTab(ctx, root, state); }); return; }
   if (state.juzView) { renderJuz(ctx, root, state, () => { state.juzView = false; renderQuranTab(ctx, root, state); }); return; }
   const data = ctx.data;
   const PAGE = 20;
@@ -95,7 +116,8 @@ function renderQuranTab(ctx, root, state) {
   if (small) opt.parentNode.insertBefore(quick2, opt);
   btn(quick2, small ? '⤢' : '⤢ Lecture', () => setReading(root.closest('.aa-root') || root, true, ctx), 'aa-btn-quiet').title = 'Plein écran : seulement le texte (Échap ou ✕ pour sortir)';
   btn(quick2, small ? '🧠' : '🧠 Par cœur', () => { state.hifz = { s: state.surah, v: Math.max(1, state.focus || (ctx.settings.lastSurah === state.surah ? ctx.settings.lastVerse : 1) || 1), level: 0 }; renderQuranTab(ctx, root, state); }, 'aa-btn-quiet').title = 'Apprendre par cœur, verset par verset ou toute la sourate';
-  btn(quick2, small ? '📚' : '📚 30 parties', () => { state.juzView = true; renderQuranTab(ctx, root, state); try { root.closest('.aa-root').scrollTop = 0; } catch (e) { /* */ } }, 'aa-btn-quiet').title = 'Les 30 parties du Coran (juz\') et mon tour du Coran';
+  const jNow = juzOf(state.surah, Math.max(1, state.focus || (state.page || 0) * PAGE + 1));
+  btn(quick2, (small ? '📚 ' : '📚 Partie ') + jNow, () => { state.juzView = true; renderQuranTab(ctx, root, state); try { root.closest('.aa-root').scrollTop = 0; } catch (e) { /* */ } }, 'aa-btn-quiet aa-juz-chip').title = 'Tu es dans la partie ' + jNow + ' sur 30. Toucher : les 30 parties, ton plan de lecture et ton tour du Coran';
   btn(quick2, small ? '🖨' : '🖨 Imprimer', () => { const nV = ctx.data.surahInfo(state.surah)[5]; const f = (state.page || 0) * 20 + 1; openPrintDialog(ctx, state.surah, ctx.settings.scrollAll ? null : { from: f, to: Math.min(nV, f + 19) }); }, 'aa-btn-quiet').title = 'Imprimer ou exporter la sourate en PDF ou en images (A4 ou A5)';
   btn(quick2, small ? '🔎' : '🔎 Chercher', () => { state.searchOpen = !state.searchOpen; renderQuranTab(ctx, root, state); }, 'aa-btn-quiet' + (state.searchOpen ? ' aa-on' : '')).title = 'Chercher un mot dans tout le Coran';
   checkbox(tg, 'translittération', ctx.settings.showTr, v => { ctx.settings.showTr = v; ctx.save(); renderQuranTab(ctx, root, state); });
@@ -229,6 +251,15 @@ function watchReading(ctx, root, body, state) {
   }, { rootMargin: '0px 0px -70% 0px' });
   body.querySelectorAll('.aa-verse').forEach(el => obs.observe(el));
   root._aaObs = obs;
+  /* ce qu'on a vraiment sous les yeux : sert au plan de lecture et aux 30 parties */
+  if (root._aaSeen) root._aaSeen.disconnect();
+  const vis = new Set(); let tm = null;
+  const seen = new IntersectionObserver(entries => {
+    entries.forEach(e => { const v = +e.target.dataset.verse; if (!v) return; if (e.isIntersecting) vis.add(v); else vis.delete(v); });
+    clearTimeout(tm); tm = setTimeout(() => { if (!vis.size || !body.isConnected) return; const top = ctx.settings.lastSurah === state.surah ? ctx.settings.lastVerse : Math.min(...vis); try { readingProgress(ctx, state.surah, top, Math.max(...vis)); } catch (e) { /* */ } }, 1500);
+  }, { threshold: 0.6 });
+  body.querySelectorAll('.aa-verse').forEach(el => seen.observe(el));
+  root._aaSeen = seen;
 }
 /* glisser du doigt vers la gauche = suivant, vers la droite = précédent */
 function onSwipe(el, cb) {
@@ -263,8 +294,9 @@ function renderBookmarks(ctx, root, state, goSurah) {
     const a = h(row, 'a', 'aa-link', b.s + ':' + b.v + ' · ' + ctx.data.surahInfo(b.s)[1]);
     a.addEventListener('click', ev => { ev.preventDefault(); ctx.openQuran(b.s, b.v); });
     const x = h(row, 'span', 'aa-bm-x', '✕'); x.title = 'Retirer ce signet';
-    x.addEventListener('click', () => { toggleBookmark(ctx, b.s, b.v); renderQuranTab(ctx, root, state); });
+    x.addEventListener('click', () => { const i = L.indexOf(b); L.splice(i, 1); ctx.save(); renderQuranTab(ctx, root, state); undoToast('Signet retiré.', () => { L.splice(Math.min(i, L.length), 0, b); ctx.save(); renderQuranTab(ctx, root, state); }); });
   });
+  const all = h(box, 'a', 'aa-link aa-small', 'Voir tous mes signets et mes remarques →'); all.addEventListener('click', ev => { ev.preventDefault(); state.bmView = true; renderQuranTab(ctx, root, state); });
 }
 
 function setArSize(ctx, root, d) {
@@ -302,8 +334,9 @@ function setReading(rootEl, on, ctx) {
       h(aw, 'span', 'aa-rd-font-lab', '🌓');
       const asel = h(aw, 'select', 'aa-rd-font-sel');
       AMBIANCES.forEach(a => { const o = h(asel, 'option', null, a[1]); o.value = a[0]; });
-      asel.value = ambianceOf(S);
-      asel.addEventListener('change', () => { S.ambiance = asel.value; S.paper = false; ctx.save(); applyAmbiance(rootEl, asel.value); });
+      { const o = h(asel, 'option', null, '🌗 Selon l\'heure'); o.value = 'auto'; }
+      asel.value = S.ambiance === 'auto' ? 'auto' : ambianceOf(S);
+      asel.addEventListener('change', () => { S.ambiance = asel.value; S.paper = false; ctx.save(); applyAmbiance(rootEl, ambianceOf(S)); });
       sel.addEventListener('change', () => {
         S.arFont = sel.value; ctx.save();
         ensureFont(sel.value).catch(() => {});
@@ -317,12 +350,13 @@ function setReading(rootEl, on, ctx) {
 /* chercher un mot (français ou arabe) dans tout le Coran */
 function renderQuranSearch(ctx, root, state) {
   const box = h(root, 'div', 'aa-qsearch');
-  const inp = h(box, 'input', 'aa-search'); inp.type = 'search'; inp.placeholder = 'un mot en français (miséricorde) ou en arabe (رحمة)…';
+  const inp = h(box, 'input', 'aa-search'); inp.type = 'search'; inp.placeholder = 'un mot (miséricorde, رحمة) ou un verset (2:255)…';
   inp.value = state.query || '';
   const out = h(box, 'div', 'aa-qsearch-out');
   let timer = null;
   const run = async () => {
     const q = inp.value.trim(); state.query = q; clear(out);
+    { const R0 = homeSearch(ctx, q); R0.verses.forEach(([vs, vv, lab]) => { const r = h(out, 'div', 'aa-qsearch-go'); btn(r, '🎯 Aller à ' + (lab ? lab + ' · ' : '') + ctx.data.surahInfo(vs)[1] + ' ' + vs + ':' + vv, () => { state.searchOpen = false; state.surah = vs; state.page = 0; state.focus = vv; renderQuranTab(ctx, root, state); }, 'mod-cta'); }); if (/^\d{1,3}\s*[:.,\s/]\s*\d{1,3}$/.test(q)) return; }
     if (q.length < 2) { h(out, 'p', 'aa-muted aa-small', 'Tape au moins 2 lettres.'); return; }
     const isAr = /[\u0600-\u06FF]/.test(q);
     const qa = stripAr(q).replace(/\s+/g, ' ').trim(), ql = stripLat(q);

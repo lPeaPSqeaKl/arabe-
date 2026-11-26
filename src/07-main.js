@@ -32,7 +32,7 @@ const AR_FONTS = [
 ];
 /* Ambiances : un seul fond pour tout l'atelier, choisi indépendamment du thème d'Obsidian */
 const AMBIANCES = [['', 'Comme Obsidian']].concat(Object.entries(PALETTES).map(([k, p]) => [k, p.name]));
-function ambianceOf(S) { return S.ambiance != null ? S.ambiance : (S.paper === true ? 'sepia' : ''); }
+function ambianceOf(S) { if (S.ambiance === 'auto') return ambianceAutoOf(S); return S.ambiance != null ? S.ambiance : (S.paper === true ? 'sepia' : ''); }
 function applyAmbiance(el, a) { AMBIANCES.forEach(x => x[0] && el.classList.toggle('aa-amb-' + x[0], x[0] === a)); el.classList.remove('aa-paper'); }
 const TAB_ICONS = { home: 'home', read: 'book-a', write: 'pencil', coran: 'book-open', alphabet: 'a-large-small', lessons: 'graduation-cap', rules: 'book-marked', review: 'layers', dict: 'library', analyse: 'scan-search', build: 'blocks', signs: 'flask-conical', quiz: 'target' };
 const TABS = [
@@ -73,17 +73,51 @@ class AtelierView extends ItemView {
       return;
     }
     this.render();
+    setTimeout(() => { try { maybeWhatsNew(this.plugin.ctx(this), this.contentEl, this.plugin.manifest.version); } catch (e) { /* */ } }, 600);
+    /* ambiance selon l'heure : on revérifie toutes les 10 minutes */
+    { const iv = window.setInterval(() => { if (this.plugin.settings.ambiance === 'auto') applyAmbiance(this.contentEl, ambianceOf(this.plugin.settings)); }, 600000); if (this.registerInterval) this.registerInterval(iv); }
     if (this.plugin.fresh && !this.plugin.settings.tourDone && this.plugin.settings.path) setTimeout(() => this.startTour(), 400);
     /* ordinateur : flèches ← → dans l'onglet Coran (sourate / versets suivants) */
     this.registerDomEvent(document, 'keydown', ev => {
       if (ev.altKey && ev.key === 'ArrowLeft' && this.back && this.back.length) { const t = ev.target; if (!(t && t.closest && t.closest('input, textarea'))) { ev.preventDefault(); this.goBack(); return; } }
       if (ev.key === 'Escape' && this.contentEl.classList.contains('aa-reading')) { setReading(this.contentEl, false); return; }
+      if (this.shortcut(ev)) return;
       if (this.tab !== 'coran' || ev.altKey || ev.ctrlKey || ev.metaKey || (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight')) return;
       const ws = (this.app || this.plugin.app || {}).workspace; if (ws && ws.activeLeaf && ws.activeLeaf !== this.leaf) return;
       const t = ev.target; if (t && (t.closest && t.closest('input, textarea, select, [contenteditable="true"]'))) return;
       if (!this.body || !this.body._aaSwipeGo) return;
       ev.preventDefault(); this.body._aaSwipeGo(ev.key === 'ArrowRight' ? 1 : -1);
     });
+  }
+  /* raccourcis clavier (ordinateur) ; « ? » les montre tous */
+  shortcut(ev) {
+    if (ev.ctrlKey || ev.metaKey || ev.altKey) return false;
+    const ws = (this.app || this.plugin.app || {}).workspace; if (ws && ws.activeLeaf && ws.activeLeaf !== this.leaf) return false;
+    const t = ev.target; if (t && t.closest && t.closest('input, textarea, select, [contenteditable="true"]')) return false;
+    const dlg = this.contentEl.querySelector('.aa-imgdlg, .aa-keys-help');
+    if (ev.key === 'Escape') {
+      if (dlg) { dlg.remove(); ev.preventDefault(); return true; }
+      if (!this.contentEl.classList.contains('aa-reading') && this.back && this.back.length) { ev.preventDefault(); this.goBack(); return true; }
+      return false;
+    }
+    if (dlg) return false;
+    if (ev.key === '?') { ev.preventDefault(); showKeysHelp(this.contentEl.querySelector('.aa-root') || this.contentEl); return true; }
+    if (ev.key === '/') {
+      const inp = this.contentEl.querySelector('.aa-hs-in, .aa-dict-q, .aa-search');
+      if (inp) { ev.preventDefault(); inp.focus(); return true; }
+      if (this.tab === 'coran') { ev.preventDefault(); const st = this.states.coran; st.searchOpen = true; this.render(); setTimeout(() => { const i = this.contentEl.querySelector('.aa-search'); if (i) i.focus(); }, 50); return true; }
+      return false;
+    }
+    if (/^[1-6]$/.test(ev.key) && this.tab !== 'review' && this.tab !== 'quiz') {
+      const b = this.contentEl.querySelectorAll('.aa-tabs > .aa-tab:not(.aa-tab-gear)')[+ev.key - 1]; if (b) { ev.preventDefault(); b.click(); return true; }
+      return false;
+    }
+    if (ev.key === ' ' && this.tab === 'coran') {
+      if (PLAYER.el && currentAudio) { ev.preventDefault(); PLAYER.el.querySelector('.aa-player-pp').click(); return true; }
+      const p = [...this.contentEl.querySelectorAll('.aa-recite-act .mod-cta')].find(b => b.offsetParent !== null);
+      if (p) { ev.preventDefault(); p.click(); return true; }
+    }
+    return false;
   }
   async onClose() { try { stopAudio(); } catch (e) { /* */ } clear(this.contentEl); }
   /* « ← Retour » : on garde l'endroit d'où l'on vient quand on suit un lien */
@@ -253,7 +287,10 @@ function fillSettings(el, plugin, inObsidian, ctx) {
     fontSet.addDropdown(d => { AR_FONTS.forEach(f => d.addOption(f[0], f[1])); d.setValue(s.arFont || 'amiri').onChange(async v => { s.arFont = v; showFont(v); await p.saveSettings(); p.refreshViews && p.refreshViews(); }); });
     showFont(s.arFont || 'amiri');
     new Setting(el).setName('Ambiance').setDesc('Les couleurs de tout l\'atelier. « Nuit » : noir doux, reposant le soir. « Sépia » : papier chaud, comme un livre. « Clair » : blanc. « Comme Obsidian » suit ton thème. Aussi dans la lecture plein écran (bouton 🌓).')
-      .addDropdown(d => { AMBIANCES.forEach(a => d.addOption(a[0], a[1])); d.setValue(ambianceOf(s)).onChange(async v => { s.ambiance = v; s.paper = false; await p.saveSettings(); p.refreshViews && p.refreshViews(); }); });
+      .addDropdown(d => { AMBIANCES.forEach(a => d.addOption(a[0], a[1])); d.addOption('auto', '🌗 Selon l\'heure (jour / soir)'); d.setValue(s.ambiance === 'auto' ? 'auto' : ambianceOf(s)).onChange(async v => { s.ambiance = v; s.paper = false; await p.saveSettings(); p.refreshViews && p.refreshViews(); }); });
+    new Setting(el).setName('🌗 Selon l\'heure').setDesc('Si l\'ambiance est « Selon l\'heure » : celle du jour, et celle du soir (de 20 h à 7 h).')
+      .addDropdown(d => { AMBIANCES.forEach(a => d.addOption(a[0], 'Jour : ' + a[1])); d.setValue((s.ambAuto || {}).day || 'sepia').onChange(async v => { s.ambAuto = Object.assign({}, s.ambAuto, { day: v }); await p.saveSettings(); p.refreshViews && p.refreshViews(); }); })
+      .addDropdown(d => { AMBIANCES.forEach(a => d.addOption(a[0], 'Soir : ' + a[1])); d.setValue((s.ambAuto || {}).night || 'nuit').onChange(async v => { s.ambAuto = Object.assign({}, s.ambAuto, { night: v }); await p.saveSettings(); p.refreshViews && p.refreshViews(); }); });
     new Setting(el).setName('Couleurs des mots').setDesc('Dans le Coran : bleu = nom, rouge = verbe, gris = particule. Désactivé : texte d\'une seule couleur, plus reposant.')
       .addToggle(t => t.setValue(s.wordColors !== false).onChange(async v => { s.wordColors = v; await p.saveSettings(); }));
     new Setting(el).setName('Taille du texte arabe').setDesc('En pixels (30 par défaut).')
@@ -316,6 +353,8 @@ class AtelierArabePlugin extends Plugin {
     this.addCommand({ id: 'alphabet', name: 'Apprendre › Alphabet', callback: () => this.openView('alphabet') });
     this.addCommand({ id: 'par-coeur', name: 'Coran : apprendre par cœur', callback: () => this.openView('coran', { hifz: { s: this.settings.lastSurah || 1, v: this.settings.lastVerse || 1, level: 0 } }) });
     this.addCommand({ id: 'polices', name: 'Apprendre › Comparer les polices', callback: () => this.openView('alphabet', { mode: 'fonts' }) });
+    this.addCommand({ id: 'signets', name: 'Coran › Mes signets et mes remarques', callback: async () => { await this.openView('coran', { bmView: true, juzView: false }); } });
+    this.addCommand({ id: 'raccourcis', name: 'Raccourcis clavier', callback: async () => { await this.openView('home'); setTimeout(() => { const l = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]; if (l) showKeysHelp(l.view.contentEl); }, 300); } });
     this.addCommand({ id: 'parties', name: 'Coran › Les 30 parties (juz\') et mon tour du Coran', callback: async () => { await this.openView('coran', { juzView: true }); } });
     this.addCommand({ id: 'imprimer', name: 'Coran › Imprimer ou exporter une sourate (PDF, PNG)', callback: async () => { await this.openView('coran'); setTimeout(() => openPrintDialog(this.ctx(this.app.workspace.getLeavesOfType(VIEW_TYPE)[0].view), this.settings.lastSurah || 1), 300); } });
     this.addCommand({ id: 'lire', name: 'Apprendre › Lire (cours de lecture)', callback: () => this.openView('read') });
@@ -398,7 +437,7 @@ class AtelierArabePlugin extends Plugin {
         } catch (e) { new Notice('Impossible de garder l\'image : ' + e.message); return null; }
       },
       addFlashcard: (q, a) => this.addFlashcard(q, a),
-      openQuran: (s, v) => this.openView('coran', { surah: s, page: 0, focus: v, juzView: false }),
+      openQuran: (s, v) => this.openView('coran', { surah: s, page: 0, focus: v, juzView: false, bmView: false }),
       readNote: async (path) => { const f = this.app.vault.getAbstractFileByPath(path); return f ? await this.app.vault.read(f) : null; },
       editNote: (path, initial) => this.editNote(path, initial),
       openRule: (id) => this.openView('rules', { open: id, q: '' }),
