@@ -5370,10 +5370,11 @@ function renderAlphaPairs(ctx, el, A) {
 function renderAlphaQuiz(ctx, el, A, state) {
   const kinds = [['name', 'Quelle est cette lettre ?'], ['zone', 'D\'où sort ce son ?'], ['form', 'Retrouve la lettre dans le mot']];
   state.qk = state.qk || 'name';
-  const bar = h(el, 'div', 'aa-actions');
+  const bar = h(el, 'div', 'aa-actions aa-al-qbar');
   kinds.forEach(([k, l]) => btn(bar, l, () => { state.qk = k; state.q = null; clear(el); renderAlphaQuiz(ctx, el, A, state); }, state.qk === k ? 'mod-cta' : 'aa-btn-quiet'));
-  state.score = state.score || { ok: 0, n: 0 };
-  const sc = h(el, 'div', 'aa-muted aa-small', 'Score : ' + state.score.ok + ' / ' + state.score.n);
+  // un score par exercice
+  state.scores = state.scores || {}; const score = state.scores[state.qk] || (state.scores[state.qk] = { ok: 0, n: 0 });
+  const sc = h(el, 'div', 'aa-muted aa-small', 'Score : ' + score.ok + ' / ' + score.n);
   const box = h(el, 'div', 'aa-al-card');
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   const shuffle = arr => arr.map(x => [Math.random(), x]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
@@ -5403,14 +5404,14 @@ function renderAlphaQuiz(ctx, el, A, state) {
   h(box, 'p', null, question);
   arSpan(h(box, 'div', 'aa-al-qletter'), L._show || L.l, 'aa-al-huge');
   delete L._show;
-  const ans = h(box, 'div', 'aa-al-opts');
+  const ans = h(box, 'div', 'aa-al-opts' + (opts.some(o => o.length > 28) ? ' aa-al-long' : ''));
   const fb = h(box, 'div');
   let done = false;
   opts.forEach(o => {
     const b = btn(ans, o, () => {
       if (done) return; done = true;
-      const ok = o === good; state.score.n++; if (ok) { state.score.ok++; ctx.settings.alphaOk = (ctx.settings.alphaOk || 0) + 1; if (ctx.markActivity) ctx.markActivity('l'); else ctx.save(); }
-      sc.textContent = 'Score : ' + state.score.ok + ' / ' + state.score.n;
+      const ok = o === good; score.n++; if (ok) { score.ok++; ctx.settings.alphaOk = (ctx.settings.alphaOk || 0) + 1; if (ctx.markActivity) ctx.markActivity('l'); else ctx.save(); }
+      sc.textContent = 'Score : ' + score.ok + ' / ' + score.n;
       b.classList.add(ok ? 'aa-good' : 'aa-bad');
       ans.querySelectorAll('button').forEach(x => { if (x.textContent === good) x.classList.add('aa-good'); });
       mdText(fb, 'p', null, (ok ? '✅ Oui ! ' : '❌ C\'était **' + good + '**. ') + L.name + ' : ' + L.son + '.');
@@ -8933,6 +8934,7 @@ function renderBookmarksPage(ctx, root, state, back) {
 
 /* ---------- Quoi de neuf (une seule fois après une mise à jour) ---------- */
 const WHATS_NEW = [
+  ['2.40.4', ['🎯 Alphabet › S\'entraîner : les réponses longues passent à la ligne, un score par exercice.']],
   ['2.40.3', ['🧠 Par cœur : choisis le récitateur directement.']],
   ['2.40.2', ['🎧 La récitation enchaîne les versets sans pause : le verset suivant est préparé à l\'avance.']],
   ['2.40.1', ['🖨 Impression : un seul bouton pour les 30 parties, et 📕 une couverture possible pour n\'importe quelle sourate.']],

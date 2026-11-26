@@ -357,7 +357,11 @@ li.aa-rule-inline { list-style: none; border: none; background: none; }
 @media (max-width: 500px) { .aa-al-zlist { columns: 1; } }
 .aa-al-zlist li { margin: 1px 0; break-inside: avoid; }
 .aa-al-zlist li.aa-on a { font-weight: 700; color: var(--interactive-accent); }
-.aa-al-opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin: 8px 0; }
+.aa-al-opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 8px; margin: 8px 0; }
+.aa-al-opts button, .aa-al-qbar button { white-space: normal !important; height: auto !important; min-height: 40px; line-height: 1.3; text-align: center; overflow-wrap: anywhere; padding: 8px 12px !important; }
+.aa-al-opts.aa-al-long { grid-template-columns: 1fr; }
+.aa-al-opts.aa-al-long button { text-align: left; justify-content: flex-start; font-size: .92em; }
+.aa-al-qbar { flex-wrap: wrap; }
 .aa-al-opts .aa-good { background: rgba(31, 154, 85, .25) !important; }
 .aa-al-opts .aa-bad { background: rgba(220, 60, 60, .25) !important; }
 .aa-al-pairs td { vertical-align: middle; }

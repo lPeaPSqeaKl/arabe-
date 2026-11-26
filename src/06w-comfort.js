@@ -52,6 +52,7 @@ function renderBookmarksPage(ctx, root, state, back) {
 
 /* ---------- Quoi de neuf (une seule fois après une mise à jour) ---------- */
 const WHATS_NEW = [
+  ['2.40.4', ['🎯 Alphabet › S\'entraîner : les réponses longues passent à la ligne, un score par exercice.']],
   ['2.40.3', ['🧠 Par cœur : choisis le récitateur directement.']],
   ['2.40.2', ['🎧 La récitation enchaîne les versets sans pause : le verset suivant est préparé à l\'avance.']],
   ['2.40.1', ['🖨 Impression : un seul bouton pour les 30 parties, et 📕 une couverture possible pour n\'importe quelle sourate.']],
