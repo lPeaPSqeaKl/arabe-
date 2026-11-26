@@ -8415,14 +8415,15 @@ async function layoutSurah(ctx, opt) {
   if (cur.length) { pages.push(cur); pageS.push(curS); }
   /* couverture et sommaire */
   const front = []; // pages avant le texte : fonctions de dessin
-  const cover = (multi || juz) && opt.cover !== false;
+  const cover = multi || juz ? opt.cover !== false : !!opt.coverOne;
   const tocRows = segs.map(x => x.s);
   const tocLh = Math.round(fsFr * 1.75); const tocTop = top0 + mm2px(16); const perToc = Math.max(5, Math.floor((bottom - tocTop) / tocLh));
   const tocPages = cover && multi ? Math.ceil(tocRows.length / perToc) : 0;
   const offset = (cover ? 1 : 0) + tocPages; const total = offset + pages.length;
   const titleFr = juz ? juzTitle(juz) : multi ? 'Sourates ' + s1 + ' à ' + s2 : ctx.data.surahInfo(s1)[1];
   const titleAr = juz ? juzAr(juz) : multi ? ctx.data.surahInfo(s1)[3] + ' … ' + ctx.data.surahInfo(s2)[3] : ctx.data.surahInfo(s1)[3];
-  const subtitle = juz ? 'Partie ' + juz + ' sur 30 du Coran · ' + juzSpan(ctx, juz) : (s2 - s1 + 1) + ' sourates';
+  const one = segs[0]; const oneInfo = ctx.data.surahInfo(one.s);
+  const subtitle = !multi && !juz ? oneInfo[2] + ' · ' + (one.from > 1 || one.to < oneInfo[5] ? 'versets ' + one.from + ' à ' + one.to : oneInfo[5] + ' versets') : juz ? 'Partie ' + juz + ' sur 30 du Coran · ' + juzSpan(ctx, juz) : (s2 - s1 + 1) + ' sourates';
   /* fond, cadre, marge de reliure */
   const background = (c, pn) => {
     c.fillStyle = T.bg; c.fillRect(0, 0, W, H);
@@ -8587,7 +8588,7 @@ async function openPrintDialog(ctx, surah, here) {
   btn(head, '✕', () => dlg.remove(), 'aa-btn-quiet');
   dlg.addEventListener('click', ev => { if (ev.target === dlg) dlg.remove(); });
   const P = ctx.settings.print || (ctx.settings.print = {});
-  const D = { format: 'a5', content: 'fr', theme: 'auto', size: 'm', tajwid: false, wbw: false, copy: false, gutter: false, dir: 'rtl', cover: true };
+  const D = { format: 'a5', content: 'fr', theme: 'auto', size: 'm', tajwid: false, wbw: false, copy: false, gutter: false, dir: 'rtl', cover: true, coverOne: false };
   Object.keys(D).forEach(k2 => { if (P[k2] === undefined) P[k2] = D[k2]; });
   const opt = { surah, surahTo: 0, from: 1, to: 0, juz: here && here.juz || 0 }; Object.keys(D).forEach(k2 => { opt[k2] = P[k2]; });
   const KEEP = Object.keys(D); const save = () => { KEEP.forEach(k2 => { P[k2] = opt[k2]; }); ctx.save(); };
@@ -8601,13 +8602,12 @@ async function openPrintDialog(ctx, surah, here) {
   const pickJuz = j => { opt.juz = j; buildRange(); paint(); };
   btn(quick, '📖 Toute la sourate', () => pick(surah), 'aa-btn-quiet');
   if (here && (here.from > 1 || here.to < nOf(surah))) btn(quick, '👁 Ce que je lis (versets ' + here.from + ' à ' + here.to + ')', () => pick(surah, 0, here.from, here.to), 'aa-btn-quiet');
-  btn(quick, '📚 Juz\' ʿAmma : les sourates courtes', () => pickJuz(30), 'aa-btn-quiet').title = 'La 30ᵉ et dernière partie du Coran : sourates 78 à 114';
-  btn(quick, '📚 Une des 30 parties…', () => pickJuz(opt.juz || juzOf(surah, here && here.from || 1)), 'aa-btn-quiet').title = 'Le Coran est découpé en 30 parties de même longueur (juz\')';
+  btn(quick, '📚 Une des 30 parties (juz\')', () => pickJuz(opt.juz || juzOf(surah, here && here.from || 1)), 'aa-btn-quiet').title = 'Le Coran est découpé en 30 parties de même longueur (juz\')';
   rangeBox = h(form, 'div', 'aa-print-rangebox');
   const buildRange = () => {
     clear(rangeBox);
     if (opt.juz) {
-      selectEl(field(rangeBox, 'Partie du Coran (juz\')'), JUZ_NAMES.map((x, i) => [i + 1, (i + 1) + '. ' + x[1]]), opt.juz, v => { opt.juz = +v; buildRange(); paint(); });
+      selectEl(field(rangeBox, 'Partie du Coran (juz\')'), JUZ_NAMES.map((x, i) => [i + 1, (i + 1) + '. ' + x[1] + (i === 29 ? ' (les sourates courtes)' : i === 28 ? ' (sourates 67 à 77)' : '')]), opt.juz, v => { opt.juz = +v; buildRange(); paint(); });
       h(field(rangeBox, 'Contient'), 'div', 'aa-print-juzspan', juzSpan(ctx, opt.juz) + ' · ' + juzVerses(ctx, opt.juz) + ' versets');
       checkbox(h(rangeBox, 'div', 'aa-print-cover'), '📕 Couverture et sommaire au début', opt.cover, v => { opt.cover = v; save(); paint(); });
       return;
@@ -8618,6 +8618,7 @@ async function openPrintDialog(ctx, surah, here) {
     const nV = nOf(opt.surah); const rr = h(field(rangeBox, 'Versets'), 'div', 'aa-print-range');
     const vopts = []; for (let i = 1; i <= nV; i++) vopts.push([i, String(i)]);
     selectEl(rr, vopts, opt.from, v => { opt.from = +v; if (opt.to && opt.to < opt.from) opt.to = 0; paint(); }); h(rr, 'span', 'aa-muted', ' à '); selectEl(rr, [[0, 'la fin']].concat(vopts), opt.to, v => { opt.to = +v; paint(); });
+    checkbox(h(rangeBox, 'div', 'aa-print-cover'), '📕 Couverture au début', opt.coverOne, v => { opt.coverOne = v; save(); paint(); });
   };
   buildRange();
   selectEl(field(form, 'Format'), [['a5', 'A5 (petit livre)'], ['a4', 'A4'], ['livret', 'Livret plié : pages A5 imprimées sur A4']], opt.format, v => { opt.format = v; save(); refreshOpts(); paint(); });
@@ -8917,6 +8918,7 @@ function renderBookmarksPage(ctx, root, state, back) {
 
 /* ---------- Quoi de neuf (une seule fois après une mise à jour) ---------- */
 const WHATS_NEW = [
+  ['2.40.1', ['🖨 Impression : un seul bouton pour les 30 parties, et 📕 une couverture possible pour n\'importe quelle sourate.']],
   ['2.40.0', ['📅 **Plan de lecture** du Coran : choisis ton rythme, l\'Accueil te donne ta part du jour, elle se coche toute seule.', '📚 Les parties se cochent toutes seules quand tu arrives au bout ; repères ۞ des quarts de ḥizb ; « 🔊 » pour écouter une partie entière.', '🎯 Aller à un verset : tape « 2:255 » ou « Kursi » dans la recherche.', '🎧 Écoute : passage de A à B (en boucle pour apprendre), ⏭ enchaîner la suite, ⏾ minuterie.', '★ Une page pour tous tes **signets et remarques**.', '↶ **Annuler** après un clic, aussi dans les cartes (touche Z) ; résumé à la fin des cartes.', '🔍 Dictionnaire : recherches récentes et ☆ favoris. 🏠 Accueil réglable. 🌗 Ambiance selon l\'heure. ⌨️ Raccourcis (touche ?).']],
   ['2.39.0', ['📚 Les **30 parties** du Coran (juz\') et ton tour du Coran.']],
   ['2.38.0', ['🖨 Impression : couleurs de prononciation, mot à mot, plusieurs sourates, livret plié, lignes pour recopier.']],
