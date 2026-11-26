@@ -60,7 +60,7 @@ function themeColors(ctx, theme) {
 }
 function themeOptions(ctx, withWhite) {
   const cur = PALETTES[paletteOf(ctx.settings)];
-  return [['auto', 'Comme l\'atelier (' + (cur ? cur.name : 'clair') + ')']].concat(withWhite ? [['blanc', PRINT_WHITE.name]] : [], Object.entries(PALETTES).map(([k, p]) => [k, p.name]));
+  return [['auto', 'Comme l\'atelier : ' + (cur ? cur.name : 'Clair')]].concat(withWhite ? [['blanc', PRINT_WHITE.name]] : [], Object.entries(PALETTES).map(([k, p]) => [k, p.name]));
 }
 /* le cadre : deux filets dorés et des étoiles aux coins ; pour les ambiances décoratives, une frise de losanges entre les filets */
 function drawFrame(c, W, H, M, T, u) {

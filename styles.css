@@ -1307,6 +1307,13 @@ body.is-mobile .aa-root .aa-body, body.is-mobile .aa-root.aa-reading .aa-body { 
 .aa-print-page { width: calc(50% - 8px); max-width: 300px; height: auto; border-radius: 4px; box-shadow: 0 2px 12px rgba(0, 0, 0, .2); }
 .aa-print-more { align-self: center; }
 @media (max-width: 520px) { .aa-print-page { width: 46%; } }
+/* 2.38 impression : raccourcis, options, livret */
+.aa-print-quick, .aa-print-more-opts, .aa-print-cover { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+.aa-print-quick button { font-size: .88em; }
+.aa-print-rangebox { display: contents; }
+.aa-print-more-opts .aa-field { flex: 1 1 100%; }
+.aa-print-sheet { width: 100%; max-width: 620px; }
+.aa-print-howto { flex: 1 1 100%; margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--background-secondary); }
 /* généré par tools/palettes.js — ne pas modifier à la main */
 .aa-root.aa-amb-parchemin {
   --background-primary: #f1e3bf; --background-primary-alt: #ecdbb1; --background-secondary: #e9d6a9; --background-secondary-alt: #e2cc97;
