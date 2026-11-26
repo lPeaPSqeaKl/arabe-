@@ -199,6 +199,15 @@ function applyRate(a) { try { a.preservesPitch = true; a.mozPreservesPitch = tru
 function setAudioRate(r) { AUDIO.rate = r; if (currentAudio) applyRate(currentAudio); }
 let audioSeq = 0; // chaque nouvelle lecture annule la précédente
 function stopAudio() { followStop(); if (typeof playerHide === 'function') playerHide(); audioSeq++; if (currentAudio) { try { currentAudio.pause(); } catch (e) { /* */ } } try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) { /* */ } }
+/* préchargement : on prépare le son du verset suivant pendant que l'autre joue */
+const PRELOAD = new Map(); let LAST_AUDIO = null;
+function preloadUrl(u) {
+  if (!u || PRELOAD.has(u)) return;
+  if (LAST_AUDIO && LAST_AUDIO.u === u && !LAST_AUDIO.a.error) { PRELOAD.set(u, LAST_AUDIO.a); return; } // même verset répété : on garde le même son
+  try { const a = new Audio(); a.preload = 'auto'; a.src = u; a.load(); PRELOAD.set(u, a); } catch (e) { return; }
+  while (PRELOAD.size > 4) PRELOAD.delete(PRELOAD.keys().next().value);
+}
+function preloadVerse(s, v) { try { preloadUrl(verseUrls(s, v)[0]); } catch (e) { /* */ } }
 function playUrl(urls, fallbackText, onEnd, keepSeq) {
   if (!keepSeq) stopAudio();
   const my = audioSeq;
@@ -208,7 +217,10 @@ function playUrl(urls, fallbackText, onEnd, keepSeq) {
     if (my !== audioSeq) return;
     const u = list.shift();
     if (!u) { if (fallbackText) speak(fallbackText); else notify('Son indisponible (connexion internet nécessaire).'); return; }
-    const a = new Audio(u); currentAudio = a;
+    // le verset suivant a été préparé à l'avance : il démarre sans blanc
+    let a = PRELOAD.get(u); PRELOAD.delete(u);
+    if (a && !a.error) { try { a.currentTime = 0; } catch (e) { /* */ } } else a = new Audio(u);
+    currentAudio = a; LAST_AUDIO = { u, a };
     applyRate(a);
     a.addEventListener('error', tryNext, { once: true });
     a.addEventListener('loadedmetadata', () => applyRate(a), { once: true });
@@ -273,13 +285,14 @@ function playerSync() {
   el.classList.toggle('aa-player-paused', !!paused);
   playerPlace();
 }
+let PLAY_NEXT = null; // [sourate, verset] qui viendra après : on le prépare à l'avance
 /* Joue un verset (répété AUDIO.repeat fois), puis appelle onEnd */
 function playVerse(s, v, onEnd, keepSeq) {
   let left = AUDIO.repeat === 0 ? (keepSeq ? 1 : Infinity) : Math.max(1, AUDIO.repeat || 1); // 0 = en boucle
-  if (!keepSeq) stopAudio();
+  if (!keepSeq) { stopAudio(); PLAY_NEXT = null; }
   const my = audioSeq;
   playerShow();
-  const once = () => { playUrl(verseUrls(s, v), null, () => { followStop(); if (my !== audioSeq) return; left--; if (left > 0) setTimeout(once, 600); else if (onEnd) onEnd(); }, true); followVerse(s, v); };
+  const once = () => { playUrl(verseUrls(s, v), null, () => { followStop(); if (my !== audioSeq) return; left--; if (left > 0) { preloadVerse(s, v); once(); } else if (onEnd) onEnd(); }, true); followVerse(s, v); if (left > 1) preloadVerse(s, v); else if (PLAY_NEXT) preloadVerse(PLAY_NEXT[0], PLAY_NEXT[1]); };
   once();
 }
 /* Joue une suite de versets ; onVerse(v) est appelé au début de chacun */
@@ -288,9 +301,10 @@ function playVerses(s, list, onVerse, onDone) {
   const my = audioSeq; let i = 0;
   const next = () => {
     if (my !== audioSeq) return;
-    if (i >= list.length) { if (AUDIO.repeat === 0 && list.length) { i = 0; setTimeout(next, 900); return; } if (onDone) onDone(); return; }
+    if (i >= list.length) { PLAY_NEXT = null; if (AUDIO.repeat === 0 && list.length) { i = 0; setTimeout(next, 250); return; } if (onDone) onDone(); return; }
     const v = list[i++]; if (onVerse) onVerse(v);
-    playVerse(s, v, () => setTimeout(next, 400), true);
+    PLAY_NEXT = i < list.length ? [s, list[i]] : (AUDIO.repeat === 0 && list.length ? [s, list[0]] : null);
+    playVerse(s, v, next, true);
   };
   next();
   return () => { if (my === audioSeq) stopAudio(); };
