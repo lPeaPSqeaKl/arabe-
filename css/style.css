@@ -1371,3 +1371,4 @@ body.is-mobile .aa-root .aa-body, body.is-mobile .aa-root.aa-reading .aa-body { 
 .aa-qsearch-go { margin: 6px 0; }
 .aa-fav-chip { border-color: color-mix(in srgb, var(--aa-gold, #a0803c) 60%, transparent); }
 .aa-keys-tbl td:first-child { width: 1%; }
+.aa-hz-rec select { max-width: 230px; }

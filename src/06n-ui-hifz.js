@@ -36,6 +36,7 @@ async function renderHifz(ctx, root, state, back) {
   selectEl(field(bar, 'Verset'), [[0, '📜 Toute la sourate' + (allKnown ? ' ✓' : '')]].concat(d.v.map((x, i) => [i + 1, String(i + 1) + (H[at.s + ':' + (i + 1)] ? ' ✓' : '')])), at.v, v => { state.hifz = { s: at.s, v: +v, level: 0 }; redraw(); });
   const rep = S.hifzRepeat || 3;
   selectEl(field(bar, 'Écouter'), [['1', '1 fois'], ['3', '3 fois'], ['5', '5 fois'], ['10', '10 fois']], String(rep), v => { S.hifzRepeat = +v; ctx.save(); redraw(); });
+  if (S.audio !== false) selectEl(field(bar, 'Récitateur'), RECITERS, S.reciter || 'Alafasy_128kbps', v => { S.reciter = v; AUDIO.reciter = v; ctx.save(); loadTiming(v).catch(() => {}); }).title = 'Le récitateur (le mot récité s\'allume selon son vrai rythme)';
   const level = at.level || 0;
   const steps = h(root, 'div', 'aa-hz-steps');
   HIFZ_LEVELS.forEach((l, i) => { const b = h(steps, 'button', 'aa-hz-step' + (i === level ? ' aa-on' : i < level ? ' aa-hz-done' : ''), String(i + 1)); b.title = l[0]; b.addEventListener('click', () => { at.level = i; redraw(); }); });

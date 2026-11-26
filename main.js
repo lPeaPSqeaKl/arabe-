@@ -7132,6 +7132,7 @@ async function renderHifz(ctx, root, state, back) {
   selectEl(field(bar, 'Verset'), [[0, '📜 Toute la sourate' + (allKnown ? ' ✓' : '')]].concat(d.v.map((x, i) => [i + 1, String(i + 1) + (H[at.s + ':' + (i + 1)] ? ' ✓' : '')])), at.v, v => { state.hifz = { s: at.s, v: +v, level: 0 }; redraw(); });
   const rep = S.hifzRepeat || 3;
   selectEl(field(bar, 'Écouter'), [['1', '1 fois'], ['3', '3 fois'], ['5', '5 fois'], ['10', '10 fois']], String(rep), v => { S.hifzRepeat = +v; ctx.save(); redraw(); });
+  if (S.audio !== false) selectEl(field(bar, 'Récitateur'), RECITERS, S.reciter || 'Alafasy_128kbps', v => { S.reciter = v; AUDIO.reciter = v; ctx.save(); loadTiming(v).catch(() => {}); }).title = 'Le récitateur (le mot récité s\'allume selon son vrai rythme)';
   const level = at.level || 0;
   const steps = h(root, 'div', 'aa-hz-steps');
   HIFZ_LEVELS.forEach((l, i) => { const b = h(steps, 'button', 'aa-hz-step' + (i === level ? ' aa-on' : i < level ? ' aa-hz-done' : ''), String(i + 1)); b.title = l[0]; b.addEventListener('click', () => { at.level = i; redraw(); }); });
@@ -8932,6 +8933,7 @@ function renderBookmarksPage(ctx, root, state, back) {
 
 /* ---------- Quoi de neuf (une seule fois après une mise à jour) ---------- */
 const WHATS_NEW = [
+  ['2.40.3', ['🧠 Par cœur : choisis le récitateur directement.']],
   ['2.40.2', ['🎧 La récitation enchaîne les versets sans pause : le verset suivant est préparé à l\'avance.']],
   ['2.40.1', ['🖨 Impression : un seul bouton pour les 30 parties, et 📕 une couverture possible pour n\'importe quelle sourate.']],
   ['2.40.0', ['📅 **Plan de lecture** du Coran : choisis ton rythme, l\'Accueil te donne ta part du jour, elle se coche toute seule.', '📚 Les parties se cochent toutes seules quand tu arrives au bout ; repères ۞ des quarts de ḥizb ; « 🔊 » pour écouter une partie entière.', '🎯 Aller à un verset : tape « 2:255 » ou « Kursi » dans la recherche.', '🎧 Écoute : passage de A à B (en boucle pour apprendre), ⏭ enchaîner la suite, ⏾ minuterie.', '★ Une page pour tous tes **signets et remarques**.', '↶ **Annuler** après un clic, aussi dans les cartes (touche Z) ; résumé à la fin des cartes.', '🔍 Dictionnaire : recherches récentes et ☆ favoris. 🏠 Accueil réglable. 🌗 Ambiance selon l\'heure. ⌨️ Raccourcis (touche ?).']],
