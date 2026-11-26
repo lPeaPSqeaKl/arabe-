@@ -52,6 +52,7 @@ function renderBookmarksPage(ctx, root, state, back) {
 
 /* ---------- Quoi de neuf (une seule fois après une mise à jour) ---------- */
 const WHATS_NEW = [
+  ['2.40.5', ['🔊 Le son des lettres et des mots (voix de l\'appareil) remarche sur iPad et iPhone, même après une récitation.']],
   ['2.40.4', ['🎯 Alphabet › S\'entraîner : les réponses longues passent à la ligne, un score par exercice.']],
   ['2.40.3', ['🧠 Par cœur : choisis le récitateur directement.']],
   ['2.40.2', ['🎧 La récitation enchaîne les versets sans pause : le verset suivant est préparé à l\'avance.']],

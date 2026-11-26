@@ -2014,17 +2014,37 @@ function undoToast(msg, undo, ms) {
 /* ---------- Son ---------- */
 const pad3 = n => String(n).padStart(3, '0');
 let currentAudio = null;
+/* Voix de l'appareil. Sur iPad/iPhone, la synthèse vocale peut rester bloquée (après une récitation,
+ * ou quand on enchaîne les clics) : on libère d'abord les sons du Coran, on la relance (resume),
+ * on garde l'énoncé en mémoire, et si rien ne démarre on réessaie une fois. */
+let SPEAK_U = null, SPEAK_T = 0;
 function speak(text) {
-  try {
-    const synth = window.speechSynthesis;
-    if (!synth) { notify('La synthèse vocale n\'est pas disponible sur cet appareil.'); return; }
-    synth.cancel();
-    const u = new SpeechSynthesisUtterance(text.replace(/[ۖ-ۭ]/g, ''));
-    u.lang = 'ar-SA'; u.rate = 0.8 * (AUDIO.rate || 1);
-    const v = synth.getVoices().find(x => /^ar/i.test(x.lang));
-    if (v) u.voice = v; else notify('Aucune voix arabe installée : la lecture peut être incorrecte.');
-    synth.speak(u);
-  } catch (e) { notify('Son indisponible.'); }
+  const synth = window.speechSynthesis;
+  if (!synth || typeof SpeechSynthesisUtterance === 'undefined') { notify('La synthèse vocale n\'est pas disponible sur cet appareil.'); return; }
+  // libérer les sons du Coran (lecture en cours et sons préparés à l'avance)
+  try { if (currentAudio) currentAudio.pause(); } catch (e) { /* */ }
+  try { PRELOAD.forEach(a => { try { if (a !== currentAudio) { a.removeAttribute('src'); a.load(); } } catch (e) { /* */ } }); PRELOAD.clear(); } catch (e) { /* */ }
+  const clean = String(text || '').replace(/[ۖ-ۭ]/g, '');
+  const go = (retry) => {
+    try {
+      const u = new SpeechSynthesisUtterance(clean); SPEAK_U = u;
+      u.lang = 'ar-SA'; u.rate = 0.8 * (AUDIO.rate || 1);
+      const v = (synth.getVoices() || []).find(x => /^ar/i.test(x.lang));
+      if (v) { try { u.voice = v; } catch (e) { /* */ } }
+      let started = false; u.onstart = () => { started = true; };
+      const my = ++SPEAK_T;
+      try { synth.resume(); } catch (e) { /* */ }
+      synth.speak(u);
+      setTimeout(() => {
+        if (started || my !== SPEAK_T || synth.speaking) return;
+        try { synth.cancel(); } catch (e) { /* */ }
+        if (retry) go(false);
+        else if (!v) notify('Pas de son : aucune voix arabe trouvée. Sur iPad/iPhone : Réglages › Accessibilité › Contenu énoncé › Voix › Arabe.');
+      }, 1200);
+    } catch (e) { notify('Son indisponible.'); }
+  };
+  if (synth.speaking || synth.pending) { try { synth.cancel(); } catch (e) { /* */ } setTimeout(() => go(true), 80); }
+  else go(true);
 }
 /* Récitation : récitateur, vitesse et répétition (réglés dans l'onglet Coran) */
 const RECITERS = [
@@ -8934,6 +8954,7 @@ function renderBookmarksPage(ctx, root, state, back) {
 
 /* ---------- Quoi de neuf (une seule fois après une mise à jour) ---------- */
 const WHATS_NEW = [
+  ['2.40.5', ['🔊 Le son des lettres et des mots (voix de l\'appareil) remarche sur iPad et iPhone, même après une récitation.']],
   ['2.40.4', ['🎯 Alphabet › S\'entraîner : les réponses longues passent à la ligne, un score par exercice.']],
   ['2.40.3', ['🧠 Par cœur : choisis le récitateur directement.']],
   ['2.40.2', ['🎧 La récitation enchaîne les versets sans pause : le verset suivant est préparé à l\'avance.']],
