@@ -4,6 +4,8 @@
 
 function h(parent, tag, cls, text) {
   const e = document.createElement(tag);
+  // champs de saisie : le sens suit ce que tu tapes (arabe → de droite à gauche, français → de gauche à droite)
+  if (tag === 'textarea' || tag === 'input') { e.setAttribute('dir', 'auto'); e.setAttribute('spellcheck', 'false'); }
   if (cls) e.className = cls;
   if (text != null) e.textContent = text;
   if (parent) parent.appendChild(e);

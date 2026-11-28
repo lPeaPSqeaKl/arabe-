@@ -1386,3 +1386,7 @@ body.is-mobile .aa-root .aa-body, body.is-mobile .aa-root.aa-reading .aa-body { 
 /* 2.41.1 : les boutons du bas de l'Accueil passent à la ligne */
 .aa-home-settings { display: flex !important; flex-wrap: wrap !important; gap: 8px; justify-content: center; overflow: visible !important; }
 .aa-home-settings button { white-space: normal !important; height: auto !important; max-width: 100%; text-align: center; }
+/* 2.41.2 : saisie arabe / français sans mélange de sens */
+.aa-root input[type="text"], .aa-root input[type="search"], .aa-root input:not([type]), .aa-root textarea { unicode-bidi: plaintext; text-align: start; }
+.aa-root input[dir="rtl"], .aa-root textarea[dir="rtl"] { text-align: right; }
+.aa-root input::placeholder, .aa-root textarea::placeholder { unicode-bidi: plaintext; }
